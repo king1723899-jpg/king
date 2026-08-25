@@ -1,0 +1,6 @@
+{
+  "message": "User notification message",
+  "active": true,
+  "type": "info",
+  "title": "User Message"
+}

@@ -1,0 +1,303 @@
+// Imports
+import ___CSS_LOADER_API_SOURCEMAP_IMPORT___ from "../../node_modules/css-loader/dist/runtime/sourceMaps.js";
+import ___CSS_LOADER_API_IMPORT___ from "../../node_modules/css-loader/dist/runtime/api.js";
+var ___CSS_LOADER_EXPORT___ = ___CSS_LOADER_API_IMPORT___(___CSS_LOADER_API_SOURCEMAP_IMPORT___);
+// Module
+___CSS_LOADER_EXPORT___.push([module.id, `/* Market Layout Styles */
+.markets-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 15px;
+  padding: 20px;
+}
+
+.market-card {
+  background: #2d3748;
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.market-header {
+  background: #1a202c;
+  padding: 12px 15px;
+  border-bottom: 1px solid #4a5568;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.market-title {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.market-max-limit {
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.market-cashout {
+  background: #48bb78;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Market Grid Headers */
+.market-grid-header {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  background: #4a5568;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.market-grid-header-fancy {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  background: #4a5568;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.market-grid-header > div,
+.market-grid-header-fancy > div {
+  padding: 8px;
+  border-right: 1px solid #2d3748;
+}
+
+.market-grid-header > div:last-child,
+.market-grid-header-fancy > div:last-child {
+  border-right: none;
+}
+
+/* Market Runners */
+.market-runners {
+  background: #2d3748;
+}
+
+.market-runner-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  border-bottom: 1px solid #4a5568;
+  align-items: center;
+}
+
+.market-runner-row:last-child {
+  border-bottom: none;
+}
+
+.runner-info {
+  padding: 12px 15px;
+  color: white;
+}
+
+.runner-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.runner-pnl {
+  font-size: 11px;
+  color: #a0aec0;
+}
+
+.runner-pnl.positive {
+  color: #48bb78;
+}
+
+.runner-pnl.negative {
+  color: #f56565;
+}
+
+/* Odds Boxes */
+.odds-box {
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border-right: 1px solid #4a5568;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.odds-box:last-child {
+  border-right: none;
+}
+
+.odds-box:hover {
+  transform: scale(1.02);
+  z-index: 1;
+}
+
+.odds-box.back {
+  background: linear-gradient(135deg, #4299e1 0%, #2b6cb0 100%);
+  color: white;
+}
+
+.odds-box.lay {
+  background: linear-gradient(135deg, #ed64a6 0%, #b83280 100%);
+  color: white;
+}
+
+.odds-box.back:hover {
+  background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+}
+
+.odds-box.lay:hover {
+  background: linear-gradient(135deg, #d53f8c 0%, #97266d 100%);
+}
+
+.odds-value {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.odds-size {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+/* Suspended State */
+.odds-box.suspended {
+  background: #4a5568 !important;
+  color: #a0aec0 !important;
+  cursor: not-allowed;
+}
+
+.odds-box.suspended:hover {
+  transform: none;
+}
+
+/* HT/FT Special Layout */
+.htft-market {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.htft-combination {
+  background: #1a202c;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+
+.htft-label {
+  color: #a0aec0;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.htft-odds {
+  background: #4299e1;
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.htft-odds:hover {
+  background: #3182ce;
+}
+
+.htft-size {
+  font-size: 10px;
+  color: #a0aec0;
+  margin-top: 2px;
+}
+
+/* Golden Glow Animation */
+@keyframes marketGoldenGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+    border-color: rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.9);
+    border-color: #ffd700;
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    border-color: rgba(255, 215, 0, 0.6);
+  }
+}
+
+.market-box-glow {
+  animation: marketGoldenGlow 1.5s ease-in-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .markets-container {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .market-grid-header,
+  .market-runner-row {
+    grid-template-columns: 1fr 60px 60px;
+  }
+  
+  .odds-box {
+    height: 50px;
+  }
+  
+  .odds-value {
+    font-size: 12px;
+  }
+  
+  .odds-size {
+    font-size: 9px;
+  }
+  
+  .htft-market {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Market Type Specific Styles */
+.market-card.match-odds {
+  border-left: 4px solid #4299e1;
+}
+
+.market-card.bookmaker {
+  border-left: 4px solid #ed8936;
+}
+
+.market-card.fancy {
+  border-left: 4px solid #48bb78;
+}
+
+.market-card.over-under {
+  border-left: 4px solid #9f7aea;
+}
+
+.market-card.goals {
+  border-left: 4px solid #f56565;
+}
+
+.market-card.htft {
+  border-left: 4px solid #38b2ac;
+} `, "",{"version":3,"sources":["webpack://./src/styles/market-layout.css"],"names":[],"mappings":"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","sourcesContent":["/* Market Layout Styles */\r\n.markets-container {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\r\n  gap: 15px;\r\n  padding: 20px;\r\n}\r\n\r\n.market-card {\r\n  background: #2d3748;\r\n  border-radius: 8px;\r\n  border: 1px solid #4a5568;\r\n  overflow: hidden;\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);\r\n}\r\n\r\n.market-header {\r\n  background: #1a202c;\r\n  padding: 12px 15px;\r\n  border-bottom: 1px solid #4a5568;\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n}\r\n\r\n.market-title {\r\n  color: white;\r\n  font-size: 14px;\r\n  font-weight: 600;\r\n  margin: 0;\r\n}\r\n\r\n.market-max-limit {\r\n  color: #a0aec0;\r\n  font-size: 12px;\r\n}\r\n\r\n.market-cashout {\r\n  background: #48bb78;\r\n  color: white;\r\n  padding: 4px 8px;\r\n  border-radius: 4px;\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n}\r\n\r\n/* Market Grid Headers */\r\n.market-grid-header {\r\n  display: grid;\r\n  grid-template-columns: 1fr 80px 80px;\r\n  background: #4a5568;\r\n  color: white;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  text-align: center;\r\n}\r\n\r\n.market-grid-header-fancy {\r\n  display: grid;\r\n  grid-template-columns: 1fr 80px 80px;\r\n  background: #4a5568;\r\n  color: white;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  text-align: center;\r\n}\r\n\r\n.market-grid-header > div,\r\n.market-grid-header-fancy > div {\r\n  padding: 8px;\r\n  border-right: 1px solid #2d3748;\r\n}\r\n\r\n.market-grid-header > div:last-child,\r\n.market-grid-header-fancy > div:last-child {\r\n  border-right: none;\r\n}\r\n\r\n/* Market Runners */\r\n.market-runners {\r\n  background: #2d3748;\r\n}\r\n\r\n.market-runner-row {\r\n  display: grid;\r\n  grid-template-columns: 1fr 80px 80px;\r\n  border-bottom: 1px solid #4a5568;\r\n  align-items: center;\r\n}\r\n\r\n.market-runner-row:last-child {\r\n  border-bottom: none;\r\n}\r\n\r\n.runner-info {\r\n  padding: 12px 15px;\r\n  color: white;\r\n}\r\n\r\n.runner-name {\r\n  font-size: 13px;\r\n  font-weight: 500;\r\n  margin-bottom: 4px;\r\n}\r\n\r\n.runner-pnl {\r\n  font-size: 11px;\r\n  color: #a0aec0;\r\n}\r\n\r\n.runner-pnl.positive {\r\n  color: #48bb78;\r\n}\r\n\r\n.runner-pnl.negative {\r\n  color: #f56565;\r\n}\r\n\r\n/* Odds Boxes */\r\n.odds-box {\r\n  height: 60px;\r\n  display: flex;\r\n  flex-direction: column;\r\n  justify-content: center;\r\n  align-items: center;\r\n  cursor: pointer;\r\n  border-right: 1px solid #4a5568;\r\n  transition: all 0.2s;\r\n  position: relative;\r\n}\r\n\r\n.odds-box:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.odds-box:hover {\r\n  transform: scale(1.02);\r\n  z-index: 1;\r\n}\r\n\r\n.odds-box.back {\r\n  background: linear-gradient(135deg, #4299e1 0%, #2b6cb0 100%);\r\n  color: white;\r\n}\r\n\r\n.odds-box.lay {\r\n  background: linear-gradient(135deg, #ed64a6 0%, #b83280 100%);\r\n  color: white;\r\n}\r\n\r\n.odds-box.back:hover {\r\n  background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);\r\n}\r\n\r\n.odds-box.lay:hover {\r\n  background: linear-gradient(135deg, #d53f8c 0%, #97266d 100%);\r\n}\r\n\r\n.odds-value {\r\n  font-size: 14px;\r\n  font-weight: 700;\r\n  line-height: 1;\r\n}\r\n\r\n.odds-size {\r\n  font-size: 10px;\r\n  opacity: 0.9;\r\n  margin-top: 2px;\r\n}\r\n\r\n/* Suspended State */\r\n.odds-box.suspended {\r\n  background: #4a5568 !important;\r\n  color: #a0aec0 !important;\r\n  cursor: not-allowed;\r\n}\r\n\r\n.odds-box.suspended:hover {\r\n  transform: none;\r\n}\r\n\r\n/* HT/FT Special Layout */\r\n.htft-market {\r\n  grid-template-columns: repeat(3, 1fr);\r\n  gap: 10px;\r\n}\r\n\r\n.htft-combination {\r\n  background: #1a202c;\r\n  border: 1px solid #4a5568;\r\n  border-radius: 6px;\r\n  padding: 8px;\r\n  text-align: center;\r\n}\r\n\r\n.htft-label {\r\n  color: #a0aec0;\r\n  font-size: 11px;\r\n  margin-bottom: 4px;\r\n}\r\n\r\n.htft-odds {\r\n  background: #4299e1;\r\n  color: white;\r\n  padding: 8px;\r\n  border-radius: 4px;\r\n  font-weight: 600;\r\n  cursor: pointer;\r\n  transition: background-color 0.2s;\r\n}\r\n\r\n.htft-odds:hover {\r\n  background: #3182ce;\r\n}\r\n\r\n.htft-size {\r\n  font-size: 10px;\r\n  color: #a0aec0;\r\n  margin-top: 2px;\r\n}\r\n\r\n/* Golden Glow Animation */\r\n@keyframes marketGoldenGlow {\r\n  0% {\r\n    box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);\r\n    border-color: rgba(255, 215, 0, 0.3);\r\n  }\r\n  50% {\r\n    box-shadow: 0 0 20px rgba(255, 215, 0, 0.9);\r\n    border-color: #ffd700;\r\n  }\r\n  100% {\r\n    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);\r\n    border-color: rgba(255, 215, 0, 0.6);\r\n  }\r\n}\r\n\r\n.market-box-glow {\r\n  animation: marketGoldenGlow 1.5s ease-in-out;\r\n}\r\n\r\n/* Responsive Design */\r\n@media (max-width: 768px) {\r\n  .markets-container {\r\n    grid-template-columns: 1fr;\r\n    padding: 10px;\r\n    gap: 10px;\r\n  }\r\n  \r\n  .market-grid-header,\r\n  .market-runner-row {\r\n    grid-template-columns: 1fr 60px 60px;\r\n  }\r\n  \r\n  .odds-box {\r\n    height: 50px;\r\n  }\r\n  \r\n  .odds-value {\r\n    font-size: 12px;\r\n  }\r\n  \r\n  .odds-size {\r\n    font-size: 9px;\r\n  }\r\n  \r\n  .htft-market {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n/* Market Type Specific Styles */\r\n.market-card.match-odds {\r\n  border-left: 4px solid #4299e1;\r\n}\r\n\r\n.market-card.bookmaker {\r\n  border-left: 4px solid #ed8936;\r\n}\r\n\r\n.market-card.fancy {\r\n  border-left: 4px solid #48bb78;\r\n}\r\n\r\n.market-card.over-under {\r\n  border-left: 4px solid #9f7aea;\r\n}\r\n\r\n.market-card.goals {\r\n  border-left: 4px solid #f56565;\r\n}\r\n\r\n.market-card.htft {\r\n  border-left: 4px solid #38b2ac;\r\n} "],"sourceRoot":""}]);
+// Exports
+___CSS_LOADER_EXPORT___.locals = {};
+export default ___CSS_LOADER_EXPORT___;

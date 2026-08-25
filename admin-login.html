@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Login - AmbaniExchange</title>
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    :root {
+      --bg-top: #8f001f;
+      --bg-bottom: #2f0008;
+      --card-bg: #f3f3f3;
+      --input-bg: #dfe8f4;
+      --accent: #82001d;
+      --accent-dark: #640016;
+      --text: #1f1f1f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Titillium Web", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--bg-top) 0%, #6d0017 55%, var(--bg-bottom) 100%);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .brand {
+      margin-bottom: 20px;
+      opacity: 0.55;
+    }
+
+    .brand img {
+      width: 230px;
+      max-width: 80%;
+      display: inline-block;
+    }
+
+    .card {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid #b8b8b8;
+      border-radius: 6px;
+      padding: 22px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 4px 0 18px;
+    }
+
+    .title-line {
+      flex: 1;
+      height: 1px;
+      background: #323232;
+      opacity: 0.85;
+    }
+
+    .title-text {
+      font-size: 42px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: 0.2px;
+    }
+
+    .field {
+      width: 100%;
+      border: 1px solid #c6ced8;
+      background: var(--input-bg);
+      color: #222;
+      height: 56px;
+      border-radius: 3px;
+      padding: 0 14px;
+      font-size: 24px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+
+    .field:focus {
+      border-color: #a7afba;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.03) inset;
+    }
+
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 3px;
+      height: 46px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s ease;
+      margin-top: 6px;
+    }
+
+    .btn:hover {
+      background: var(--accent-dark);
+    }
+
+    .btn[disabled] {
+      opacity: 0.75;
+      cursor: default;
+    }
+
+    .msg {
+      min-height: 22px;
+      margin-top: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #a40025;
+    }
+
+    .msg.ok {
+      color: #14610b;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 16px;
+      }
+      .title-text {
+        font-size: 34px;
+      }
+      .field {
+        height: 48px;
+        font-size: 20px;
+      }
+      .btn {
+        font-size: 20px;
+        height: 42px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand">
+      <img src="/darklogo.png" alt="king777" />
+    </div>
+
+    <section class="card">
+      <div class="title-row">
+        <div class="title-line"></div>
+        <div class="title-text">Sign In</div>
+        <div class="title-line"></div>
+      </div>
+
+      <form id="adminLoginForm" autocomplete="on">
+        <input id="username" name="username" class="field" type="text" placeholder="Username" required />
+        <input id="password" name="password" class="field" type="password" placeholder="Password" required />
+        <button id="submitBtn" class="btn" type="submit">Login  <span aria-hidden="true">➜</span></button>
+      </form>
+
+      <div id="message" class="msg"></div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var form = document.getElementById("adminLoginForm");
+      var message = document.getElementById("message");
+      var button = document.getElementById("submitBtn");
+
+      function setMessage(text, ok) {
+        message.textContent = text || "";
+        message.className = ok ? "msg ok" : "msg";
+      }
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        setMessage("");
+        button.disabled = true;
+        button.textContent = "Logging in...";
+
+        var username = document.getElementById("username").value.trim();
+        var password = document.getElementById("password").value;
+
+        try {
+          var resp = await fetch("/api/login-admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username, password: password, admin: true }),
+          });
+          var payload = await resp.json();
+          if (!resp.ok || !payload || !payload.data || !payload.data.token) {
+            throw new Error((payload && payload.message) || "Login failed");
+          }
+
+          localStorage.setItem("token-admin", payload.data.token);
+          localStorage.setItem("refreshToken-admin", payload.data.refreshToken || "");
+          localStorage.setItem("userType-admin", payload.data.role || "admin");
+          localStorage.setItem("token", payload.data.token);
+          localStorage.setItem("refreshToken", payload.data.refreshToken || "");
+          localStorage.setItem("userType", payload.data.role || "admin");
+
+          setMessage("Login successful. Redirecting...", true);
+          window.location.href = "/admin";
+        } catch (err) {
+          setMessage(err && err.message ? err.message : "Invalid credentials");
+          button.disabled = false;
+          button.innerHTML = 'Login  <span aria-hidden="true">➜</span>';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

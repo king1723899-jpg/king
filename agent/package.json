@@ -1,0 +1,11 @@
+{
+  "name": "workspace-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A small local workspace agent starter for exploring and summarizing files.",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  }
+}

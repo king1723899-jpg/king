@@ -1,0 +1,19 @@
+{
+  "enabled": false,
+  "singleLaunchUrl": "",
+  "launchUrlTemplate": "",
+  "baseUrl": "",
+  "gameCodeParam": "gameCode",
+  "providerName": "APIKIT",
+  "catalogSyncEnabled": false,
+  "catalogUrl": "",
+  "requestMethod": "GET",
+  "requestHeaders": {},
+  "requestBody": null,
+  "responseDataPath": "",
+  "gameCodeKey": "gameCode",
+  "gameNameKey": "gameName",
+  "gameImageKey": "image",
+  "gameProviderKey": "provider",
+  "homepageCode": 12
+}

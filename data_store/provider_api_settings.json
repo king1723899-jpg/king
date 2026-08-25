@@ -1,0 +1,19 @@
+{
+    "enabled":  true,
+    "apiUrl":  "https://oxentech.asia/api/devtools.php",
+    "apiToken":  "72e53554fbe46f0be77e51451a71c32f73261e477952587e2470b105df4ea3fc",
+    "secretKey":  "772a385d0636dbc963606729c1a0b75b68777f7b202708c9e2d053d1c71496af",
+    "resellerPrefix":  "jkvyntra9058",
+    "appendPrefixToUserId":  false,
+    "returnUrl":  "https://ambaniexchange.xrichwin.online",
+    "defaultLanguage":  1,
+    "defaultPhoneType":  1,
+    "defaultVendorCode":  18,
+    "requestTimeoutMs":  30000,
+    "authMode":  "agent_sign",
+    "providerAgent":  "MR_Ko3578",
+    "providerToken":  "72e53554fbe46f0be77e51451a71c32f73261e477952587e2470b105df4ea3fc",
+    "providerSecret":  "772a385d0636dbc963606729c1a0b75b68777f7b202708c9e2d053d1c71496af",
+    "signatureAlgorithm":  "sha256",
+    "signatureUppercase":  false
+}

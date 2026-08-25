@@ -1,0 +1,1588 @@
+// Imports
+import ___CSS_LOADER_API_SOURCEMAP_IMPORT___ from "../../../node_modules/css-loader/dist/runtime/sourceMaps.js";
+import ___CSS_LOADER_API_IMPORT___ from "../../../node_modules/css-loader/dist/runtime/api.js";
+var ___CSS_LOADER_EXPORT___ = ___CSS_LOADER_API_IMPORT___(___CSS_LOADER_API_SOURCEMAP_IMPORT___);
+// Module
+___CSS_LOADER_EXPORT___.push([module.id, `.report-box.deposit {
+  padding: 8px;
+  margin-top: 50px;
+  background-color: var(--bg-body);
+  color: var(--text-body);
+  border-radius: 0;
+  -webkit-border-radius: 0;
+  -moz-border-radius: 0;
+  -ms-border-radius: 0;
+  -o-border-radius: 0;
+}
+
+.report-title {
+  display: flex;
+  display: -webkit-flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.report-name {
+  height: 43px;
+  font-size: 24px;
+}
+
+.deposit-page {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.deposit-page h4 {
+  font-weight: bold;
+  font-size: 18px;
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.deposit-page h4 span {
+  max-width: calc(100% - 30px);
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.deposit-page h5 {
+  font-weight: normal;
+  font-size: 18px;
+}
+
+.deposit-page .deposit-form {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.deposit-page .deposit-form .form-group.depo-amount {
+  display: flex;
+  height: 46px;
+  padding: 0 5px;
+  margin-right: 0;
+  border-radius: 0;
+  position: relative;
+  background-color: #fff;
+  color: #000;
+  border: 1px solid #ccc;
+}
+
+.deposit-page .deposit-form .form-group.depo-amount .form-control {
+  border: 0;
+  box-shadow: none;
+  height: 100%;
+  background-color: #fff;
+  color: #000;
+}
+
+.deposit-page .deposit-form .deposit-minus,
+.deposit-page .deposit-form .deposit-plus {
+  background-color: transparent;
+  border: 0;
+  color: var(--text-sidebar);
+}
+
+.deposit-page .deposit-form .error {
+  position: absolute;
+  bottom: -18px;
+  font-size: 14px;
+  color: red;
+  line-height: 1;
+}
+
+.deposit-page .deposit-form .btn-add-container {
+  height: 46px;
+  display: flex;
+  align-items: center;
+}
+
+.deposit-page .deposit-form .btn-add-container .btn-add {
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 0 1px !important;
+}
+
+.deposit-page .deposit-form .btn-add-container .btn-add:hover {
+  color: #fff;
+}
+
+.deposit-page .deposit-form .btn-add-container .btn-add:not(:last-child) {
+  margin-right: 5px;
+}
+
+.deposit-page .payment-ions-container .payment-icons {
+  width: calc(25% - 4px);
+  margin-right: 5px;
+  position: relative;
+  background-color: transparent;
+  /* background-image: url("../img/payment/pattern1.png"); */
+  background-position: center;
+  background-size: cover;
+  color: var(--text-body);
+}
+
+.deposit-page .payment-ions-container .payment-icons .glass {
+  background: rgba(144, 144, 144, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  border: 1px solid rgba(144, 144, 144, 0.18);
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  content: '';
+  z-index: 10;
+}
+
+.deposit-page .payment-ions-container .payment-icons .content {
+  z-index: 100;
+  width: 100%;
+  padding: 10px;
+}
+
+.deposit-page .payment-ions-container .payment-icons:nth-child(4n) {
+  margin-right: 0;
+}
+
+/* .deposit-page .payment-ions-container .payment-icons::before {
+    background-image: url("../img/payment-bg.png");
+    background-position: bottom right;
+    position: absolute;
+    content: "";
+    z-index: 1;
+    background-size: contain;
+    height: 160px;
+    width: 160px;
+    background-repeat: no-repeat;
+    right: 0;
+    top: 0;
+} */
+
+.deposit-page .payment-icons:first-child {
+  /* background: #fff; */
+  /* border: 3px solid #4b4747; */
+}
+
+.deposit-page .payment-icons.whatsapp-box,
+.withdraw-request .deposit-page .payment-icons.whatsapp-box {
+  /* background-image: url('../img/payment2.png'); */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-color: #d6d6d6;
+  color: #000;
+  min-height: 250px;
+}
+
+.withdraw-request .deposit-page .payment-icons.whatsapp-box {
+  width: 100%;
+  padding: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  min-height: 240px;
+}
+
+.withdraw-request .deposit-options .button {
+  background: #0f5f8f !important;
+  color: #fff !important;
+}
+
+.payment-ions-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  position: relative;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.deposit-page .payment-icons {
+  margin-top: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  background: transparent;
+  /* border: 3px solid #4b4747; */
+  margin-bottom: 10px;
+  position: relative;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+.deposit-page .payment-ions-container::after {
+  /* position: absolute;
+    content: "";
+    height: 1px;
+    width: 70%;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    -webkit-transform: translateX(-50%);
+    -moz-transform: translateX(-50%);
+    -ms-transform: translateX(-50%);
+    -o-transform: translateX(-50%); */
+}
+
+.bank-detail img {
+  height: 270px;
+  background-color: #fff;
+}
+
+.deposit-page .payment-icons:last-child:after {
+  /* display: none; */
+}
+
+.deposit-page .payment-icons .payment-icon-box-container {
+  padding: 1px;
+  width: 25%;
+  flex: 1 1 auto;
+  max-width: 25%;
+}
+
+.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box {
+  padding: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #444;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box.active {
+  background-color: #222;
+  color: #eee;
+}
+
+.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box img {
+  height: 35px;
+}
+
+.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box h4 {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box h4 .fa-info-circle {
+  border: 0;
+}
+
+.payment-icons.auto-pay .auto-pay-btn {
+  display: flex;
+  justify-content: end;
+  padding: 8px;
+}
+
+.payment-icons.auto-pay .crypto-detail {
+  padding: 0 5px;
+}
+
+.payment-icons.auto-pay .deposit-options p {
+  color: #ddd;
+}
+
+.deposit-page .deposit-options {
+  padding: 0 10px;
+  position: relative;
+  margin-bottom: 0;
+  width: 100%;
+  padding-bottom: 5px;
+  /* background-color: #fff; */
+  /* align-items: center;
+    justify-content: center; */
+  /* height: calc(100% - 64px); */
+  /* display: flex; */
+}
+
+.deposit-page .deposit-options a {
+  font-weight: bold;
+  color: var(--text-body);
+  opacity: 0.9;
+}
+
+.deposit-page .deposit-options .form-group {
+  min-width: 150px;
+  width: auto;
+}
+
+.deposit-page .deposit-options .btn {
+  height: 46px;
+}
+
+.deposit-page .deposit-options>.row {
+  position: relative;
+  margin-bottom: 10px;
+  margin-top: 0;
+}
+
+/* .deposit-page .deposit-options>.row::after {
+    position: absolute;
+    content: "";
+    height: 1px;
+    width: 95%;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    -webkit-transform: translateX(-50%);
+    -moz-transform: translateX(-50%);
+    -ms-transform: translateX(-50%);
+    -o-transform: translateX(-50%);
+} */
+
+.deposit-page .deposit-options>.row:last-child:after {
+  display: none;
+}
+
+.deposit-page .deposit-options .bank-detail {
+  background: transparent;
+  padding: 0 5px;
+  /* border: 1px solid var(--text-body); */
+  scrollbar-width: thin;
+  flex-wrap: wrap;
+  text-align: center;
+}
+
+.deposit-page .deposit-options .bank-detail::-webkit-scrollbar {
+  width: 8px;
+}
+
+.deposit-page .deposit-options .bank-detail::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+.deposit-page .deposit-options .bank-detail::-webkit-scrollbar-thumb {
+  background-color: #333333;
+}
+
+/* .deposit-page .deposit-options .bank-detail.qr-code {
+    display: flex;
+    justify-content: space-between;
+} */
+
+.payment-icons-title {
+  padding: 10px;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.payment-icons-title p {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  width: 100%;
+  margin-bottom: 0;
+  color: var(--text-body);
+  opacity: 0.9;
+}
+
+.payment-icons-title h3 {
+  margin-bottom: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.deposit-page .deposit-options .payment-detail-box {
+  display: block;
+  width: 100%;
+}
+
+.deposit-page .deposit-options .payment-detail-box span {
+  max-width: 100%;
+  opacity: 0.9;
+}
+
+.deposit-page .deposit-options .form-control {
+  padding: 10px;
+  border-radius: 0;
+  margin-top: 10px;
+  width: 100%;
+  border: 0;
+  height: 46px;
+}
+
+.deposit-page .deposit-options .crypto-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.deposit-page .deposit-options .crypto-icons .crypto-btn img {
+  height: 48px;
+}
+
+.deposit-page .deposit-options .crypto-icons .crypto-btn {
+  width: calc(50% - 5px);
+  height: auto;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+
+.deposit-page .deposit-options .crypto-icons .crypto-btn.disabled {
+  cursor: not-allowed;
+}
+
+.deposit-page .upload-ss {
+  color: #000;
+  width: 48%;
+  padding: 5px;
+  text-align: center;
+  border: 1px dashed var(--text-table);
+  height: 50px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+}
+
+.deposit-page .upload-ss label {
+  margin: 0;
+  width: 100%;
+  cursor: pointer;
+  color: var(--text-body);
+  opacity: 0.9;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.deposit-page .verify-ss {
+  width: 48%;
+  height: 50px;
+  min-height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px dashed;
+  position: relative;
+}
+
+.deposit-page .verify-ss img {
+  max-height: 100%;
+}
+
+.deposit-page .remove-ss {
+  position: absolute;
+  right: -12px;
+  top: -12px;
+  font-size: 24px;
+  z-index: 1000;
+  background: #fff;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  border: 1px solid #333;
+  color: #333;
+  cursor: pointer;
+}
+
+.deposit-page .payment-icons.crypto-icons-box {
+  padding: 0;
+  border: 0;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.deposit-page .payment-icons.crypto-icons-box:before {
+  position: absolute;
+  content: '';
+  background-color: #666;
+  height: 1px;
+  width: 70%;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  -webkit-transform: translateX(-50%);
+  -moz-transform: translateX(-50%);
+  -ms-transform: translateX(-50%);
+  -o-transform: translateX(-50%);
+}
+
+.deposit-page .payment-icons.crypto-icons-box .payment-icon-box-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.deposit-page .payment-icons.crypto-icons-box .payment-icon-box-container .payment-icon-box {
+  flex-direction: row;
+  justify-content: space-between;
+  box-shadow: 0 3px 8px #4d4b4b !important;
+  background: transparent;
+  border: 3px solid #4b4747;
+  margin-bottom: 30px;
+}
+
+.deposit-page .crypto-icons-box .crypto-icons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.deposit-page .crypto-icons-box .crypto-icons .btn {
+  background: 0 0;
+  border: 0;
+  padding: 0;
+}
+
+.deposit-page .crypto-icons-box .crypto-icons img {
+  height: 50px;
+  margin-right: 10px;
+}
+
+.deposit-page .crypto-icons-box .crypto-icons .btn:disabled {
+  cursor: not-allowed;
+}
+
+.deposit-page .payment-icon-box-container .btn-primary,
+.deposit-options .btn-primary {
+  width: 150px;
+}
+
+.deposit-page .upi-barcode img {
+  background-color: #fff;
+}
+
+.payment-pay-now {
+  width: 48%;
+  background: var(--theme2-bg);
+  color: var(--theme1-bg);
+  border: 1px solid var(--theme1-bg);
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  align-content: center;
+}
+
+.payment-pay-now>div,
+.payment-pay-now>small {
+  line-height: 1;
+}
+
+.payment-pay-now>small {
+  margin-top: 3px;
+}
+
+.deposit-page .upload-ss.pay-disable label {
+  cursor: not-allowed;
+}
+
+.payment-pay-now.pay-disable {
+  cursor: not-allowed;
+  background: #ccc;
+  color: #000;
+  border: #ccc;
+}
+
+.payment-pay-now .desktop-pay-now {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 10px;
+  position: relative;
+}
+
+.payment-pay-now .desktop-pay-now>div {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.payment-pay-now .desktop-pay-now>div>span:first-child {
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.payment-rules {
+  color: var(--text-body) !important;
+  font-size: 20px;
+  border: 0;
+}
+
+.payment-disable {
+  position: relative;
+}
+
+.payment-disable::after {
+  position: absolute;
+  left: 0;
+  top: 0;
+  content: '';
+  width: 100%;
+  height: 100%;
+  background-color: #000000bd;
+}
+
+.payment-disable::before {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  content: '';
+  z-index: 10;
+}
+
+
+.qr-code img {
+  min-height: 270px;
+  width: 100%;
+}
+
+.label-amount {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.mr-1 {
+  margin-right: 5px;
+}
+
+.payment-detail-box p {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* New Deposit Interface Styles - Scoped to avoid conflicts */
+.new-deposit-interface.deposit-container {
+  max-width: auto;
+  margin: 0 auto;
+  padding: 20px;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  min-height: 100vh;
+  color: white;
+  font-family: 'Arial', sans-serif;
+}
+
+.new-deposit-interface .deposit-header {
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.new-deposit-interface .deposit-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.new-deposit-interface .deposit-icon {
+  background: #f39c12;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: white;
+}
+
+.new-deposit-interface .deposit-header h2 {
+  color: #f39c12;
+  font-size: 28px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.new-deposit-interface .deposit-subtitle {
+  color: #bdc3c7;
+  font-size: 16px;
+  margin: 0;
+}
+
+.new-deposit-interface .deposit-disclaimer {
+  background: rgba(52, 73, 94, 0.8);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.new-deposit-interface .deposit-disclaimer p {
+  margin: 0;
+  color: #ecf0f1;
+  font-size: 14px;
+}
+
+.new-deposit-interface .payment-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  justify-content: space-between;
+}
+
+.new-deposit-interface .payment-method-btn {
+  background: #34495e;
+  border: 2px solid #4a5f7a;
+  color: #ecf0f1;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  flex: 1 1;
+  min-width: 120px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.new-deposit-interface .payment-method-btn i {
+  color: #f39c12;
+  font-size: 14px;
+}
+
+.new-deposit-interface .payment-method-btn:hover {
+  background: #4a5f7a;
+  transform: translateY(-2px);
+}
+
+.new-deposit-interface .payment-method-btn.active {
+  background: #f39c12;
+  border-color: #e67e22;
+  color: #2c3e50;
+}
+
+.new-deposit-interface .payment-method-btn.active i {
+  color: #2c3e50;
+}
+
+.new-deposit-interface .payment-method-btn.whatsapp.active {
+  background: #27ae60;
+  border-color: #229954;
+  color: white;
+}
+
+.new-deposit-interface .payment-method-btn.whatsapp.active i {
+  color: white;
+}
+
+.new-deposit-interface .currency-selection {
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center; 
+  gap: 6px; 
+}
+
+.new-deposit-interface .currency-selection label {
+  display: block;
+  color: #ecf0f1;
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.new-deposit-interface .currency-select {
+  width: 33%;
+  background: #34495e;
+  border: 2px solid #4a5f7a;
+  color: #ecf0f1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.new-deposit-interface .payment-options {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.new-deposit-interface .option-btn {
+  background: #34495e;
+  border: 2px solid #4a5f7a;
+  color: #ecf0f1;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1 1;
+  max-width: 120px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.new-deposit-interface .option-btn i {
+  color: #f39c12;
+  font-size: 14px;
+}
+
+.new-deposit-interface .option-btn:hover {
+  background: #4a5f7a;
+}
+
+.new-deposit-interface .option-btn.active {
+  background: #f39c12;
+  border-color: #e67e22;
+  color: #2c3e50;
+}
+
+.new-deposit-interface .option-btn.active i {
+  color: #2c3e50;
+}
+
+.new-deposit-interface .amount-selection {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .amount-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.new-deposit-interface .amount-btn {
+  background: #5d4e37;
+  border: 1px solid #8b7355;
+  color: #f4f4f4;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.new-deposit-interface .amount-btn:hover {
+  background: #8b7355;
+  transform: scale(1.05);
+}
+
+.new-deposit-interface .deposit-note {
+  background: rgba(52, 73, 94, 0.6);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.new-deposit-interface .deposit-note p {
+  margin: 0;
+  color: #f39c12;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.new-deposit-interface .amount-input-container {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .amount-input-wrapper {
+  background: #5a6c7d;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.new-deposit-interface .amount-input {
+  flex: 1 1;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 16px;
+  outline: none;
+}
+
+.new-deposit-interface .amount-input::placeholder {
+  color: #bdc3c7;
+}
+
+.new-deposit-interface .clear-btn {
+  background: #5a6c7d;
+  border: 1px solid #7f8c8d;
+  color: #ecf0f1;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.new-deposit-interface .clear-btn:hover {
+  background: #7f8c8d;
+}
+
+.new-deposit-interface .next-button-container {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.new-deposit-interface .next-btn {
+  background: #5a6c7d;
+  border: none;
+  color: white;
+  padding: 15px 40px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.new-deposit-interface .next-btn:hover {
+  background: #7f8c8d;
+  transform: translateY(-2px);
+}
+
+.new-deposit-interface .next-btn.loading {
+  background: #7f8c8d;
+  cursor: not-allowed;
+}
+
+.new-deposit-interface .next-btn.loading:hover {
+  transform: none;
+}
+
+.new-deposit-interface .next-btn .fas {
+  margin-right: 8px;
+}
+
+.new-deposit-interface .next-btn span {
+  margin-left: 5px;
+}
+
+/* Additional Mobile Optimizations */
+@media (max-width: 600px) {
+  .new-deposit-interface .deposit-header-content {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .new-deposit-interface .deposit-icon {
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
+  }
+  
+  .new-deposit-interface .payment-methods {
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .new-deposit-interface .payment-method-btn {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1;
+    min-width: 75px;
+    padding: 10px 8px;
+    font-size: 11px;
+    gap: 6px;
+  }
+  
+  .new-deposit-interface .option-btn {
+    min-height: 40px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  
+  .new-deposit-interface .amount-btn {
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .new-deposit-interface .next-btn {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .new-deposit-interface .upload-btn,
+  .new-deposit-interface .confirm-btn {
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Details Page Styles */
+.new-deposit-interface .back-btn {
+  background: transparent;
+  border: none;
+  color: #ecf0f1;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.new-deposit-interface .back-btn:hover {
+  color: #f39c12;
+}
+
+.new-deposit-interface .success-indicator {
+  background: #27ae60;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.new-deposit-interface .bonus-selection {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .bonus-selection label {
+  display: block;
+  color: #ecf0f1;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.new-deposit-interface .bonus-select {
+  width: 100%;
+  background: #34495e;
+  border: 2px solid #4a5f7a;
+  color: #ecf0f1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.new-deposit-interface .payment-details-section {
+  background: rgba(52, 73, 94, 0.8);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .payment-details-section h3 {
+  color: #f39c12;
+  font-size: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.new-deposit-interface .account-details {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .detail-item {
+  margin-bottom: 15px;
+}
+
+.new-deposit-interface .detail-item label {
+  display: block;
+  color: #bdc3c7;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.new-deposit-interface .detail-value {
+  background: #f39c12;
+  color: #2c3e50;
+  padding: 12px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+
+.new-deposit-interface .copy-btn {
+  background: transparent;
+  border: none;
+  color: #2c3e50;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.new-deposit-interface .copy-btn:hover {
+  background: rgba(44, 62, 80, 0.1);
+}
+
+.new-deposit-interface .utr-input {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .utr-input input {
+  width: 100%;
+  background: #5a6c7d;
+  border: 2px solid #7f8c8d;
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.new-deposit-interface .utr-input input::placeholder {
+  color: #bdc3c7;
+}
+
+.new-deposit-interface .payment-types {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .payment-type-options {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.new-deposit-interface .payment-type-options label {
+  cursor: pointer;
+}
+
+.new-deposit-interface .payment-type-options input[type="radio"] {
+  display: none;
+}
+
+.new-deposit-interface .radio-btn {
+  background: #34495e;
+  border: 2px solid #4a5f7a;
+  color: #ecf0f1;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.new-deposit-interface .radio-btn.active,
+.new-deposit-interface .payment-type-options input[type="radio"]:checked + .radio-btn {
+  background: #e74c3c;
+  border-color: #c0392b;
+  color: white;
+}
+
+.new-deposit-interface .upload-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.new-deposit-interface .upload-btn {
+  background: #f39c12;
+  color: #2c3e50;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+
+.new-deposit-interface .upload-btn:hover {
+  background: #e67e22;
+  transform: translateY(-2px);
+}
+
+.new-deposit-interface .confirm-btn {
+  background: #8b7355;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+
+.new-deposit-interface .confirm-btn.active {
+  background: #27ae60;
+}
+
+.new-deposit-interface .confirm-btn.active:hover {
+  background: #229954;
+  transform: translateY(-2px);
+}
+
+.new-deposit-interface .confirm-btn.disabled {
+  background: #7f8c8d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* UPI Specific Styles */
+.new-deposit-interface .upi-payment-section {
+  text-align: center;
+}
+
+.new-deposit-interface .qr-section {
+  margin-bottom: 20px;
+}
+
+.new-deposit-interface .qr-section p {
+  color: #5a6c7d;
+  font-size: 14px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(90, 108, 125, 0.2);
+  border-radius: 6px;
+}
+
+.new-deposit-interface .qr-code-container {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin: 20px auto;
+  max-width: 300px;
+  display: inline-block;
+}
+
+.new-deposit-interface .upi-id {
+  margin-top: 15px;
+}
+
+.new-deposit-interface .upi-id label {
+  color: #bdc3c7;
+  font-size: 14px;
+  margin-bottom: 5px;
+  display: block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .new-deposit-interface.deposit-container {
+    padding: 10px;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  }
+  
+  .new-deposit-interface .deposit-header {
+    margin-bottom: 1px;
+  }
+  
+  .new-deposit-interface .deposit-header h2 {
+    font-size: 22px;
+  }
+  
+  .new-deposit-interface .deposit-subtitle {
+    font-size: 14px;
+  }
+  
+  .new-deposit-interface .deposit-disclaimer {
+    padding: 12px;
+    margin-bottom: 15px;
+    font-size: 13px;
+  }
+  
+  .new-deposit-interface .payment-methods {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+    justify-content: space-between;
+  }
+  
+  .new-deposit-interface .payment-method-btn {
+    padding: 10px 8px;
+    font-size: 11px;
+    text-align: center;
+    border-radius: 6px;
+    flex: 1 1;
+    min-width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  
+  .new-deposit-interface .payment-options {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  }
+  
+  .new-deposit-interface .option-btn {
+    flex: 1 1;
+    min-width: 80px;
+    max-width: none;
+    padding: 10px 15px;
+    font-size: 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  
+  .new-deposit-interface .amount-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+  
+  .new-deposit-interface .amount-btn {
+    padding: 12px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  
+  .new-deposit-interface .deposit-note {
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 12px;
+  }
+  
+  .new-deposit-interface .amount-input-wrapper {
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+  
+  .new-deposit-interface .amount-input {
+    font-size: 14px;
+  }
+  
+  .new-deposit-interface .clear-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .new-deposit-interface .next-button-container {
+    margin-top: 20px;
+  }
+  
+  .new-deposit-interface .next-btn {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+  
+  .new-deposit-interface .upload-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .new-deposit-interface .upload-btn,
+  .new-deposit-interface .confirm-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px 20px;
+  }
+  
+  .new-deposit-interface .detail-value {
+    font-size: 13px;
+    padding: 10px;
+  }
+  
+  .new-deposit-interface .payment-type-options {
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .new-deposit-interface .radio-btn {
+    text-align: center;
+    flex: 1 1;
+    min-width: 80px;
+    padding: 8px 15px;
+    font-size: 12px;
+  }
+  
+  .new-deposit-interface .payment-details-section {
+    padding: 15px;
+  }
+  
+  .new-deposit-interface .utr-input input {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .new-deposit-interface.deposit-container {
+    padding: 6px;
+  }
+  
+  .new-deposit-interface .deposit-header h2 {
+    font-size: 20px;
+  }
+  
+  .new-deposit-interface .deposit-subtitle {
+    font-size: 13px;
+  }
+  
+  .new-deposit-interface .deposit-disclaimer {
+    padding: 0px;
+    font-size: 12px;
+  }
+  
+  .new-deposit-interface .payment-methods {
+    gap: 6px;
+    justify-content: space-between;
+  }
+  
+  .new-deposit-interface .payment-method-btn {
+    padding: 8px 6px;
+    font-size: 10px;
+    flex: 1 1;
+    min-width: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  
+  .new-deposit-interface .payment-options {
+    gap: 6px;
+  }
+  
+  .new-deposit-interface .option-btn {
+    padding: 8px 10px;
+    font-size: 11px;
+    min-width: 70px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+  
+  .new-deposit-interface .amount-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  .new-deposit-interface .amount-btn {
+    padding: 10px 6px;
+    font-size: 20px;
+    border-radius: 15%;
+  }
+  
+  .new-deposit-interface .deposit-note {
+    padding: 8px;
+    font-size: 11px;
+  }
+  
+  .new-deposit-interface .amount-input-wrapper {
+    padding: 10px;
+  }
+  
+  .new-deposit-interface .amount-input {
+    font-size: 13px;
+  }
+  
+  .new-deposit-interface .clear-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  
+  .new-deposit-interface .next-btn {
+    padding: 12px 15px;
+    font-size: 14px;
+  }
+  
+  .new-deposit-interface .payment-details-section {
+    padding: 12px;
+  }
+  
+  .new-deposit-interface .detail-value {
+    font-size: 12px;
+    padding: 8px;
+  }
+  
+  .new-deposit-interface .radio-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-width: 70px;
+  }
+  
+  .new-deposit-interface .upload-btn,
+  .new-deposit-interface .confirm-btn {
+    padding: 10px 15px;
+    font-size: 12px;
+  }
+  
+  .new-deposit-interface .qr-code-container {
+    padding: 32px;
+    max-width: 303px;
+  }
+  
+  .new-deposit-interface .utr-input input {
+    padding: 8px;
+    font-size: 13px;
+  }
+}`, "",{"version":3,"sources":["webpack://./src/pages/deposit/deposit.css"],"names":[],"mappings":"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","sourcesContent":[".report-box.deposit {\n  padding: 8px;\n  margin-top: 50px;\n  background-color: var(--bg-body);\n  color: var(--text-body);\n  border-radius: 0;\n  -webkit-border-radius: 0;\n  -moz-border-radius: 0;\n  -ms-border-radius: 0;\n  -o-border-radius: 0;\n}\n\n.report-title {\n  display: flex;\n  display: -webkit-flex;\n  justify-content: space-between;\n  align-items: center;\n}\n\n.report-name {\n  height: 43px;\n  font-size: 24px;\n}\n\n.deposit-page {\n  width: 100%;\n  margin: 0 auto;\n}\n\n.deposit-page h4 {\n  font-weight: bold;\n  font-size: 18px;\n  position: relative;\n  width: 100%;\n  display: flex;\n  align-items: center;\n}\n\n.deposit-page h4 span {\n  max-width: calc(100% - 30px);\n  width: 100%;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  display: inline-block;\n}\n\n.deposit-page h5 {\n  font-weight: normal;\n  font-size: 18px;\n}\n\n.deposit-page .deposit-form {\n  padding: 10px;\n  border-radius: 12px;\n}\n\n.deposit-page .deposit-form .form-group.depo-amount {\n  display: flex;\n  height: 46px;\n  padding: 0 5px;\n  margin-right: 0;\n  border-radius: 0;\n  position: relative;\n  background-color: #fff;\n  color: #000;\n  border: 1px solid #ccc;\n}\n\n.deposit-page .deposit-form .form-group.depo-amount .form-control {\n  border: 0;\n  box-shadow: none;\n  height: 100%;\n  background-color: #fff;\n  color: #000;\n}\n\n.deposit-page .deposit-form .deposit-minus,\n.deposit-page .deposit-form .deposit-plus {\n  background-color: transparent;\n  border: 0;\n  color: var(--text-sidebar);\n}\n\n.deposit-page .deposit-form .error {\n  position: absolute;\n  bottom: -18px;\n  font-size: 14px;\n  color: red;\n  line-height: 1;\n}\n\n.deposit-page .deposit-form .btn-add-container {\n  height: 46px;\n  display: flex;\n  align-items: center;\n}\n\n.deposit-page .deposit-form .btn-add-container .btn-add {\n  padding: 5px 12px;\n  font-size: 14px;\n  font-weight: bold;\n  box-shadow: 0 0 1px !important;\n}\n\n.deposit-page .deposit-form .btn-add-container .btn-add:hover {\n  color: #fff;\n}\n\n.deposit-page .deposit-form .btn-add-container .btn-add:not(:last-child) {\n  margin-right: 5px;\n}\n\n.deposit-page .payment-ions-container .payment-icons {\n  width: calc(25% - 4px);\n  margin-right: 5px;\n  position: relative;\n  background-color: transparent;\n  /* background-image: url(\"../img/payment/pattern1.png\"); */\n  background-position: center;\n  background-size: cover;\n  color: var(--text-body);\n}\n\n.deposit-page .payment-ions-container .payment-icons .glass {\n  background: rgba(144, 144, 144, 0.2);\n  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);\n  backdrop-filter: blur(7px);\n  -webkit-backdrop-filter: blur(7px);\n  border: 1px solid rgba(144, 144, 144, 0.18);\n  position: absolute;\n  left: 0;\n  top: 0;\n  height: 100%;\n  width: 100%;\n  content: '';\n  z-index: 10;\n}\n\n.deposit-page .payment-ions-container .payment-icons .content {\n  z-index: 100;\n  width: 100%;\n  padding: 10px;\n}\n\n.deposit-page .payment-ions-container .payment-icons:nth-child(4n) {\n  margin-right: 0;\n}\n\n/* .deposit-page .payment-ions-container .payment-icons::before {\n    background-image: url(\"../img/payment-bg.png\");\n    background-position: bottom right;\n    position: absolute;\n    content: \"\";\n    z-index: 1;\n    background-size: contain;\n    height: 160px;\n    width: 160px;\n    background-repeat: no-repeat;\n    right: 0;\n    top: 0;\n} */\n\n.deposit-page .payment-icons:first-child {\n  /* background: #fff; */\n  /* border: 3px solid #4b4747; */\n}\n\n.deposit-page .payment-icons.whatsapp-box,\n.withdraw-request .deposit-page .payment-icons.whatsapp-box {\n  /* background-image: url('../img/payment2.png'); */\n  background-size: contain;\n  background-repeat: no-repeat;\n  background-position: bottom;\n  background-color: #d6d6d6;\n  color: #000;\n  min-height: 250px;\n}\n\n.withdraw-request .deposit-page .payment-icons.whatsapp-box {\n  width: 100%;\n  padding: 0;\n  margin-top: 0;\n  margin-bottom: 0;\n  min-height: 240px;\n}\n\n.withdraw-request .deposit-options .button {\n  background: #0f5f8f !important;\n  color: #fff !important;\n}\n\n.payment-ions-container {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-start;\n  position: relative;\n  margin-top: 0;\n  margin-bottom: 0;\n}\n\n.deposit-page .payment-icons {\n  margin-top: 0;\n  padding: 0;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-start;\n  background: transparent;\n  /* border: 3px solid #4b4747; */\n  margin-bottom: 10px;\n  position: relative;\n  align-items: flex-start;\n  align-content: flex-start;\n}\n\n.deposit-page .payment-ions-container::after {\n  /* position: absolute;\n    content: \"\";\n    height: 1px;\n    width: 70%;\n    bottom: -10px;\n    left: 50%;\n    transform: translateX(-50%);\n    -webkit-transform: translateX(-50%);\n    -moz-transform: translateX(-50%);\n    -ms-transform: translateX(-50%);\n    -o-transform: translateX(-50%); */\n}\n\n.bank-detail img {\n  height: 270px;\n  background-color: #fff;\n}\n\n.deposit-page .payment-icons:last-child:after {\n  /* display: none; */\n}\n\n.deposit-page .payment-icons .payment-icon-box-container {\n  padding: 1px;\n  width: 25%;\n  flex: 1 auto;\n  max-width: 25%;\n}\n\n.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box {\n  padding: 15px;\n  display: flex;\n  flex-wrap: wrap;\n  flex-direction: column;\n  justify-content: center;\n  align-items: center;\n  background-color: #444;\n  color: #ddd;\n  cursor: pointer;\n}\n\n.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box.active {\n  background-color: #222;\n  color: #eee;\n}\n\n.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box img {\n  height: 35px;\n}\n\n.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box h4 {\n  font-size: 18px;\n  font-weight: bold;\n  margin-top: 10px;\n  margin-bottom: 0;\n}\n\n.deposit-page .payment-icons .payment-icon-box-container .payment-icon-box h4 .fa-info-circle {\n  border: 0;\n}\n\n.payment-icons.auto-pay .auto-pay-btn {\n  display: flex;\n  justify-content: end;\n  padding: 8px;\n}\n\n.payment-icons.auto-pay .crypto-detail {\n  padding: 0 5px;\n}\n\n.payment-icons.auto-pay .deposit-options p {\n  color: #ddd;\n}\n\n.deposit-page .deposit-options {\n  padding: 0 10px;\n  position: relative;\n  margin-bottom: 0;\n  width: 100%;\n  padding-bottom: 5px;\n  /* background-color: #fff; */\n  /* align-items: center;\n    justify-content: center; */\n  /* height: calc(100% - 64px); */\n  /* display: flex; */\n}\n\n.deposit-page .deposit-options a {\n  font-weight: bold;\n  color: var(--text-body);\n  opacity: 0.9;\n}\n\n.deposit-page .deposit-options .form-group {\n  min-width: 150px;\n  width: auto;\n}\n\n.deposit-page .deposit-options .btn {\n  height: 46px;\n}\n\n.deposit-page .deposit-options>.row {\n  position: relative;\n  margin-bottom: 10px;\n  margin-top: 0;\n}\n\n/* .deposit-page .deposit-options>.row::after {\n    position: absolute;\n    content: \"\";\n    height: 1px;\n    width: 95%;\n    bottom: -10px;\n    left: 50%;\n    transform: translateX(-50%);\n    -webkit-transform: translateX(-50%);\n    -moz-transform: translateX(-50%);\n    -ms-transform: translateX(-50%);\n    -o-transform: translateX(-50%);\n} */\n\n.deposit-page .deposit-options>.row:last-child:after {\n  display: none;\n}\n\n.deposit-page .deposit-options .bank-detail {\n  background: transparent;\n  padding: 0 5px;\n  /* border: 1px solid var(--text-body); */\n  scrollbar-width: thin;\n  flex-wrap: wrap;\n  text-align: center;\n}\n\n.deposit-page .deposit-options .bank-detail::-webkit-scrollbar {\n  width: 8px;\n}\n\n.deposit-page .deposit-options .bank-detail::-webkit-scrollbar-track {\n  background: #000000;\n}\n\n.deposit-page .deposit-options .bank-detail::-webkit-scrollbar-thumb {\n  background-color: #333333;\n}\n\n/* .deposit-page .deposit-options .bank-detail.qr-code {\n    display: flex;\n    justify-content: space-between;\n} */\n\n.payment-icons-title {\n  padding: 10px;\n  width: 100%;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: space-between;\n  align-items: center;\n}\n\n.payment-icons-title p {\n  max-width: 100%;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  display: block;\n  width: 100%;\n  margin-bottom: 0;\n  color: var(--text-body);\n  opacity: 0.9;\n}\n\n.payment-icons-title h3 {\n  margin-bottom: 0;\n  font-size: 16px;\n  font-weight: bold;\n}\n\n.deposit-page .deposit-options .payment-detail-box {\n  display: block;\n  width: 100%;\n}\n\n.deposit-page .deposit-options .payment-detail-box span {\n  max-width: 100%;\n  opacity: 0.9;\n}\n\n.deposit-page .deposit-options .form-control {\n  padding: 10px;\n  border-radius: 0;\n  margin-top: 10px;\n  width: 100%;\n  border: 0;\n  height: 46px;\n}\n\n.deposit-page .deposit-options .crypto-icons {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 5px;\n}\n\n.deposit-page .deposit-options .crypto-icons .crypto-btn img {\n  height: 48px;\n}\n\n.deposit-page .deposit-options .crypto-icons .crypto-btn {\n  width: calc(50% - 5px);\n  height: auto;\n  cursor: pointer;\n  display: flex;\n  justify-content: center;\n}\n\n.deposit-page .deposit-options .crypto-icons .crypto-btn.disabled {\n  cursor: not-allowed;\n}\n\n.deposit-page .upload-ss {\n  color: #000;\n  width: 48%;\n  padding: 5px;\n  text-align: center;\n  border: 1px dashed var(--text-table);\n  height: 50px;\n  min-height: 50px;\n  display: flex;\n  align-items: center;\n  border: 1px solid #ccc;\n}\n\n.deposit-page .upload-ss label {\n  margin: 0;\n  width: 100%;\n  cursor: pointer;\n  color: var(--text-body);\n  opacity: 0.9;\n  font-size: 14px;\n  display: flex;\n  align-items: center;\n}\n\n.deposit-page .verify-ss {\n  width: 48%;\n  height: 50px;\n  min-height: 50px;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  border: 1px dashed;\n  position: relative;\n}\n\n.deposit-page .verify-ss img {\n  max-height: 100%;\n}\n\n.deposit-page .remove-ss {\n  position: absolute;\n  right: -12px;\n  top: -12px;\n  font-size: 24px;\n  z-index: 1000;\n  background: #fff;\n  height: 24px;\n  width: 24px;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  border: 1px solid #333;\n  color: #333;\n  cursor: pointer;\n}\n\n.deposit-page .payment-icons.crypto-icons-box {\n  padding: 0;\n  border: 0;\n  box-shadow: none !important;\n  position: relative;\n}\n\n.deposit-page .payment-icons.crypto-icons-box:before {\n  position: absolute;\n  content: '';\n  background-color: #666;\n  height: 1px;\n  width: 70%;\n  bottom: 0;\n  left: 50%;\n  transform: translateX(-50%);\n  -webkit-transform: translateX(-50%);\n  -moz-transform: translateX(-50%);\n  -ms-transform: translateX(-50%);\n  -o-transform: translateX(-50%);\n}\n\n.deposit-page .payment-icons.crypto-icons-box .payment-icon-box-container {\n  width: 100%;\n  max-width: 100%;\n}\n\n.deposit-page .payment-icons.crypto-icons-box .payment-icon-box-container .payment-icon-box {\n  flex-direction: row;\n  justify-content: space-between;\n  box-shadow: 0 3px 8px #4d4b4b !important;\n  background: transparent;\n  border: 3px solid #4b4747;\n  margin-bottom: 30px;\n}\n\n.deposit-page .crypto-icons-box .crypto-icons {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: center;\n  width: 100%;\n  margin-top: 10px;\n}\n\n.deposit-page .crypto-icons-box .crypto-icons .btn {\n  background: 0 0;\n  border: 0;\n  padding: 0;\n}\n\n.deposit-page .crypto-icons-box .crypto-icons img {\n  height: 50px;\n  margin-right: 10px;\n}\n\n.deposit-page .crypto-icons-box .crypto-icons .btn:disabled {\n  cursor: not-allowed;\n}\n\n.deposit-page .payment-icon-box-container .btn-primary,\n.deposit-options .btn-primary {\n  width: 150px;\n}\n\n.deposit-page .upi-barcode img {\n  background-color: #fff;\n}\n\n.payment-pay-now {\n  width: 48%;\n  background: var(--theme2-bg);\n  color: var(--theme1-bg);\n  border: 1px solid var(--theme1-bg);\n  height: 50px;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  cursor: pointer;\n  align-content: center;\n}\n\n.payment-pay-now>div,\n.payment-pay-now>small {\n  line-height: 1;\n}\n\n.payment-pay-now>small {\n  margin-top: 3px;\n}\n\n.deposit-page .upload-ss.pay-disable label {\n  cursor: not-allowed;\n}\n\n.payment-pay-now.pay-disable {\n  cursor: not-allowed;\n  background: #ccc;\n  color: #000;\n  border: #ccc;\n}\n\n.payment-pay-now .desktop-pay-now {\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  padding: 3px 10px;\n  position: relative;\n}\n\n.payment-pay-now .desktop-pay-now>div {\n  display: flex;\n  justify-content: center;\n  width: 100%;\n  flex-wrap: wrap;\n  flex-direction: column;\n  align-items: center;\n  cursor: pointer;\n}\n\n.payment-pay-now .desktop-pay-now>div>span:first-child {\n  text-transform: uppercase;\n  font-weight: bold;\n  font-size: 18px;\n}\n\n.payment-rules {\n  color: var(--text-body) !important;\n  font-size: 20px;\n  border: 0;\n}\n\n.payment-disable {\n  position: relative;\n}\n\n.payment-disable::after {\n  position: absolute;\n  left: 0;\n  top: 0;\n  content: '';\n  width: 100%;\n  height: 100%;\n  background-color: #000000bd;\n}\n\n.payment-disable::before {\n  background: rgba(255, 255, 255, 0.2);\n  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);\n  backdrop-filter: blur(2px);\n  -webkit-backdrop-filter: blur(2px);\n  position: absolute;\n  left: 0;\n  top: 0;\n  height: 100%;\n  width: 100%;\n  content: '';\n  z-index: 10;\n}\n\n\n.qr-code img {\n  min-height: 270px;\n  width: 100%;\n}\n\n.label-amount {\n  margin-bottom: 10px;\n  font-size: 14px;\n  font-weight: bold;\n  text-transform: uppercase;\n}\n\n.mr-1 {\n  margin-right: 5px;\n}\n\n.payment-detail-box p {\n  background: #fff;\n  padding: 10px;\n  border-radius: 10px;\n  display: flex;\n  align-items: center;\n  font-weight: bold;\n  justify-content: space-between;\n  width: 100%;\n}\n\n/* New Deposit Interface Styles - Scoped to avoid conflicts */\n.new-deposit-interface.deposit-container {\n  max-width: auto;\n  margin: 0 auto;\n  padding: 20px;\n  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);\n  min-height: 100vh;\n  color: white;\n  font-family: 'Arial', sans-serif;\n}\n\n.new-deposit-interface .deposit-header {\n  text-align: center;\n  margin-bottom: 20px;\n  position: relative;\n}\n\n.new-deposit-interface .deposit-header-content {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 10px;\n  margin-bottom: 10px;\n}\n\n.new-deposit-interface .deposit-icon {\n  background: #f39c12;\n  border-radius: 50%;\n  width: 40px;\n  height: 40px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 18px;\n  color: white;\n}\n\n.new-deposit-interface .deposit-header h2 {\n  color: #f39c12;\n  font-size: 28px;\n  font-weight: bold;\n  margin: 0;\n}\n\n.new-deposit-interface .deposit-subtitle {\n  color: #bdc3c7;\n  font-size: 16px;\n  margin: 0;\n}\n\n.new-deposit-interface .deposit-disclaimer {\n  background: rgba(52, 73, 94, 0.8);\n  padding: 15px;\n  border-radius: 8px;\n  margin-bottom: 20px;\n  text-align: center;\n}\n\n.new-deposit-interface .deposit-disclaimer p {\n  margin: 0;\n  color: #ecf0f1;\n  font-size: 14px;\n}\n\n.new-deposit-interface .payment-methods {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n  margin-bottom: 20px;\n  justify-content: space-between;\n}\n\n.new-deposit-interface .payment-method-btn {\n  background: #34495e;\n  border: 2px solid #4a5f7a;\n  color: #ecf0f1;\n  padding: 12px 18px;\n  border-radius: 8px;\n  font-weight: bold;\n  font-size: 12px;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  text-transform: uppercase;\n  flex: 1;\n  min-width: 120px;\n  text-align: center;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 8px;\n}\n\n.new-deposit-interface .payment-method-btn i {\n  color: #f39c12;\n  font-size: 14px;\n}\n\n.new-deposit-interface .payment-method-btn:hover {\n  background: #4a5f7a;\n  transform: translateY(-2px);\n}\n\n.new-deposit-interface .payment-method-btn.active {\n  background: #f39c12;\n  border-color: #e67e22;\n  color: #2c3e50;\n}\n\n.new-deposit-interface .payment-method-btn.active i {\n  color: #2c3e50;\n}\n\n.new-deposit-interface .payment-method-btn.whatsapp.active {\n  background: #27ae60;\n  border-color: #229954;\n  color: white;\n}\n\n.new-deposit-interface .payment-method-btn.whatsapp.active i {\n  color: white;\n}\n\n.new-deposit-interface .currency-selection {\n  margin-bottom: 7px;\n  display: flex;\n  align-items: center; \n  gap: 6px; \n}\n\n.new-deposit-interface .currency-selection label {\n  display: block;\n  color: #ecf0f1;\n  font-size: 14px;\n  margin-bottom: 8px;\n  font-weight: bold;\n}\n\n.new-deposit-interface .currency-select {\n  width: 33%;\n  background: #34495e;\n  border: 2px solid #4a5f7a;\n  color: #ecf0f1;\n  padding: 12px;\n  border-radius: 8px;\n  font-size: 14px;\n  cursor: pointer;\n}\n\n.new-deposit-interface .payment-options {\n  display: flex;\n  gap: 15px;\n  margin-bottom: 20px;\n  justify-content: center;\n}\n\n.new-deposit-interface .option-btn {\n  background: #34495e;\n  border: 2px solid #4a5f7a;\n  color: #ecf0f1;\n  padding: 12px 25px;\n  border-radius: 8px;\n  font-weight: bold;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  flex: 1;\n  max-width: 120px;\n  display: flex;\n  flex-direction: row;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  white-space: nowrap;\n}\n\n.new-deposit-interface .option-btn i {\n  color: #f39c12;\n  font-size: 14px;\n}\n\n.new-deposit-interface .option-btn:hover {\n  background: #4a5f7a;\n}\n\n.new-deposit-interface .option-btn.active {\n  background: #f39c12;\n  border-color: #e67e22;\n  color: #2c3e50;\n}\n\n.new-deposit-interface .option-btn.active i {\n  color: #2c3e50;\n}\n\n.new-deposit-interface .amount-selection {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .amount-grid {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 10px;\n  margin-bottom: 15px;\n}\n\n.new-deposit-interface .amount-btn {\n  background: #5d4e37;\n  border: 1px solid #8b7355;\n  color: #f4f4f4;\n  padding: 12px;\n  border-radius: 6px;\n  font-size: 14px;\n  font-weight: bold;\n  cursor: pointer;\n  transition: all 0.3s ease;\n}\n\n.new-deposit-interface .amount-btn:hover {\n  background: #8b7355;\n  transform: scale(1.05);\n}\n\n.new-deposit-interface .deposit-note {\n  background: rgba(52, 73, 94, 0.6);\n  padding: 12px;\n  border-radius: 6px;\n  margin-bottom: 20px;\n  text-align: center;\n}\n\n.new-deposit-interface .deposit-note p {\n  margin: 0;\n  color: #f39c12;\n  font-size: 13px;\n  font-style: italic;\n}\n\n.new-deposit-interface .amount-input-container {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .amount-input-wrapper {\n  background: #5a6c7d;\n  border-radius: 8px;\n  padding: 15px;\n  display: flex;\n  align-items: center;\n  gap: 10px;\n}\n\n.new-deposit-interface .amount-input {\n  flex: 1;\n  background: transparent;\n  border: none;\n  color: white;\n  font-size: 16px;\n  outline: none;\n}\n\n.new-deposit-interface .amount-input::placeholder {\n  color: #bdc3c7;\n}\n\n.new-deposit-interface .clear-btn {\n  background: #5a6c7d;\n  border: 1px solid #7f8c8d;\n  color: #ecf0f1;\n  padding: 8px 15px;\n  border-radius: 6px;\n  cursor: pointer;\n  font-size: 14px;\n  transition: all 0.3s ease;\n}\n\n.new-deposit-interface .clear-btn:hover {\n  background: #7f8c8d;\n}\n\n.new-deposit-interface .next-button-container {\n  text-align: center;\n  margin-top: 30px;\n}\n\n.new-deposit-interface .next-btn {\n  background: #5a6c7d;\n  border: none;\n  color: white;\n  padding: 15px 40px;\n  border-radius: 8px;\n  font-size: 16px;\n  font-weight: bold;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  min-width: 150px;\n}\n\n.new-deposit-interface .next-btn:hover {\n  background: #7f8c8d;\n  transform: translateY(-2px);\n}\n\n.new-deposit-interface .next-btn.loading {\n  background: #7f8c8d;\n  cursor: not-allowed;\n}\n\n.new-deposit-interface .next-btn.loading:hover {\n  transform: none;\n}\n\n.new-deposit-interface .next-btn .fas {\n  margin-right: 8px;\n}\n\n.new-deposit-interface .next-btn span {\n  margin-left: 5px;\n}\n\n/* Additional Mobile Optimizations */\n@media (max-width: 600px) {\n  .new-deposit-interface .deposit-header-content {\n    flex-direction: column;\n    gap: 8px;\n  }\n  \n  .new-deposit-interface .deposit-icon {\n    width: 35px;\n    height: 35px;\n    font-size: 16px;\n  }\n  \n  .new-deposit-interface .payment-methods {\n    gap: 8px;\n    justify-content: space-between;\n  }\n\n  .new-deposit-interface .payment-method-btn {\n    min-height: 50px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    min-width: 75px;\n    padding: 10px 8px;\n    font-size: 11px;\n    gap: 6px;\n  }\n  \n  .new-deposit-interface .option-btn {\n    min-height: 40px;\n    display: flex;\n    flex-direction: row;\n    align-items: center;\n    justify-content: center;\n    gap: 5px;\n    white-space: nowrap;\n  }\n  \n  .new-deposit-interface .amount-btn {\n    min-height: 45px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n  }\n  \n  .new-deposit-interface .next-btn {\n    min-height: 50px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    gap: 8px;\n  }\n  \n  .new-deposit-interface .upload-btn,\n  .new-deposit-interface .confirm-btn {\n    min-height: 45px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n  }\n}\n\n/* Details Page Styles */\n.new-deposit-interface .back-btn {\n  background: transparent;\n  border: none;\n  color: #ecf0f1;\n  font-size: 16px;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 10px;\n}\n\n.new-deposit-interface .back-btn:hover {\n  color: #f39c12;\n}\n\n.new-deposit-interface .success-indicator {\n  background: #27ae60;\n  color: white;\n  padding: 10px 20px;\n  border-radius: 25px;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  justify-content: center;\n  margin: 10px 0;\n  font-size: 14px;\n}\n\n.new-deposit-interface .bonus-selection {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .bonus-selection label {\n  display: block;\n  color: #ecf0f1;\n  font-size: 16px;\n  margin-bottom: 8px;\n}\n\n.new-deposit-interface .bonus-select {\n  width: 100%;\n  background: #34495e;\n  border: 2px solid #4a5f7a;\n  color: #ecf0f1;\n  padding: 12px;\n  border-radius: 8px;\n  font-size: 14px;\n  cursor: pointer;\n}\n\n.new-deposit-interface .payment-details-section {\n  background: rgba(52, 73, 94, 0.8);\n  padding: 20px;\n  border-radius: 10px;\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .payment-details-section h3 {\n  color: #f39c12;\n  font-size: 20px;\n  margin-bottom: 20px;\n  text-align: center;\n}\n\n.new-deposit-interface .account-details {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .detail-item {\n  margin-bottom: 15px;\n}\n\n.new-deposit-interface .detail-item label {\n  display: block;\n  color: #bdc3c7;\n  font-size: 14px;\n  margin-bottom: 5px;\n}\n\n.new-deposit-interface .detail-value {\n  background: #f39c12;\n  color: #2c3e50;\n  padding: 12px;\n  border-radius: 6px;\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  font-weight: bold;\n}\n\n.new-deposit-interface .copy-btn {\n  background: transparent;\n  border: none;\n  color: #2c3e50;\n  cursor: pointer;\n  font-size: 16px;\n  padding: 5px;\n  border-radius: 4px;\n  transition: all 0.3s ease;\n}\n\n.new-deposit-interface .copy-btn:hover {\n  background: rgba(44, 62, 80, 0.1);\n}\n\n.new-deposit-interface .utr-input {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .utr-input input {\n  width: 100%;\n  background: #5a6c7d;\n  border: 2px solid #7f8c8d;\n  color: white;\n  padding: 12px;\n  border-radius: 8px;\n  font-size: 14px;\n}\n\n.new-deposit-interface .utr-input input::placeholder {\n  color: #bdc3c7;\n}\n\n.new-deposit-interface .payment-types {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .payment-type-options {\n  display: flex;\n  gap: 15px;\n  justify-content: center;\n}\n\n.new-deposit-interface .payment-type-options label {\n  cursor: pointer;\n}\n\n.new-deposit-interface .payment-type-options input[type=\"radio\"] {\n  display: none;\n}\n\n.new-deposit-interface .radio-btn {\n  background: #34495e;\n  border: 2px solid #4a5f7a;\n  color: #ecf0f1;\n  padding: 10px 20px;\n  border-radius: 25px;\n  font-size: 14px;\n  transition: all 0.3s ease;\n  display: inline-block;\n}\n\n.new-deposit-interface .radio-btn.active,\n.new-deposit-interface .payment-type-options input[type=\"radio\"]:checked + .radio-btn {\n  background: #e74c3c;\n  border-color: #c0392b;\n  color: white;\n}\n\n.new-deposit-interface .upload-section {\n  display: flex;\n  gap: 15px;\n  align-items: center;\n  justify-content: center;\n  flex-wrap: wrap;\n}\n\n.new-deposit-interface .upload-btn {\n  background: #f39c12;\n  color: #2c3e50;\n  padding: 12px 25px;\n  border-radius: 8px;\n  font-weight: bold;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  text-transform: uppercase;\n  font-size: 14px;\n}\n\n.new-deposit-interface .upload-btn:hover {\n  background: #e67e22;\n  transform: translateY(-2px);\n}\n\n.new-deposit-interface .confirm-btn {\n  background: #8b7355;\n  color: white;\n  border: none;\n  padding: 12px 25px;\n  border-radius: 8px;\n  font-weight: bold;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  text-transform: uppercase;\n  font-size: 14px;\n}\n\n.new-deposit-interface .confirm-btn.active {\n  background: #27ae60;\n}\n\n.new-deposit-interface .confirm-btn.active:hover {\n  background: #229954;\n  transform: translateY(-2px);\n}\n\n.new-deposit-interface .confirm-btn.disabled {\n  background: #7f8c8d;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n/* UPI Specific Styles */\n.new-deposit-interface .upi-payment-section {\n  text-align: center;\n}\n\n.new-deposit-interface .qr-section {\n  margin-bottom: 20px;\n}\n\n.new-deposit-interface .qr-section p {\n  color: #5a6c7d;\n  font-size: 14px;\n  margin-bottom: 15px;\n  padding: 10px;\n  background: rgba(90, 108, 125, 0.2);\n  border-radius: 6px;\n}\n\n.new-deposit-interface .qr-code-container {\n  background: white;\n  padding: 20px;\n  border-radius: 10px;\n  margin: 20px auto;\n  max-width: 300px;\n  display: inline-block;\n}\n\n.new-deposit-interface .upi-id {\n  margin-top: 15px;\n}\n\n.new-deposit-interface .upi-id label {\n  color: #bdc3c7;\n  font-size: 14px;\n  margin-bottom: 5px;\n  display: block;\n}\n\n/* Mobile Responsive */\n@media (max-width: 768px) {\n  .new-deposit-interface.deposit-container {\n    padding: 10px;\n    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);\n  }\n  \n  .new-deposit-interface .deposit-header {\n    margin-bottom: 1px;\n  }\n  \n  .new-deposit-interface .deposit-header h2 {\n    font-size: 22px;\n  }\n  \n  .new-deposit-interface .deposit-subtitle {\n    font-size: 14px;\n  }\n  \n  .new-deposit-interface .deposit-disclaimer {\n    padding: 12px;\n    margin-bottom: 15px;\n    font-size: 13px;\n  }\n  \n  .new-deposit-interface .payment-methods {\n    flex-wrap: wrap;\n    gap: 8px;\n    margin-bottom: 15px;\n    justify-content: space-between;\n  }\n  \n  .new-deposit-interface .payment-method-btn {\n    padding: 10px 8px;\n    font-size: 11px;\n    text-align: center;\n    border-radius: 6px;\n    flex: 1;\n    min-width: 70px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    gap: 5px;\n  }\n  \n  .new-deposit-interface .payment-options {\n    flex-direction: row;\n    gap: 8px;\n    margin-bottom: 15px;\n    flex-wrap: wrap;\n  }\n  \n  .new-deposit-interface .option-btn {\n    flex: 1;\n    min-width: 80px;\n    max-width: none;\n    padding: 10px 15px;\n    font-size: 12px;\n    display: flex;\n    flex-direction: row;\n    align-items: center;\n    justify-content: center;\n    gap: 4px;\n    white-space: nowrap;\n  }\n  \n  .new-deposit-interface .amount-grid {\n    grid-template-columns: repeat(3, 1fr);\n    gap: 8px;\n    margin-bottom: 15px;\n  }\n  \n  .new-deposit-interface .amount-btn {\n    padding: 12px 8px;\n    font-size: 12px;\n    border-radius: 4px;\n  }\n  \n  .new-deposit-interface .deposit-note {\n    padding: 10px;\n    margin-bottom: 15px;\n    font-size: 12px;\n  }\n  \n  .new-deposit-interface .amount-input-wrapper {\n    padding: 12px;\n    margin-bottom: 15px;\n  }\n  \n  .new-deposit-interface .amount-input {\n    font-size: 14px;\n  }\n  \n  .new-deposit-interface .clear-btn {\n    padding: 6px 12px;\n    font-size: 12px;\n  }\n  \n  .new-deposit-interface .next-button-container {\n    margin-top: 20px;\n  }\n  \n  .new-deposit-interface .next-btn {\n    width: 100%;\n    padding: 14px 20px;\n    font-size: 16px;\n  }\n  \n  .new-deposit-interface .upload-section {\n    flex-direction: column;\n    gap: 12px;\n  }\n  \n  .new-deposit-interface .upload-btn,\n  .new-deposit-interface .confirm-btn {\n    width: 100%;\n    text-align: center;\n    padding: 12px 20px;\n  }\n  \n  .new-deposit-interface .detail-value {\n    font-size: 13px;\n    padding: 10px;\n  }\n  \n  .new-deposit-interface .payment-type-options {\n    flex-direction: row;\n    gap: 8px;\n    flex-wrap: wrap;\n  }\n  \n  .new-deposit-interface .radio-btn {\n    text-align: center;\n    flex: 1;\n    min-width: 80px;\n    padding: 8px 15px;\n    font-size: 12px;\n  }\n  \n  .new-deposit-interface .payment-details-section {\n    padding: 15px;\n  }\n  \n  .new-deposit-interface .utr-input input {\n    padding: 10px;\n    font-size: 14px;\n  }\n}\n\n@media (max-width: 480px) {\n  .new-deposit-interface.deposit-container {\n    padding: 6px;\n  }\n  \n  .new-deposit-interface .deposit-header h2 {\n    font-size: 20px;\n  }\n  \n  .new-deposit-interface .deposit-subtitle {\n    font-size: 13px;\n  }\n  \n  .new-deposit-interface .deposit-disclaimer {\n    padding: 0px;\n    font-size: 12px;\n  }\n  \n  .new-deposit-interface .payment-methods {\n    gap: 6px;\n    justify-content: space-between;\n  }\n  \n  .new-deposit-interface .payment-method-btn {\n    padding: 8px 6px;\n    font-size: 10px;\n    flex: 1;\n    min-width: 65px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    gap: 4px;\n  }\n  \n  .new-deposit-interface .payment-options {\n    gap: 6px;\n  }\n  \n  .new-deposit-interface .option-btn {\n    padding: 8px 10px;\n    font-size: 11px;\n    min-width: 70px;\n    display: flex;\n    flex-direction: row;\n    align-items: center;\n    justify-content: center;\n    gap: 3px;\n    white-space: nowrap;\n  }\n  \n  .new-deposit-interface .amount-grid {\n    grid-template-columns: repeat(2, 1fr);\n    gap: 6px;\n  }\n  \n  .new-deposit-interface .amount-btn {\n    padding: 10px 6px;\n    font-size: 20px;\n    border-radius: 15%;\n  }\n  \n  .new-deposit-interface .deposit-note {\n    padding: 8px;\n    font-size: 11px;\n  }\n  \n  .new-deposit-interface .amount-input-wrapper {\n    padding: 10px;\n  }\n  \n  .new-deposit-interface .amount-input {\n    font-size: 13px;\n  }\n  \n  .new-deposit-interface .clear-btn {\n    padding: 5px 10px;\n    font-size: 11px;\n  }\n  \n  .new-deposit-interface .next-btn {\n    padding: 12px 15px;\n    font-size: 14px;\n  }\n  \n  .new-deposit-interface .payment-details-section {\n    padding: 12px;\n  }\n  \n  .new-deposit-interface .detail-value {\n    font-size: 12px;\n    padding: 8px;\n  }\n  \n  .new-deposit-interface .radio-btn {\n    padding: 6px 12px;\n    font-size: 11px;\n    min-width: 70px;\n  }\n  \n  .new-deposit-interface .upload-btn,\n  .new-deposit-interface .confirm-btn {\n    padding: 10px 15px;\n    font-size: 12px;\n  }\n  \n  .new-deposit-interface .qr-code-container {\n    padding: 32px;\n    max-width: 303px;\n  }\n  \n  .new-deposit-interface .utr-input input {\n    padding: 8px;\n    font-size: 13px;\n  }\n}"],"sourceRoot":""}]);
+// Exports
+___CSS_LOADER_EXPORT___.locals = {};
+export default ___CSS_LOADER_EXPORT___;

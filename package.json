@@ -1,0 +1,23 @@
+{
+  "name": "ambaniexchange-frontend-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js server for the ambaniexchange frontend snapshot",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "hash": "node data_store/generate_password_hash.js",
+    "qa:admin": "node scripts/admin_qa_check.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "crypto-js": "^4.2.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
+    "mysql2": "^3.15.2"
+  }
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sports Stream - 67712060</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #000;
+      }
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Use JavaScript to decode and insert iframe URL -->
+    <script>
+      window.onload = function () {
+        const encodedUrl =
+          "L3N0cmVhbS9zZWN1cmU/Z21pZD02NzcxMjA2MCZrZXk9c25xa25rcW5ka3FuZGtxa2Rxbmtkbg==";
+        const decodedUrl = atob(encodedUrl); // Decode the URL
+        document.getElementById("iframe").src = decodedUrl;
+      };
+    </script>
+    <!-- Use an empty iframe and dynamically populate the src -->
+    <iframe id="iframe" allowfullscreen></iframe>
+  </body>
+</html>

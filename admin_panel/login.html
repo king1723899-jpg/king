@@ -1,0 +1,136 @@
+﻿<html lang="en">
+
+<head>
+  <base href="/" />
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width,  user-scalable=no" id="myViewport" />
+  <meta name="csrf-token" content="HljdN1tbl0aANLN73sOfeBjeAmacWilrti5KHlPX" />
+   <meta property="og:title" content="ambaniexchange | ambaniexchange Official | ambaniexchange Book | ambaniexchange ID" />
+  <meta property="og:description" content="Your trusted platform for casino, betting, and fun games online." />
+  <meta property="og:image" content="http://139.84.174.126:3000/preview.png" />
+  <meta property="og:url" content="http://139.84.174.126:3000/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>ambaniexchange</title>
+  <link rel="stylesheet" href="/css/all.css" />
+  <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css" />
+  <link href="/css/theme.css" rel="stylesheet" />
+  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/footer.css" rel="stylesheet" />
+  <link rel="stylesheet" type="text/css" href="/css/owl.carousel.css" />
+  <link rel="stylesheet" type="text/css" href="/css/owl.theme.default.css" />
+  <link rel="stylesheet" href="/css/flipclock.css" />
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/bootstrap.min.js"></script>
+  
+  <link href="/assets/fonts/titillium-web.css" rel="stylesheet">
+  <script src="/assets/vendor/owlcarousel/owl.carousel.min.js"></script>
+  <link rel="stylesheet" href="/assets/vendor/owlcarousel/owl.carousel.min.css" />
+  <link rel="stylesheet"
+    href="/assets/vendor/owlcarousel/owl.theme.default.css" />
+  <link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles" />
+  <link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2" />
+  <link type="text/css" rel="stylesheet" href="/css/admin-style.css?v=32" id="admin-styles" />
+  <script>
+  (function () {
+    const userStyles = document.getElementById('user-styles');
+    const userStyles2 = document.getElementById('user-styles2');
+    const adminStyles = document.getElementById('admin-styles');
+    const viewportMeta = document.getElementById('myViewport');
+
+    const applyCssMode = () => {
+      const isAdminRoute = /(^|\/)admin(\/|$)/i.test(window.location.pathname || '');
+      if (userStyles) userStyles.disabled = isAdminRoute;
+      if (userStyles2) userStyles2.disabled = isAdminRoute;
+      if (adminStyles) adminStyles.disabled = !isAdminRoute;
+      if (viewportMeta) viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1');
+    };
+
+    const patchHistoryMethod = (methodName) => {
+      const original = history[methodName];
+      if (typeof original !== 'function') return;
+      history[methodName] = function () {
+        const result = original.apply(this, arguments);
+        requestAnimationFrame(applyCssMode);
+        return result;
+      };
+    };
+
+    applyCssMode();
+    patchHistoryMethod('pushState');
+    patchHistoryMethod('replaceState');
+    window.addEventListener('popstate', applyCssMode);
+    window.addEventListener('hashchange', applyCssMode);
+  })();
+</script>
+  <script>
+    // Prevent auto-redirect to user dashboard when opening admin login.
+    if (window.location.pathname.includes('/admin/login')) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('token-admin')
+      localStorage.removeItem('refreshToken-admin')
+      localStorage.removeItem('userType')
+      localStorage.removeItem('userType-admin')
+      localStorage.removeItem('login-session')
+      localStorage.removeItem('current-username')
+      sessionStorage.removeItem('my-tab-id')
+    }
+  </script>
+<script src="/url-rewrite.js"></script>
+<script defer src="/static/js/bundle.js"></script></head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+  <div
+    id="dev-credit-login"
+    style="position:fixed;right:18px;bottom:16px;z-index:2000;padding:7px 12px;border-radius:999px;background:rgba(15,23,42,.9);color:#f8fafc;font-size:12px;font-weight:600;letter-spacing:.4px;box-shadow:0 8px 24px rgba(0,0,0,.22);border:1px solid rgba(148,163,184,.35);font-family:'Titillium Web',sans-serif;"
+  >
+    Developed By JASHXN
+  </div>
+  <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+    -->
+  <script type="text/javascript" async>
+    $(document).ready(function () {
+      ///setTimeout(function () { $(".popop_boxman").show(); }, 5000);
+      var fixmeTop = 100
+      if ($('#sidebar-right').offset()) {
+        fixmeTop = $('#sidebar-right').offset().top
+      }
+
+      window.onscroll = function () {
+        myFunction(fixmeTop)
+      }
+    })
+
+    function myFunction(fixmeTop) {
+      var currentScroll = $(window).scrollTop()
+      if (window.location.href.includes('admin/casino')) {
+        if (currentScroll >= fixmeTop) {
+          $('#sidebar-right').addClass('stickycasino')
+        } else {
+          $('#sidebar-right').removeClass('stickycasino')
+        }
+      } else {
+        if (currentScroll >= fixmeTop) {
+          $('#sidebar-right').addClass('sticky')
+        } else {
+          $('#sidebar-right').removeClass('sticky')
+        }
+      }
+    }
+  </script>
+</body>
+
+</html>
+
+

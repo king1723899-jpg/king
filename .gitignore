@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment Variables
+.env
+.env.local
+
+# SQLite Database Files (prevents server conflicts)
+data_store/*.db
+data_store/*.db-shm
+data_store/*.db-wal
+*.sqlite
+*.sqlite3
+
+# OS Files
+.DS_Store

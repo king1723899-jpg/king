@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Add User</title>
+  <link rel="stylesheet" href="/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="/css/admin-style.css?v=32" />
+  <style>
+    body {
+      background: #f5f7fb;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #1f2937;
+    }
+    .panel-card {
+      border: 1px solid #d6deeb;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 0 0 14px;
+      color: #0f172a;
+    }
+    .field-label {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #334155;
+    }
+    .status-box {
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: none;
+      margin-top: 10px;
+    }
+    .status-success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .status-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .status-info {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+    }
+    .table thead th {
+      white-space: nowrap;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #475569;
+    }
+    .table tbody td {
+      font-size: 13px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4 py-lg-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-xl-10">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+          <h1 class="h4 mb-2 mb-md-0">Add User</h1>
+          <a class="btn btn-outline-secondary btn-sm" href="/admin/list-clients">List Clients</a>
+        </div>
+
+        <div class="panel-card p-3 p-md-4">
+          <form id="clientForm" novalidate>
+            <h2 class="section-title">General Information</h2>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="field-label" for="userName">User Name *</label>
+                <input class="form-control" id="userName" name="userName" placeholder="User Name" required />
+              </div>
+              <div class="col-md-6">
+                <label class="field-label" for="fullName">Full Name *</label>
+                <input class="form-control" id="fullName" name="fullName" placeholder="Full Name" required />
+              </div>
+              <div class="col-md-6">
+                <label class="field-label" for="password">Password *</label>
+                <input class="form-control" id="password" name="password" type="password" placeholder="Password" required />
+              </div>
+              <div class="col-md-6">
+                <label class="field-label" for="confirmPassword">Confirm Password *</label>
+                <input class="form-control" id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm Password" required />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="city">City</label>
+                <input class="form-control" id="city" name="city" placeholder="City" />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="mobileNumber">Mobile Number</label>
+                <input class="form-control" id="mobileNumber" name="mobileNumber" placeholder="Mobile Number" />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="creditAmount">Credit Amount</label>
+                <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="Credit Amount" />
+              </div>
+            </div>
+
+            <h2 class="section-title mt-4">Partnership Information</h2>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="field-label" for="partnershipType">Partnership Type</label>
+                <select class="form-select" id="partnershipType" name="partnershipType">
+                  <option value="">Select Partnership Type</option>
+                  <option value="super-master">Super Master</option>
+                  <option value="master">Master</option>
+                  <option value="agent" selected>Agent</option>
+                  <option value="client">Client</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="transactionCode">Transaction Code *</label>
+                <input class="form-control" id="transactionCode" name="transactionCode" placeholder="Transaction Code" required />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="remark">Remark</label>
+                <input class="form-control" id="remark" name="remark" placeholder="Remark" />
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4">
+              <button id="submitBtn" type="submit" class="btn btn-primary">Submit</button>
+              <button type="reset" class="btn btn-outline-secondary">Reset</button>
+            </div>
+            <div id="formStatus" class="status-box"></div>
+          </form>
+        </div>
+
+        <div class="panel-card p-3 p-md-4 mt-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h2 class="section-title mb-0">Saved Records</h2>
+            <button class="btn btn-outline-primary btn-sm" id="refreshBtn" type="button">Refresh</button>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <input id="searchInput" class="form-control form-control-sm" placeholder="Search username / city / mobile" />
+            </div>
+          </div>
+          <div id="listStatus" class="status-box"></div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>User Name</th>
+                  <th>Full Name</th>
+                  <th>City</th>
+                  <th>Mobile</th>
+                  <th>Credit</th>
+                  <th>Partnership</th>
+                  <th>Remark</th>
+                  <th>Txn Code</th>
+                  <th>Created At</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody">
+                <tr><td colspan="9" class="text-center text-muted py-4">No records</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const API_PATH = "/api/admin/client-onboarding";
+      const form = document.getElementById("clientForm");
+      const formStatus = document.getElementById("formStatus");
+      const listStatus = document.getElementById("listStatus");
+      const submitBtn = document.getElementById("submitBtn");
+      const recordsBody = document.getElementById("recordsBody");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const searchInput = document.getElementById("searchInput");
+      let searchDebounce = null;
+
+      function showStatus(target, text, type) {
+        target.className = "status-box";
+        if (!text) {
+          target.style.display = "none";
+          target.textContent = "";
+          return;
+        }
+        target.style.display = "block";
+        target.classList.add(type === "error" ? "status-error" : type === "success" ? "status-success" : "status-info");
+        target.textContent = text;
+      }
+
+      function getToken() {
+        const keys = ["token-admin", "adminToken", "token", "authToken", "accessToken", "jwt"];
+        for (let i = 0; i < keys.length; i += 1) {
+          const key = keys[i];
+          const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+          if (!value) continue;
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed === "object") {
+              if (parsed.token) return String(parsed.token);
+              if (parsed.accessToken) return String(parsed.accessToken);
+            }
+          } catch (_) {}
+          return String(value);
+        }
+        return "";
+      }
+
+      function buildHeaders(isJson) {
+        const headers = {};
+        if (isJson) headers["Content-Type"] = "application/json";
+        const token = getToken();
+        if (token) headers.Authorization = "Bearer " + token;
+        return headers;
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function formatDate(value) {
+        if (!value) return "-";
+        const dt = new Date(value);
+        if (Number.isNaN(dt.getTime())) return String(value);
+        return dt.toLocaleString();
+      }
+
+      function renderRows(items) {
+        if (!Array.isArray(items) || !items.length) {
+          recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No records</td></tr>';
+          return;
+        }
+        recordsBody.innerHTML = items
+          .map(function (item) {
+            return (
+              "<tr>" +
+              "<td>" + escapeHtml(item.username) + "</td>" +
+              "<td>" + escapeHtml(item.fullName) + "</td>" +
+              "<td>" + escapeHtml(item.city) + "</td>" +
+              "<td>" + escapeHtml(item.mobileNumber) + "</td>" +
+              "<td>" + escapeHtml(item.creditAmount) + "</td>" +
+              "<td>" + escapeHtml(item.partnership && item.partnership.type) + "</td>" +
+              "<td>" + escapeHtml(item.partnership && item.partnership.remark) + "</td>" +
+              "<td>" + escapeHtml(item.partnership && item.partnership.transactionCodeMasked) + "</td>" +
+              "<td>" + escapeHtml(formatDate(item.createdAt)) + "</td>" +
+              "</tr>"
+            );
+          })
+          .join("");
+      }
+
+      async function loadRecords() {
+        const search = (searchInput.value || "").trim();
+        const url = API_PATH + "?limit=100&page=1&search=" + encodeURIComponent(search);
+        showStatus(listStatus, "Loading records...", "info");
+        try {
+          const response = await fetch(url, { headers: buildHeaders(false) });
+          const payload = await response.json().catch(function () { return {}; });
+          if (!response.ok || payload.error) {
+            throw new Error(payload.message || "Unable to fetch records");
+          }
+          const data = payload.data || {};
+          const docs = Array.isArray(data.docs) ? data.docs : [];
+          renderRows(docs);
+          showStatus(listStatus, "Total records: " + (data.totalDocs || docs.length || 0), "success");
+        } catch (error) {
+          renderRows([]);
+          showStatus(listStatus, error.message || "Unable to fetch records", "error");
+        }
+      }
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        showStatus(formStatus, "", "info");
+
+        const payload = {
+          userName: form.userName.value,
+          fullName: form.fullName.value,
+          password: form.password.value,
+          confirmPassword: form.confirmPassword.value,
+          city: form.city.value,
+          mobileNumber: form.mobileNumber.value,
+          creditAmount: form.creditAmount.value,
+          partnershipType: form.partnershipType.value,
+          remark: form.remark.value,
+          transactionCode: form.transactionCode.value,
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Saving...";
+        try {
+          const response = await fetch(API_PATH, {
+            method: "POST",
+            headers: buildHeaders(true),
+            body: JSON.stringify(payload),
+          });
+          const result = await response.json().catch(function () { return {}; });
+          if (!response.ok || result.error) {
+            throw new Error(result.message || "Unable to save");
+          }
+          showStatus(formStatus, result.message || "Saved successfully", "success");
+          form.reset();
+          form.partnershipType.value = "agent";
+          await loadRecords();
+        } catch (error) {
+          showStatus(formStatus, error.message || "Unable to save", "error");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit";
+        }
+      });
+
+      refreshBtn.addEventListener("click", function () {
+        loadRecords();
+      });
+
+      searchInput.addEventListener("input", function () {
+        if (searchDebounce) clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(loadRecords, 300);
+      });
+
+      loadRecords();
+    })();
+  </script>
+</body>
+</html>
