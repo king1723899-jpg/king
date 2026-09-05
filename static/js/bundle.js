@@ -1221,7 +1221,7 @@ const AdminRoutes = () => {
           lineNumber: 77,
           columnNumber: 39
         }, undefined)
-      }, ...(userState.user.role === _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleType.admin || userState.user.role === _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleType.sadmin ? [{
+      }, ...(userState.user.role === _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleType.super_admin || userState.user.role === _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleType.admin ? [{
         path: 'sports-list/:url?',
         element: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_4__.jsxDEV)(SportsPage, {}, void 0, false, {
           fileName: _jsxFileName,
@@ -2398,19 +2398,16 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__.$Refresh$.runtime = __webpack_require__(/*! ./node_modules/react-refresh/runtime.js */ "./node_modules/react-refresh/runtime.js");
 
 let RoleType = /*#__PURE__*/function (RoleType) {
+  RoleType["super_admin"] = "super_admin";
   RoleType["admin"] = "admin";
-  RoleType["sadmin"] = "sadmin";
-  RoleType["smdl"] = "smdl";
-  RoleType["mdl"] = "mdl";
-  RoleType["dl"] = "dl";
+  RoleType["sub_admin"] = "sub_admin";
   RoleType["user"] = "user";
   return RoleType;
 }({});
 const RoleName = {
-  admin: 'OWNER',
-  smdl: 'SUPER MASTER',
-  mdl: 'MASTER',
-  dl: 'AGENT',
+  super_admin: 'SUPER ADMIN',
+  admin: 'ADMIN',
+  sub_admin: 'SUB ADMIN',
   user: 'USER'
 };
 

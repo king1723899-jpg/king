@@ -6,6 +6,7 @@ const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const Database = require("better-sqlite3");
 const CryptoJS = require("crypto-js");
+const { validatePartnershipEntries, validateBetAmount, settleBet } = require("./lib/sprint2");
 
 const app = express();
 const upload = multer({
@@ -148,57 +149,54 @@ const DEMO_INITIAL_BALANCE = Math.max(0, envNum(process.env.DEMO_INITIAL_BALANCE
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "demo@123";
 const ADMIN_INITIAL_BALANCE = Math.max(0, envNum(process.env.ADMIN_INITIAL_BALANCE, 10000));
 const DEFAULT_USER_OPENING_BALANCE = Math.max(0, envNum(process.env.DEFAULT_USER_OPENING_BALANCE, 0));
+const PLATFORM_MODE = String(process.env.PLATFORM_MODE || "b2b").trim().toLowerCase();
+const UPLINE_COMMISSION_PERCENT = 1;
 const OWNER_UNLIMITED_COINS =
   process.env.OWNER_UNLIMITED_COINS === undefined
     ? true
     : envBool(process.env.OWNER_UNLIMITED_COINS);
 
 const HIERARCHY_ROLE = {
-  OWNER: "owner",
-  MASTER_AGENT: "master_agent",
-  AGENT: "agent",
+  SUPER_ADMIN: "super_admin",
+  ADMIN: "admin",
+  SUB_ADMIN: "sub_admin",
   USER: "user",
 };
 const HIERARCHY_CHILD_ROLE = {
-  [HIERARCHY_ROLE.OWNER]: HIERARCHY_ROLE.MASTER_AGENT,
-  [HIERARCHY_ROLE.MASTER_AGENT]: HIERARCHY_ROLE.AGENT,
-  [HIERARCHY_ROLE.AGENT]: HIERARCHY_ROLE.USER,
+  [HIERARCHY_ROLE.SUPER_ADMIN]: HIERARCHY_ROLE.ADMIN,
+  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.SUB_ADMIN,
+  [HIERARCHY_ROLE.SUB_ADMIN]: HIERARCHY_ROLE.USER,
 };
 const HIERARCHY_LEVEL = {
-  [HIERARCHY_ROLE.OWNER]: 1,
-  [HIERARCHY_ROLE.MASTER_AGENT]: 2,
-  [HIERARCHY_ROLE.AGENT]: 3,
+  [HIERARCHY_ROLE.SUPER_ADMIN]: 1,
+  [HIERARCHY_ROLE.ADMIN]: 2,
+  [HIERARCHY_ROLE.SUB_ADMIN]: 3,
   [HIERARCHY_ROLE.USER]: 4,
 };
 const normalizeHierarchyRole = (value) => {
   const raw = String(value || "").trim().toLowerCase();
-  if (["owner", "admin", "sadmin", "superadmin"].includes(raw)) return HIERARCHY_ROLE.OWNER;
-  if (["master_agent", "masteragent", "master", "smdl", "mdl"].includes(raw)) return HIERARCHY_ROLE.MASTER_AGENT;
-  if (["agent", "dl"].includes(raw)) return HIERARCHY_ROLE.AGENT;
+  if (["owner", "super_admin", "superadmin", "sadmin", "smdl", "super master", "super-master", "super_master"].includes(raw)) return HIERARCHY_ROLE.SUPER_ADMIN;
+  if (["admin", "master_agent", "masteragent", "master", "mdl"].includes(raw)) return HIERARCHY_ROLE.ADMIN;
+  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return HIERARCHY_ROLE.SUB_ADMIN;
   return HIERARCHY_ROLE.USER;
 };
 const getExpectedChildRole = (parentRole) => HIERARCHY_CHILD_ROLE[normalizeHierarchyRole(parentRole)] || null;
 const canCreateHierarchyChild = (parentRole, childRole) =>
   normalizeHierarchyRole(childRole) === getExpectedChildRole(parentRole);
 
-const OWNER_ROLE_SET = new Set(["owner", "admin", "sadmin", "superadmin"]);
+const OWNER_ROLE_SET = new Set(["super_admin"]);
 const PANEL_ROLE_DEPTH = {
-  owner: 0,
-  admin: 0,
-  sadmin: 0,
-  superadmin: 0,
-  smdl: 1,
-  mdl: 2,
-  dl: 3,
-  user: 4,
+  super_admin: 0,
+  admin: 1,
+  sub_admin: 2,
+  user: 3,
 };
 const normalizePanelRole = (value, fallback = "user") => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return fallback;
-  if (OWNER_ROLE_SET.has(raw)) return raw === "owner" ? "admin" : raw;
-  if (["super master", "super-master", "super_master", "supermaster", "smdl"].includes(raw)) return "smdl";
-  if (["master", "mdl", "master_agent", "masteragent"].includes(raw)) return "mdl";
-  if (["agent", "dl"].includes(raw)) return "dl";
+  if (["owner", "super_admin", "superadmin", "sadmin", "super master", "super-master", "super_master", "supermaster", "smdl"].includes(raw)) return "super_admin";
+  if (["admin", "master", "mdl", "master_agent", "masteragent"].includes(raw)) return "admin";
+  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "sub_admin";
   if (["user", "client", "player"].includes(raw)) return "user";
   return fallback;
 };
@@ -207,13 +205,12 @@ const panelRoleDepth = (value) => PANEL_ROLE_DEPTH[normalizePanelRole(value, "us
 const canRoleCreateRole = (actorRole, childRole) => {
   const actor = normalizePanelRole(actorRole, "user");
   const child = normalizePanelRole(childRole, "user");
-  if (child === "admin" || child === "sadmin" || child === "superadmin") return false;
   if (actor === "user") return false;
   return panelRoleDepth(actor) < panelRoleDepth(child);
 };
 const roleForAdminPanelUi = (value) => {
   const normalized = normalizePanelRole(value, "user");
-  return normalized === "user" ? "user" : "admin";
+  return normalized;
 };
 
 const ADMIN_FEATURE_CATALOG = [
@@ -885,6 +882,27 @@ const ensureTableColumn = (tableName, columnName, sqlType) => {
   }
 };
 ensureTableColumn("deposits", "data_json", "TEXT");
+ensureTableColumn("users", "upline_commission", "REAL NOT NULL DEFAULT 0");
+ensureTableColumn("users", "min_bet", "REAL NOT NULL DEFAULT 0");
+ensureTableColumn("users", "max_bet", "REAL NOT NULL DEFAULT 0");
+ensureTableColumn("users", "credit_limit", "REAL NOT NULL DEFAULT 0");
+ensureTableColumn("users", "partnership_remaining", "REAL NOT NULL DEFAULT 100");
+ensureTableColumn("bets", "settlement_result", "TEXT");
+ensureTableColumn("bets", "settlement_net", "REAL");
+ensureTableColumn("bets", "settled_at", "TEXT");
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_partnerships (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  partner_id TEXT NOT NULL,
+  share_percentage REAL NOT NULL CHECK (share_percentage >= 0 AND share_percentage <= 100),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(user_id, partner_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_partnerships_user_id ON user_partnerships(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_partnerships_partner_id ON user_partnerships(partner_id);
+`);
 
 const setSetting = (key, value) => {
   const result = db
@@ -2711,19 +2729,32 @@ const syncOtpToMysql = async ({ phone, code, attempts, verified, expiresAt, crea
     [phone, code, attempts, verified, expiresAt, createdAt, updatedAt]
   );
 };
-const syncUserToMysql = async ({ id, username, password, role, level, parentId, sessionId, createdAt, updatedAt }) => {
+const syncUserToMysql = async ({ id, username, password, role, level, parentId, sessionId, createdAt, updatedAt, minBet = 0, maxBet = 0, creditLimit = 0, partnershipRemaining = 100 }) => {
   await mysqlExec(
-    `INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?)
+    `INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at,min_bet,max_bet,credit_limit,partnership_remaining)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE
        password=VALUES(password),
        role=VALUES(role),
        level=VALUES(level),
        parent_id=VALUES(parent_id),
        session_id=VALUES(session_id),
+       min_bet=VALUES(min_bet),
+       max_bet=VALUES(max_bet),
+       credit_limit=VALUES(credit_limit),
+       partnership_remaining=VALUES(partnership_remaining),
        updated_at=VALUES(updated_at)`,
-    [id, username, password, role, level, parentId, sessionId, createdAt, updatedAt]
+    [id, username, password, role, level, parentId, sessionId, createdAt, updatedAt, minBet, maxBet, creditLimit, partnershipRemaining]
   );
+};
+const syncUserPartnershipsToMysql = async ({ userId, partnerships = [] }) => {
+  if (!mysqlPool) return;
+  await mysqlExec("DELETE FROM user_partnerships WHERE user_id=?", [userId]);
+  const insert = `INSERT INTO user_partnerships (id,user_id,partner_id,share_percentage,created_at,updated_at) VALUES (?,?,?,?,?,?)`;
+  const now = nowIso();
+  for (const partnership of partnerships) {
+    await mysqlExec(insert, [partnership.id || id("up_"), userId, partnership.partnerId, partnership.sharePercentage, partnership.createdAt || now, partnership.updatedAt || now]);
+  }
 };
 const syncUserProfileToMysql = async ({ userId, dataJson, createdAt, updatedAt }) => {
   await mysqlExec(
@@ -3014,7 +3045,7 @@ const syncAllSqliteDataToMysql = async () => {
   };
 
   const users = db
-    .prepare("SELECT id,username,password,role,level,parent_id,session_id,created_at,updated_at FROM users")
+    .prepare("SELECT id,username,password,role,level,parent_id,session_id,created_at,updated_at,min_bet,max_bet,credit_limit,partnership_remaining FROM users")
     .all();
   for (const u of users) {
     await syncUserToMysql({
@@ -3027,6 +3058,14 @@ const syncAllSqliteDataToMysql = async () => {
       sessionId: toNum(u.session_id, Date.now()),
       createdAt: u.created_at || nowIso(),
       updatedAt: u.updated_at || nowIso(),
+      minBet: toNum(u.min_bet, 0),
+      maxBet: toNum(u.max_bet, 0),
+      creditLimit: toNum(u.credit_limit, 0),
+      partnershipRemaining: toNum(u.partnership_remaining, 100),
+    });
+    await syncUserPartnershipsToMysql({
+      userId: u.id,
+      partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(u.id),
     });
     counters.users += 1;
   }
@@ -3526,35 +3565,6 @@ const seedUsers = () => {
   const created = nowIso();
   const sessionId = Date.now();
   const passwordHash = hashPass(DEFAULT_LOGIN_PASSWORD);
-  const ownerUsernameLower = String(DEFAULT_LOGIN_USERNAME || "").trim().toLowerCase();
-  const removableAdminRows = db
-    .prepare(
-      `SELECT id,username,role
-       FROM users
-       WHERE lower(role) IN ('admin','sadmin','superadmin')
-         AND lower(username) <> ?`
-    )
-    .all(ownerUsernameLower);
-  if (removableAdminRows.length) {
-    const removeAdminAccountsTx = db.transaction((rows) => {
-      for (const row of rows) {
-        const userId = String(row?.id || "").trim();
-        if (!userId) continue;
-        db.prepare("DELETE FROM admin_feature_permissions WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM admin_client_general WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM bank_accounts WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM casino_provider_transactions WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM casino_provider_player_map WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM bets WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM deposits WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM user_profiles WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM wallets WHERE user_id=?").run(userId);
-        db.prepare("DELETE FROM users WHERE id=?").run(userId);
-      }
-    });
-    removeAdminAccountsTx(removableAdminRows);
-  }
   const upsertByUsername = db.prepare(
     "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password=excluded.password,role=excluded.role,level=excluded.level,parent_id=excluded.parent_id,session_id=excluded.session_id,updated_at=excluded.updated_at"
   );
@@ -3562,9 +3572,9 @@ const seedUsers = () => {
     `admin_${DEFAULT_LOGIN_USERNAME}`,
     DEFAULT_LOGIN_USERNAME,
     passwordHash,
-    "admin",
+    "super_admin",
     1,
-    "superadmin",
+    null,
     sessionId,
     created,
     created
@@ -3575,9 +3585,9 @@ const seedUsers = () => {
       id: account.id,
       username: DEFAULT_LOGIN_USERNAME,
       password: passwordHash,
-      role: "admin",
+      role: "super_admin",
       level: 1,
-      parentId: "superadmin",
+      parentId: null,
       sessionId,
       createdAt: created,
       updatedAt: created,
@@ -3619,9 +3629,9 @@ const seedDemoUsers = () => {
     const sessionId = Date.now() + i;
 
     if (!existing) {
-      insertUser.run(userId, username, passwordHash, "user", 1, "superadmin", sessionId, created, created);
+      insertUser.run(userId, username, passwordHash, "user", 1, null, sessionId, created, created);
     } else {
-      updateUser.run(passwordHash, "user", 1, "superadmin", nowIso(), userId);
+      updateUser.run(passwordHash, "user", 1, null, nowIso(), userId);
     }
 
     if (!hasWalletStmt.get(userId)) {
@@ -3634,7 +3644,7 @@ const seedDemoUsers = () => {
       password: passwordHash,
       role: "user",
       level: 1,
-      parentId: "superadmin",
+      parentId: null,
       sessionId,
       createdAt: created,
       updatedAt: created,
@@ -4977,25 +4987,25 @@ const sanitizeAdminUsername = (value) =>
 const normalizeMobileNumber = (value) => String(value || "").trim().replace(/[^\d+]/g, "");
 const normalizeAdminPartnershipType = (value) => {
   const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return "agent";
-  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super-master";
-  if (["master", "master agent", "master-agent", "master_agent"].includes(raw)) return "master";
-  if (["agent", "dl"].includes(raw)) return "agent";
+  if (!raw) return "sub_admin";
+  if (["super_admin", "superadmin", "super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_admin";
+  if (["admin", "master", "master agent", "master-agent", "master_agent", "mdl"].includes(raw)) return "admin";
+  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "sub_admin";
   if (["client", "user", "player"].includes(raw)) return "client";
   return "other";
 };
 const panelRoleToPartnershipType = (role) => {
   const normalizedRole = normalizePanelRole(role, "user");
-  if (normalizedRole === "smdl") return "super-master";
-  if (normalizedRole === "mdl") return "master";
-  if (normalizedRole === "dl") return "agent";
+  if (normalizedRole === "super_admin") return "super_admin";
+  if (normalizedRole === "admin") return "admin";
+  if (normalizedRole === "sub_admin") return "sub_admin";
   return "client";
 };
 const partnershipTypeToPanelRole = (partnershipType) => {
   const normalizedType = normalizeAdminPartnershipType(partnershipType);
-  if (normalizedType === "super-master") return "smdl";
-  if (normalizedType === "master") return "mdl";
-  if (normalizedType === "agent") return "dl";
+  if (normalizedType === "super_admin") return "super_admin";
+  if (normalizedType === "admin") return "admin";
+  if (normalizedType === "sub_admin") return "sub_admin";
   return "user";
 };
 const resolveAccountRoleFromInput = (body = {}, actorRole = "user") => {
@@ -5005,8 +5015,7 @@ const resolveAccountRoleFromInput = (body = {}, actorRole = "user") => {
     ? normalizePanelRole(explicitRoleText, "user")
     : partnershipTypeToPanelRole(body.partnershipType || body.partnership);
   const normalizedActorRole = normalizePanelRole(actorRole, "user");
-  // Static add-user form defaults to "agent"; correct this for agent-level creators.
-  if (normalizedActorRole === "dl" && requestedRole === "dl") requestedRole = "user";
+  if (normalizedActorRole === "sub_admin" && requestedRole === "sub_admin") requestedRole = "user";
   return normalizePanelRole(requestedRole, "user");
 };
 const maskTransactionCode = (value) => {
@@ -5015,6 +5024,32 @@ const maskTransactionCode = (value) => {
   if (clean.length <= 2) return "*".repeat(clean.length);
   return `${clean.slice(0, 1)}${"*".repeat(Math.max(1, clean.length - 2))}${clean.slice(-1)}`;
 };
+const TRANSACTION_CODE_PREFIX = "enc:v1:";
+const encryptTransactionCode = (value) => {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+  if (clean.startsWith(TRANSACTION_CODE_PREFIX)) return clean;
+  return `${TRANSACTION_CODE_PREFIX}${CryptoJS.AES.encrypt(clean, ENCRYPTION_KEY).toString()}`;
+};
+const decryptTransactionCode = (value) => {
+  const stored = String(value || "").trim();
+  if (!stored.startsWith(TRANSACTION_CODE_PREFIX)) return stored;
+  try {
+    return CryptoJS.AES.decrypt(stored.slice(TRANSACTION_CODE_PREFIX.length), ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8) || "";
+  } catch {
+    return "";
+  }
+};
+const migrateTransactionCodesAtRest = () => {
+  const rows = db.prepare("SELECT general_id,transaction_code FROM admin_client_partnership WHERE transaction_code IS NOT NULL AND transaction_code NOT LIKE ?").all(`${TRANSACTION_CODE_PREFIX}%`);
+  const update = db.prepare("UPDATE admin_client_partnership SET transaction_code=?,updated_at=? WHERE general_id=?");
+  const now = nowIso();
+  const migrate = db.transaction(() => {
+    for (const row of rows) update.run(encryptTransactionCode(row.transaction_code), now, row.general_id);
+  });
+  if (rows.length) migrate();
+};
+migrateTransactionCodesAtRest();
 const resolveActionActor = (req) => {
   const actor = reqUser(req);
   if (!actor) return "admin";
@@ -5033,7 +5068,7 @@ const buildAdminClientListItem = (row) => ({
   partnership: {
     type: row?.partnership_type || "agent",
     remark: row?.remark || "",
-    transactionCodeMasked: maskTransactionCode(row?.transaction_code || ""),
+    transactionCodeMasked: maskTransactionCode(decryptTransactionCode(row?.transaction_code || "")),
   },
   createdAt: row?.created_at || null,
   updatedAt: row?.updated_at || null,
@@ -5073,6 +5108,10 @@ const buildUserListItem = (row) => {
     role: String(row?.role || "user").toLowerCase(),
     level: toNum(row?.level, 1),
     parentId: row?.parent_id || null,
+    minBet: toNum(row?.min_bet ?? profile?.minBet, 0),
+    maxBet: toNum(row?.max_bet ?? profile?.maxBet, 0),
+    creditLimit: toNum(row?.credit_limit ?? profile?.creditLimit, 0),
+    partnershipRemaining: toNum(row?.partnership_remaining ?? profile?.partnership?.remainingPercentage, 100),
     parentStr,
     sessionId: toNum(row?.session_id, Date.now()),
     isLogin,
@@ -5144,6 +5183,10 @@ const userRowsSqliteStmt = db.prepare(
     u.role,
     u.level,
     u.parent_id,
+    u.min_bet,
+    u.max_bet,
+    u.credit_limit,
+    u.partnership_remaining,
     u.session_id,
     u.created_at,
     u.updated_at,
@@ -5301,7 +5344,7 @@ const listManagedAdminStmt = db.prepare(
   FROM users u
   LEFT JOIN user_profiles p ON p.user_id = u.id
   LEFT JOIN admin_feature_permissions af ON af.user_id = u.id
-  WHERE lower(u.role) IN ('smdl','mdl','dl')
+  WHERE lower(u.role) IN ('super_admin','admin','sub_admin')
   ORDER BY datetime(u.created_at) DESC, u.created_at DESC`
 );
 const getAdminFeaturePermissionsForUser = (user, role) => {
@@ -5395,18 +5438,55 @@ const getDescendantUserIdSet = (rootUserId) => {
 const getVisibleUserIdsForActor = (actor, actorRole) => {
   if (!actor) return new Set();
   if (isOwnerPanelRole(actorRole)) return null;
-  return getDirectChildUserIdSet(actor.id);
+  return getDescendantUserIdSet(actor.id);
 };
 const canActorAccessTargetUser = (actor, actorRole, target) => {
   if (!actor || !target) return false;
   if (String(actor.id) === String(target.id)) return true;
   if (isOwnerPanelRole(actorRole)) return true;
-  const visible = getDirectChildUserIdSet(actor.id);
+  const visible = getDescendantUserIdSet(actor.id);
   return visible.has(String(target.id));
+};
+const readUserLimits = (body = {}) => {
+  const minBet = toNum(body.minBet ?? body.min_bet, 0);
+  const maxBet = toNum(body.maxBet ?? body.max_bet, 0);
+  const creditLimit = toNum(body.creditLimit ?? body.creditReference ?? body.credit_reference, 0);
+  if (![minBet, maxBet, creditLimit].every(Number.isFinite) || minBet < 0 || maxBet < 0 || creditLimit < 0) {
+    throw new Error("Bet limits and credit reference must be non-negative numbers");
+  }
+  if (maxBet > 0 && maxBet < minBet) throw new Error("maxBet must be greater than or equal to minBet");
+  return { minBet, maxBet, creditLimit };
+};
+const readUserLimitsWithLegacyPayload = (body = {}) => {
+  const source = { ...body };
+  const settings = body.userSetting && typeof body.userSetting === "object" && !Array.isArray(body.userSetting)
+    ? Object.values(body.userSetting)
+    : [];
+  const legacyMinValues = settings.map((item) => toNum(item?.minBet, 0)).filter((value) => value > 0);
+  const legacyMaxValues = settings.map((item) => toNum(item?.maxBet, 0)).filter((value) => value > 0);
+  if (source.minBet === undefined && legacyMinValues.length) source.minBet = Math.min(...legacyMinValues);
+  if (source.maxBet === undefined && legacyMaxValues.length) source.maxBet = Math.max(...legacyMaxValues);
+  if (source.creditLimit === undefined) source.creditLimit = body.exposerLimit ?? body.exposureLimit ?? 0;
+  return readUserLimits(source);
+};
+const saveUserPartnerships = (userId, partnershipInput, actor, actorRole, now) => {
+  const validation = validatePartnershipEntries({
+    input: partnershipInput,
+    getPartner: (partnerId) => getUserById(partnerId),
+    canAccessPartner: (partner) => String(partner.id) === String(actor.id) || canActorAccessTargetUser(actor, actorRole, partner),
+  });
+  const insert = db.prepare(
+    "INSERT INTO user_partnerships (id,user_id,partner_id,share_percentage,created_at,updated_at) VALUES (?,?,?,?,?,?)"
+  );
+  for (const entry of validation.entries) {
+    insert.run(id("up_"), userId, entry.partnerId, entry.sharePercentage, now, now);
+  }
+  db.prepare("UPDATE users SET partnership_remaining=?,updated_at=? WHERE id=?").run(validation.remainingShare, now, userId);
+  return validation;
 };
 const getCreationParentId = (actor, actorRole) => {
   if (actor && normalizePanelRole(actorRole, "user") !== "user") return actor.id;
-  return "superadmin";
+  return null;
 };
 const makeTokens = (u, roleOverride = null) => {
   const sessionId = toNum(u?.session_id, Date.now()) || Date.now();
@@ -5621,7 +5701,7 @@ app.get("/url-rewrite.js", (_req, res) => {
   function tokenSuggestsOwner(token){
     var payload = parseJwtPayload(token);
     var role = normalizeText(payload && payload.role);
-    return role === 'owner' || role === 'admin' || role === 'sadmin' || role === 'superadmin';
+    return role === 'super_admin';
   }
 
   function clearAdminPermissionCache(){
@@ -6152,6 +6232,9 @@ const consumeRegistrationCode = (code, userId) => {
 };
 
 const handleRegister = async (req, res) => {
+  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
+    return res.status(403).json({ status: false, message: "B2B platform only" });
+  }
   const username = String(req.body?.mobile || req.body?.username || "").trim();
   const password = String(req.body?.password || "").trim();
   if (!username || !password) return res.status(400).json({ status: false, message: "Username and password are required" });
@@ -6189,20 +6272,48 @@ const handleRegister = async (req, res) => {
   const passwordHash = hashPass(password);
   const parentId = getCreationParentId(authActor, authActorRole);
   const accountLevel = Math.max(1, panelRoleDepth(requestedRole) + 1);
+  let userLimits;
+  try {
+    userLimits = readUserLimitsWithLegacyPayload(req.body || {});
+  } catch (e) {
+    return res.status(400).json({ status: false, message: e.message });
+  }
+  const legacyPartnership = req.body?.partnership;
+  const explicitPartnerships = req.body?.partnerships;
+  if (legacyPartnership && !Array.isArray(legacyPartnership) && explicitPartnerships === undefined) {
+    return res.status(400).json({ status: false, message: "Sport-level partnership values are unsupported; use partner IDs in the partnership assignment flow" });
+  }
   const initialBalance = Math.max(
     0,
     toNum(req.body?.creditRefrences ?? req.body?.creditReferences ?? req.body?.creditAmount, DEFAULT_USER_OPENING_BALANCE)
   );
-  db.prepare(
-    "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
-  ).run(uid, username, passwordHash, requestedRole, accountLevel, parentId, sessionId, now, now);
-  db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(
-    uid,
-    initialBalance,
-    0,
-    0,
-    now
-  );
+  try {
+    db.transaction(() => {
+      db.prepare(
+        "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at,upline_commission,min_bet,max_bet,credit_limit,partnership_remaining) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      ).run(uid, username, passwordHash, requestedRole, accountLevel, parentId, sessionId, now, now, parentId ? UPLINE_COMMISSION_PERCENT : 0, userLimits.minBet, userLimits.maxBet, userLimits.creditLimit, 100);
+      if (parentId) {
+        db.prepare("UPDATE users SET upline_commission=COALESCE(upline_commission,0)+?,updated_at=? WHERE id=?").run(
+          UPLINE_COMMISSION_PERCENT,
+          now,
+          parentId
+        );
+      }
+      db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(
+        uid,
+        initialBalance,
+        0,
+        0,
+        now
+      );
+      if (authActor && Array.isArray(explicitPartnerships) && requestedRole === "user") {
+        saveUserPartnerships(uid, explicitPartnerships, authActor, authActorRole, now);
+      }
+    })();
+  } catch (e) {
+    const duplicate = /unique|constraint/i.test(String(e?.message || ""));
+    return res.status(duplicate ? 409 : 500).json({ status: false, message: duplicate ? "User already exists" : "Unable to create account" });
+  }
   const profile = { ...(req.body || {}) };
   [
     "password",
@@ -6249,6 +6360,10 @@ const handleRegister = async (req, res) => {
       sessionId,
       createdAt: now,
       updatedAt: now,
+      minBet: userLimits.minBet,
+      maxBet: userLimits.maxBet,
+      creditLimit: userLimits.creditLimit,
+      partnershipRemaining: 100,
     }),
     syncWalletToMysql({
       userId: uid,
@@ -6262,6 +6377,10 @@ const handleRegister = async (req, res) => {
       dataJson: profileJson,
       createdAt: now,
       updatedAt: now,
+    }),
+    syncUserPartnershipsToMysql({
+      userId: uid,
+      partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(uid),
     }),
   ];
   if (regValidation.code) {
@@ -6288,7 +6407,68 @@ const handleRegister = async (req, res) => {
 };
 app.post("/api/register", handleRegister);
 app.post("/api/register2", handleRegister);
+app.get("/api/admin/sub-admins", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role=? ORDER BY username").all("sub_admin");
+  const visibleRows = rows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
+  return res.json(env("", visibleRows));
+});
+app.post("/api/admin/sub-admins", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (!canRoleCreateRole(authRole, "sub_admin")) return res.status(403).json(env("Only an admin can create a sub_admin", {}, true, 403));
+  const username = sanitizeAdminUsername(req.body?.username || req.body?.userName);
+  const password = String(req.body?.password || "").trim();
+  const fullName = String(req.body?.fullName || username).trim();
+  if (!/^[a-z0-9._-]{3,32}$/i.test(username) || password.length < 4) {
+    return res.status(400).json(env("username and password are required", {}, true, 400));
+  }
+  if (getUserByUsername(username)) return res.status(409).json(env("User name already exists", {}, true, 409));
+  const now = nowIso();
+  const userId = id("u_");
+  try {
+    db.transaction(() => {
+      db.prepare("INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at,upline_commission,min_bet,max_bet,credit_limit,partnership_remaining) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+        userId,
+        username,
+        hashPass(password),
+        "sub_admin",
+        panelRoleDepth("sub_admin") + 1,
+        authUser.id,
+        Date.now(),
+        now,
+        now,
+        UPLINE_COMMISSION_PERCENT,
+        0,
+        0,
+        0,
+        100
+      );
+      db.prepare("UPDATE users SET upline_commission=COALESCE(upline_commission,0)+?,updated_at=? WHERE id=?").run(UPLINE_COMMISSION_PERCENT, now, authUser.id);
+      db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(userId, 0, 0, 0, now);
+      db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
+        userId,
+        JSON.stringify({ fullName, source: "on_the_fly_sub_admin", createdById: authUser.id, systemRole: "sub_admin" }),
+        now,
+        now
+      );
+    })();
+    directChildUserIdsCache.delete(String(authUser.id));
+    userListResponseCache.clear();
+    return res.status(201).json(env("Sub-admin created", { userId, username, role: "sub_admin", parentId: authUser.id }));
+  } catch (e) {
+    return res.status(500).json(env(e.message || "Unable to create sub_admin", {}, true, 500));
+  }
+});
 app.post("/api/admin/client-onboarding", async (req, res) => {
+  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
+    return res.status(403).json(env("B2B platform only", {}, true, 403));
+  }
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
@@ -6304,6 +6484,12 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const city = String(body.city || "").trim();
   const mobileNumber = normalizeMobileNumber(body.mobileNumber || body.mobile || body.phone);
   const creditAmount = Math.max(0, toNum(body.creditAmount ?? body.credit ?? body.amount, 0));
+  let userLimits;
+  try {
+    userLimits = readUserLimits(body);
+  } catch (e) {
+    return res.status(400).json(env(e.message, {}, true, 400));
+  }
   const requestedRole = resolveAccountRoleFromInput(body, authRole);
   if (!canRoleCreateRole(authRole, requestedRole)) {
     return res.status(403).json(env("You do not have permission to create this account type", {}, true, 403));
@@ -6313,6 +6499,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   );
   const remark = String(body.remark || "").trim();
   const transactionCode = String(body.transactionCode || body.transaction_code || "").trim();
+  const partnershipInput = body.partnerships ?? body.partnerShares ?? body.partnership_share_pool ?? [];
 
   if (!username) return res.status(400).json(env("User name is required", {}, true, 400));
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -6343,10 +6530,15 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
     mobileNumber,
     creditRefrences: creditAmount,
     creditReferences: creditAmount,
+    minBet: userLimits.minBet,
+    maxBet: userLimits.maxBet,
+    creditLimit: userLimits.creditLimit,
     partnership: {
       type: partnershipType,
       remark,
       transactionCodeMasked: maskTransactionCode(transactionCode),
+      partners: [],
+      remainingPercentage: 100,
     },
     status: {
       isActive: true,
@@ -6364,8 +6556,15 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   try {
     db.transaction(() => {
       db.prepare(
-        "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
-      ).run(userId, username, passwordHash, requestedRole, accountLevel, parentId, sessionId, now, now);
+        "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at,upline_commission,min_bet,max_bet,credit_limit,partnership_remaining) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      ).run(userId, username, passwordHash, requestedRole, accountLevel, parentId, sessionId, now, now, parentId ? UPLINE_COMMISSION_PERCENT : 0, userLimits.minBet, userLimits.maxBet, userLimits.creditLimit, 100);
+      if (parentId) {
+        db.prepare("UPDATE users SET upline_commission=COALESCE(upline_commission,0)+?,updated_at=? WHERE id=?").run(
+          UPLINE_COMMISSION_PERCENT,
+          now,
+          parentId
+        );
+      }
       db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(
         userId,
         creditAmount,
@@ -6379,6 +6578,14 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
         now,
         now
       );
+      if (requestedRole === "user") {
+        const partnership = saveUserPartnerships(userId, partnershipInput, authUser, authRole, now);
+        db.prepare("UPDATE user_profiles SET data_json=?,updated_at=? WHERE user_id=?").run(
+          JSON.stringify({ ...profile, partnership: { ...profile.partnership, partners: partnership.entries.map((entry) => ({ partnerId: entry.partnerId, sharePercentage: entry.sharePercentage })), remainingPercentage: partnership.remainingShare } }),
+          now,
+          userId
+        );
+      }
       db.prepare(
         "INSERT INTO admin_client_general (id,user_id,username,full_name,password_hash,city,mobile_number,credit_amount,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
       ).run(
@@ -6396,7 +6603,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       );
       db.prepare(
         "INSERT INTO admin_client_partnership (id,general_id,partnership_type,remark,transaction_code,created_at,updated_at) VALUES (?,?,?,?,?,?,?)"
-      ).run(partnershipId, generalId, partnershipType, remark || null, transactionCode, now, now);
+      ).run(partnershipId, generalId, partnershipType, remark || null, encryptTransactionCode(transactionCode), now, now);
       if (requestedRole !== "user") {
         saveAdminFeaturePermissionsForUser({
           userId,
@@ -6425,6 +6632,10 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       sessionId,
       createdAt: now,
       updatedAt: now,
+      minBet: userLimits.minBet,
+      maxBet: userLimits.maxBet,
+      creditLimit: userLimits.creditLimit,
+      partnershipRemaining: 100,
     }),
     syncWalletToMysql({
       userId,
@@ -6438,6 +6649,10 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       dataJson: profileJson,
       createdAt: now,
       updatedAt: now,
+    }),
+    syncUserPartnershipsToMysql({
+      userId,
+      partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(userId),
     }),
   ]).catch(() => {});
 
@@ -6601,6 +6816,9 @@ app.post("/api/create-registration-code", (req, res) => {
 });
 
 const login = (admin = false) => (req, res) => {
+  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
+    return res.status(403).json({ message: "B2B platform only" });
+  }
   if (!admin && req.body?.isDemo) {
     const demoRows = db
       .prepare("SELECT * FROM users WHERE role='user' AND username LIKE 'demo%' ORDER BY username")
@@ -6642,7 +6860,7 @@ const login = (admin = false) => (req, res) => {
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
 
   const normalizedRole = String(u.role || "").trim().toLowerCase();
-  const allowedAdminRoles = new Set(["admin", "sadmin", "superadmin", "smdl", "mdl", "dl", "1", "2", "3"]);
+  const allowedAdminRoles = new Set(["super_admin", "admin", "sub_admin", "1", "2", "3"]);
   const isDefaultAdminCredential = username === DEFAULT_LOGIN_USERNAME;
   const canUseAdminLogin = isDefaultAdminCredential || allowedAdminRoles.has(normalizedRole);
 
@@ -6770,6 +6988,73 @@ const handleUpdatePassword = (req, res) => {
 };
 app.post("/api/update-password", handleUpdatePassword);
 app.post("/api/update-user", handleUpdatePassword);
+app.post("/api/admin/update-user-limits", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const target = getUserById(String(req.body?.userId || req.body?.id || "").trim());
+  if (!target) return res.status(404).json(env("User not found", {}, true, 404));
+  if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  let limits;
+  try {
+    limits = readUserLimits(req.body || {});
+    const now = nowIso();
+    const partnershipInput = req.body?.partnerships ?? req.body?.partnerShares ?? req.body?.partnership_share_pool ?? [];
+    db.transaction(() => {
+      db.prepare("DELETE FROM user_partnerships WHERE user_id=?").run(target.id);
+      const partnership = saveUserPartnerships(target.id, partnershipInput, authUser, authRole, now);
+      db.prepare("UPDATE users SET min_bet=?,max_bet=?,credit_limit=?,partnership_remaining=?,updated_at=? WHERE id=?").run(
+        limits.minBet,
+        limits.maxBet,
+        limits.creditLimit,
+        partnership.remainingShare,
+        now,
+        target.id
+      );
+      const profileRow = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(target.id);
+      const profile = profileRow ? safeParse(profileRow.data_json, {}) || {} : {};
+      profile.minBet = limits.minBet;
+      profile.maxBet = limits.maxBet;
+      profile.creditLimit = limits.creditLimit;
+      profile.partnership = {
+        ...(profile.partnership || {}),
+        partners: partnership.entries.map((entry) => ({ partnerId: entry.partnerId, sharePercentage: entry.sharePercentage })),
+        remainingPercentage: partnership.remainingShare,
+      };
+      db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
+        target.id,
+        JSON.stringify(profile),
+        profileRow?.created_at || now,
+        now
+      );
+    })();
+    userListResponseCache.clear();
+    const updatedTarget = getUserById(target.id);
+    syncUserToMysql({
+      id: updatedTarget.id,
+      username: updatedTarget.username,
+      password: updatedTarget.password,
+      role: updatedTarget.role,
+      level: toNum(updatedTarget.level, 1),
+      parentId: updatedTarget.parent_id,
+      sessionId: toNum(updatedTarget.session_id, Date.now()),
+      createdAt: updatedTarget.created_at || now,
+      updatedAt: updatedTarget.updated_at || now,
+      minBet: limits.minBet,
+      maxBet: limits.maxBet,
+      creditLimit: limits.creditLimit,
+      partnershipRemaining: toNum(updatedTarget.partnership_remaining, 100),
+    }).catch(() => {});
+    syncUserPartnershipsToMysql({
+      userId: target.id,
+      partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(target.id),
+    }).catch(() => {});
+    return res.json(env("User limits and partnership updated", { userId: target.id, ...limits }));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to update user limits", {}, true, 400));
+  }
+});
 app.post("/api/add-transaction-password", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
@@ -7339,14 +7624,21 @@ app.post("/api/get-user-list-suggestion", async (req, res) => {
   userListSuggestionCache.set(suggestionCacheKey, users);
   res.json(env("", users));
 });
-const adminUserListFallback = () => buildPaginatedItems([], 1, 50);
-const sendAdminUserlistSnapshot = (_req, res) => {
-  const snap = loadSnapshot("admin/userlist");
-  if (snap) return res.json(snap);
-  return res.json(env("", adminUserListFallback()));
+const sendAdminUserlist = (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const search = String(req.query?.search || req.query?.username || "").trim().toLowerCase();
+  let rows = queryUserRowsSqlite()
+    .filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)))
+    .filter((row) => !search || String(row.username || "").toLowerCase().includes(search))
+    .map(buildUserListItem);
+  return res.json(env("", buildPaginatedItems(rows, req.query?.page, req.query?.limit || 50)));
 };
-app.get("/api/admin/userlist", sendAdminUserlistSnapshot);
-app.get("/api/admin/userlist.html", sendAdminUserlistSnapshot);
+app.get("/api/admin/userlist", sendAdminUserlist);
+app.get("/api/admin/userlist.html", sendAdminUserlist);
 app.get("/api/get-user-detail", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
@@ -7392,7 +7684,37 @@ app.get("/api/get-parent-user-detail", (req, res) => {
   };
   res.json(env("", [buildUserListItem(row)]));
 });
-app.get("/api/get-user-book", (_req, res) => res.json(env("", [])));
+app.get("/api/get-user-book", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const visibleUsers = queryUserRowsSqlite().filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
+  const bets = db.prepare("SELECT user_id,pnl,stack,exposure,status FROM bets").all();
+  const userIds = new Set(visibleUsers.map((row) => String(row.id)));
+  const totals = { downlineob: 0, downcr: 0, totalmasterb: 0, downpl: 0, avpl: 0, mypl: 0 };
+  for (const bet of bets) {
+    if (!userIds.has(String(bet.user_id))) continue;
+    totals.downlineob += toNum(bet.exposure, 0);
+    totals.downcr += toNum(bet.stack, 0);
+    totals.totalmasterb += 1;
+    totals.downpl += toNum(bet.pnl, 0);
+  }
+  const balances = visibleUsers.reduce((sum, row) => sum + toNum(row.wallet_balance, 0), 0);
+  const result = {
+    uplevelcr: 0,
+    downlineob: Number(totals.downlineob.toFixed(2)),
+    downcr: Number(totals.downcr.toFixed(2)),
+    totalmasterb: totals.totalmasterb,
+    upperlvell: 0,
+    downpl: Number(totals.downpl.toFixed(2)),
+    available: Number(balances.toFixed(2)),
+    avpl: Number(totals.downpl.toFixed(2)),
+    mypl: 0,
+  };
+  return res.json(env("", result));
+});
 
 app.post("/api/account-statement-list", (req, res) => {
   const u = reqUser(req);
@@ -7577,6 +7899,9 @@ const normalizeSelectionId = (value) => {
 };
 
 const handlePlaceBet = (req, res) => {
+  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
+    return res.status(403).json({ error: true, message: "B2B platform only" });
+  }
   const u = reqUser(req);
   if (!u) return res.status(401).json({ error: true, message: "No auth token" });
   const userStatusFlags = readUserRuntimeStatusFlags(u.id);
@@ -7603,6 +7928,14 @@ const handlePlaceBet = (req, res) => {
   if (!stack || !odds || !matchId || !marketId || !selectionId) {
     return res.status(400).json({ error: true, message: "Invalid bet payload" });
   }
+  const minBet = toNum(u.min_bet, 0);
+  const maxBet = toNum(u.max_bet, 0);
+  const creditLimit = toNum(u.credit_limit, 0);
+  try {
+    validateBetAmount({ amount: stack, minBet, maxBet });
+  } catch (e) {
+    return res.status(400).json({ error: true, message: e.message });
+  }
   const betLockType = normalizeBetLockType(
     b.betLockType || b.lockType || b.marketType || b.gtype || b.bet_on || b.marketName
   );
@@ -7622,6 +7955,11 @@ const handlePlaceBet = (req, res) => {
 
   const w = ensureWallet(u.id);
   if (stack > toNum(w.balance, 0) + 100000) return res.status(400).json({ error: true, message: "Insufficient limit" });
+  try {
+    validateBetAmount({ amount: stack, currentExposure: toNum(w.exposer, 0), creditLimit });
+  } catch (e) {
+    return res.status(400).json({ error: true, message: e.message });
+  }
 
   const isBack = typeof b.isBack === "boolean" ? b.isBack : String(b.isBack || "true").toLowerCase() === "true";
   const pnl = isBack ? (odds - 1) * stack : -1 * (odds - 1) * stack;
@@ -7747,6 +8085,38 @@ const handlePlaceBet = (req, res) => {
 
 app.post("/api/placebet", handlePlaceBet);
 app.post("/placebet", handlePlaceBet);
+
+app.post("/api/settle-bet", (req, res) => {
+  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
+    return res.status(403).json({ error: true, message: "B2B platform only" });
+  }
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const betId = String(req.body?.betId || req.body?.id || "").trim();
+  const bet = betId ? db.prepare("SELECT user_id FROM bets WHERE id=?").get(betId) : null;
+  const target = bet ? getUserById(bet.user_id) : null;
+  if (!betId || !target) return res.status(404).json(env("Bet not found", {}, true, 404));
+  if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  try {
+    const result = settleBet({ db, betId, result: req.body?.result, now: nowIso() });
+    const affected = [result.userId, ...result.partnerBalances.map((item) => item.partnerId)];
+    for (const userId of [...new Set(affected)]) {
+      const wallet = ensureWallet(userId);
+      syncWalletToMysql({
+        userId,
+        balance: toNum(wallet.balance, 0),
+        exposer: toNum(wallet.exposer, 0),
+        casinoExposer: toNum(wallet.casino_exposer, 0),
+        updatedAt: nowIso(),
+      }).catch(() => {});
+    }
+    return res.json(env("Bet settled successfully", result));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to settle bet", {}, true, 400));
+  }
+});
 
 app.get("/api/bets", (req, res) => {
   const u = reqAuthUser(req);
@@ -7972,8 +8342,58 @@ app.get("/api/match-bet-locks/:matchId", (req, res) => {
   const lockStore = readMatchBetLockStore(matchId);
   return res.json(env("", { matchId, ...lockStore }));
 });
-app.get("/api/get-child-user-list", (_req, res) => res.json(env("", [])));
-app.post("/api/delete-bets", (_req, res) => res.json(env("Bets deleted", { success: true })));
+app.get("/api/get-child-user-list", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const username = String(req.query?.username || "").trim().toLowerCase();
+  const matchId = toNum(req.query?.matchId, 0);
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT u.id,u.username,u.role,u.parent_id,p.data_json AS profile_json
+       FROM users u
+       JOIN bets b ON b.user_id=u.id
+       LEFT JOIN user_profiles p ON p.user_id=u.id
+       WHERE (?=0 OR b.match_id=?) AND (?='' OR lower(u.username) LIKE ?)
+       ORDER BY u.username`
+    )
+    .all(matchId, matchId, username, `%${username}%`)
+    .filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)))
+    .map((row) => {
+      const profile = parseProfileJson(row.profile_json || "{}");
+      const status = profile?.status && typeof profile.status === "object" ? profile.status : {};
+      return {
+        _id: row.id,
+        id: row.id,
+        username: row.username,
+        role: row.role,
+        parentId: row.parent_id || null,
+        isActive: boolOrDefault(status.isActive ?? profile?.isLogin, true),
+        betLock: boolOrDefault(status.betLock ?? profile?.betLock, false),
+      };
+    });
+  return res.json(env("", buildPaginatedItems(rows, req.query?.page, req.query?.limit || 100)));
+});
+app.post("/api/delete-bets", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map((value) => String(value || "").trim()).filter(Boolean))] : [];
+  if (!ids.length) return res.status(400).json(env("ids is required", {}, true, 400));
+  const deleteBet = db.prepare("DELETE FROM bets WHERE id=?");
+  let deleted = 0;
+  for (const betId of ids) {
+    const bet = db.prepare("SELECT id,user_id FROM bets WHERE id=?").get(betId);
+    const target = bet ? getUserById(bet.user_id) : null;
+    if (!bet || !target || !canActorAccessTargetUser(authUser, authRole, target)) continue;
+    deleteBet.run(betId);
+    deleted += 1;
+    deleteBetFromMysql(betId).catch(() => {});
+  }
+  return res.json(env("Bets deleted", { success: true, deleted }));
+});
 app.post("/api/users-lock", (req, res) => {
   const auth = requireAdminPanelAccess(req, res);
   if (!auth) return;
@@ -8027,15 +8447,53 @@ app.post("/api/users-lock", (req, res) => {
   }
   return res.json(env("Users lock updated", { success: true, updated, total: updated.length }));
 });
-app.get("/api/undeclared-bets", (_req, res) => res.json(env("", [])));
+app.get("/api/undeclared-bets", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const rows = db
+    .prepare(
+      `SELECT b.*,u.username
+       FROM bets b JOIN users u ON u.id=b.user_id
+       WHERE lower(b.status) IN ('pending','unsettled')
+       ORDER BY datetime(b.created_at) DESC LIMIT 5000`
+    )
+    .all()
+    .filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.user_id)))
+    .map((row) => ({
+      _id: row.id,
+      id: row.id,
+      userId: row.user_id,
+      username: row.username,
+      matchId: row.match_id,
+      marketId: row.market_id,
+      marketName: row.market_name,
+      selectionName: row.selection_name,
+      stack: toNum(row.stack, 0),
+      exposure: toNum(row.exposure, 0),
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  return res.json(env("", rows));
+});
 app.delete("/api/bets-by-market", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const marketId = String(req.query?.marketId || "");
   const matchId = toNum(req.query?.matchId, 0);
   if (!marketId || !matchId) return res.status(400).json(env("marketId and matchId are required", {}, true, 400));
-  const rows = db.prepare("SELECT id FROM bets WHERE market_id=? AND match_id=?").all(marketId, matchId);
-  db.prepare("DELETE FROM bets WHERE market_id=? AND match_id=?").run(marketId, matchId);
+  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const rows = db.prepare("SELECT id,user_id FROM bets WHERE market_id=? AND match_id=?").all(marketId, matchId).filter((row) => {
+    return !(visibleIds instanceof Set) || visibleIds.has(String(row.user_id));
+  });
+  const deleteBetById = db.prepare("DELETE FROM bets WHERE id=?");
+  for (const row of rows) deleteBetById.run(row.id);
   for (const r of rows) deleteBetFromMysql(r.id).catch(() => {});
-  return res.json(env("Bets deleted", { success: true }));
+  return res.json(env("Bets deleted", { success: true, deleted: rows.length }));
 });
 app.get("/api/match-betting-users", (req, res) => {
   const matchId = toNum(req.query?.matchId, 0);
@@ -9345,8 +9803,9 @@ app.get("/api/get-casino-data-by-id/:id", (req, res) => {
 });
 app.get("/api/get-casino-market/:slug", (req, res) => res.json({ success: true, data: { slug: req.params.slug, market: [] } }));
 app.get("/api/html-cards/:type/:mid", (req, res) => res.type("text/html").send(`<div style="padding:12px;font-family:Arial,sans-serif;">No result data for ${req.params.type}/${req.params.mid}</div>`));
-app.get("/api/done-results/:matchid", (_req, res) => {
-  const snap = loadSnapshot("done-results/undefined");
+app.get("/api/done-results/:matchid", (req, res) => {
+  const matchId = String(req.params?.matchid || "").trim();
+  const snap = loadSnapshot(`done-results/${matchId}`);
   if (snap) return res.json(snap);
   return res.json(env("", { docs: [], totalDocs: 0, limit: 50, totalPages: 1, page: 1, pagingCounter: 1, hasPrevPage: false, hasNextPage: false, prevPage: null, nextPage: null }));
 });

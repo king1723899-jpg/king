@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node server.js",
     "hash": "node data_store/generate_password_hash.js",
-    "qa:admin": "node scripts/admin_qa_check.js"
+    "qa:admin": "node scripts/admin_qa_check.js",
+    "migrate:mysql:sprint2": "node scripts/migrate_mysql_sprint2.js"
   },
   "engines": {
     "node": ">=18"

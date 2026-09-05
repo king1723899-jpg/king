@@ -103,8 +103,20 @@
                 <input class="form-control" id="mobileNumber" name="mobileNumber" placeholder="Mobile Number" />
               </div>
               <div class="col-md-4">
-                <label class="field-label" for="creditAmount">Credit Amount</label>
-                <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="Credit Amount" />
+                <label class="field-label" for="creditAmount">Opening Credit</label>
+                <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="Opening Credit" />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="creditLimit">Credit Reference</label>
+                <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="0 = no separate limit" />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="minBet">Minimum Bet</label>
+                <input class="form-control" id="minBet" name="minBet" type="number" min="0" step="0.01" placeholder="Minimum Bet" />
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="maxBet">Maximum Bet</label>
+                <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="0 = no separate limit" />
               </div>
             </div>
 
@@ -114,10 +126,10 @@
                 <label class="field-label" for="partnershipType">Partnership Type</label>
                 <select class="form-select" id="partnershipType" name="partnershipType">
                   <option value="">Select Partnership Type</option>
-                  <option value="super-master">Super Master</option>
-                  <option value="master">Master</option>
-                  <option value="agent" selected>Agent</option>
-                  <option value="client">Client</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="admin">Admin</option>
+                  <option value="sub_admin">Sub Admin</option>
+                  <option value="client" selected>User</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -128,6 +140,30 @@
               <div class="col-md-4">
                 <label class="field-label" for="remark">Remark</label>
                 <input class="form-control" id="remark" name="remark" placeholder="Remark" />
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-md-4">
+                <label class="field-label" for="hasSubAdmins">Sub-admins for this user?</label>
+                <select class="form-select" id="hasSubAdmins" name="hasSubAdmins">
+                  <option value="no" selected>No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="field-label" for="adminShare">Admin Share (%)</label>
+                <input class="form-control" id="adminShare" name="adminShare" type="number" min="0" max="100" step="0.01" value="0" />
+              </div>
+              <div class="col-12" id="subAdminPartnerships" hidden>
+                <label class="field-label">Select up to 5 sub-admins and assign shares</label>
+                <div id="subAdminOptions" class="row g-2"></div>
+                <div class="input-group mt-2" style="max-width: 520px;">
+                  <input id="newSubAdminUsername" class="form-control" placeholder="New sub-admin username" />
+                  <input id="newSubAdminPassword" class="form-control" type="password" placeholder="Password" />
+                  <button id="createSubAdminBtn" class="btn btn-outline-primary" type="button">Create</button>
+                </div>
+                <div id="subAdminStatus" class="status-box"></div>
               </div>
             </div>
 
@@ -185,6 +221,11 @@
       const recordsBody = document.getElementById("recordsBody");
       const refreshBtn = document.getElementById("refreshBtn");
       const searchInput = document.getElementById("searchInput");
+      const hasSubAdmins = document.getElementById("hasSubAdmins");
+      const subAdminPartnerships = document.getElementById("subAdminPartnerships");
+      const subAdminOptions = document.getElementById("subAdminOptions");
+      const subAdminStatus = document.getElementById("subAdminStatus");
+      const createSubAdminBtn = document.getElementById("createSubAdminBtn");
       let searchDebounce = null;
 
       function showStatus(target, text, type) {
@@ -223,6 +264,33 @@
         const token = getToken();
         if (token) headers.Authorization = "Bearer " + token;
         return headers;
+      }
+
+      function currentUserId() {
+        const token = getToken();
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          return payload.userId || payload._id || "";
+        } catch (_) {
+          return "";
+        }
+      }
+
+      function renderSubAdmins(items) {
+        subAdminOptions.innerHTML = (Array.isArray(items) ? items : []).map(function (item) {
+          return '<div class="col-md-6"><div class="input-group"><span class="input-group-text"><input class="sub-admin-check" type="checkbox" value="' + escapeHtml(item.id) + '" /></span><span class="input-group-text flex-grow-1">' + escapeHtml(item.username) + '</span><input class="form-control sub-admin-share" data-partner-id="' + escapeHtml(item.id) + '" type="number" min="0" max="100" step="0.01" value="0" /></div></div>';
+        }).join("") || '<div class="col-12 text-muted">No sub-admins available</div>';
+      }
+
+      async function loadSubAdmins() {
+        try {
+          const response = await fetch("/api/admin/sub-admins", { headers: buildHeaders(false) });
+          const payload = await response.json().catch(function () { return {}; });
+          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to load sub-admins");
+          renderSubAdmins(payload.data || []);
+        } catch (error) {
+          subAdminStatus.textContent = error.message || "Unable to load sub-admins";
+        }
       }
 
       function escapeHtml(value) {
@@ -297,9 +365,18 @@
           city: form.city.value,
           mobileNumber: form.mobileNumber.value,
           creditAmount: form.creditAmount.value,
+          creditLimit: form.creditLimit.value,
+          minBet: form.minBet.value,
+          maxBet: form.maxBet.value,
           partnershipType: form.partnershipType.value,
           remark: form.remark.value,
           transactionCode: form.transactionCode.value,
+          partnerships: [{ partnerId: currentUserId(), sharePercentage: form.adminShare.value || 0 }]
+            .concat(Array.from(document.querySelectorAll(".sub-admin-check:checked")).map(function (checkbox) {
+              const share = document.querySelector('.sub-admin-share[data-partner-id="' + CSS.escape(checkbox.value) + '"]');
+              return { partnerId: checkbox.value, sharePercentage: share ? share.value : 0 };
+            }))
+            .filter(function (entry) { return Number(entry.sharePercentage) > 0; })
         };
 
         submitBtn.disabled = true;
@@ -316,13 +393,35 @@
           }
           showStatus(formStatus, result.message || "Saved successfully", "success");
           form.reset();
-          form.partnershipType.value = "agent";
+          form.partnershipType.value = "client";
+          hasSubAdmins.value = "no";
+          subAdminPartnerships.hidden = true;
           await loadRecords();
         } catch (error) {
           showStatus(formStatus, error.message || "Unable to save", "error");
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = "Submit";
+        }
+      });
+
+      hasSubAdmins.addEventListener("change", function () {
+        subAdminPartnerships.hidden = hasSubAdmins.value !== "yes";
+        if (hasSubAdmins.value === "yes") loadSubAdmins();
+      });
+      createSubAdminBtn.addEventListener("click", async function () {
+        const username = document.getElementById("newSubAdminUsername").value.trim();
+        const password = document.getElementById("newSubAdminPassword").value;
+        try {
+          const response = await fetch("/api/admin/sub-admins", { method: "POST", headers: buildHeaders(true), body: JSON.stringify({ username, password }) });
+          const payload = await response.json().catch(function () { return {}; });
+          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to create sub-admin");
+          showStatus(subAdminStatus, "Sub-admin created", "success");
+          document.getElementById("newSubAdminUsername").value = "";
+          document.getElementById("newSubAdminPassword").value = "";
+          loadSubAdmins();
+        } catch (error) {
+          showStatus(subAdminStatus, error.message || "Unable to create sub-admin", "error");
         }
       });
 

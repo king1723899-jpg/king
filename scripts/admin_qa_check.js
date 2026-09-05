@@ -161,6 +161,27 @@ async function run() {
   await checkApi("API /api/userMessage", "/api/userMessage");
   await checkApi("API /api/admin/userlist", "/api/admin/userlist");
   await checkApi("API /api/admin/userlist.html", "/api/admin/userlist.html");
+  await checkApi(
+    "API /api/get-user-book",
+    "/api/get-user-book",
+    "GET",
+    null,
+    (r) => {
+      if (r.status === 200 && r.json?.data && typeof r.json.data === "object" && !Array.isArray(r.json.data)) {
+        return pass(r, "user book object present");
+      }
+      return fail(r, `expected user book object, got status ${r.status}`);
+    }
+  );
+  await checkApi("API /api/get-child-user-list", "/api/get-child-user-list?matchId=0");
+  await checkApi("API /api/undeclared-bets", "/api/undeclared-bets");
+  await checkApi(
+    "API B2C login rejection",
+    "/api/login-admin",
+    "POST",
+    { username: ADMIN_USER, password: ADMIN_PASS, platform: "b2c" },
+    (r) => (r.status === 403 ? pass(r, "B2C rejected") : fail(r, `expected 403, got ${r.status}`))
+  );
 
   const sampleUser = userListRes?.json?.data?.items?.find((u) => !!u?.username)?.username || "";
   if (sampleUser) {
