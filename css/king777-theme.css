@@ -1,0 +1,132 @@
+/* King777 shared monochrome theme and responsive safety layer. */
+:root {
+  --king-black: #0b0b0b;
+  --king-ink: #171717;
+  --king-muted: #6b6b6b;
+  --king-line: #dedede;
+  --king-paper: #ffffff;
+  --king-soft: #f5f5f5;
+  --king-focus: #000000;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  background: var(--king-paper) !important;
+  color: var(--king-ink) !important;
+}
+
+* {
+  border-color: var(--king-line);
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+button,
+.btn,
+input,
+select,
+textarea,
+.form-control,
+.form-select {
+  border-radius: 4px !important;
+}
+
+button,
+.btn {
+  background-image: none !important;
+  box-shadow: none !important;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.btn-primary,
+.btn-dark,
+.btn-success,
+.btn-info,
+.btn-warning,
+.btn-danger {
+  background: var(--king-black) !important;
+  border-color: var(--king-black) !important;
+  color: #fff !important;
+}
+
+.btn-outline-primary,
+.btn-outline-secondary {
+  background: #fff !important;
+  border-color: var(--king-black) !important;
+  color: var(--king-black) !important;
+}
+
+.card,
+.panel-card,
+.modal-content,
+.dropdown-menu,
+.table-responsive {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.card,
+.panel-card,
+.modal-content {
+  background: var(--king-paper) !important;
+}
+
+.table thead,
+.table-light,
+thead {
+  background: var(--king-black) !important;
+  color: #fff !important;
+}
+
+.table thead th,
+.table-light th,
+thead th {
+  color: #fff !important;
+  background: transparent !important;
+}
+
+.form-control:focus,
+.form-select:focus,
+button:focus-visible,
+a:focus-visible {
+  border-color: var(--king-focus) !important;
+  box-shadow: 0 0 0 2px #d0d0d0 !important;
+}
+
+@media (max-width: 768px) {
+  .wrapper,
+  .container,
+  .container-fluid,
+  .main-container,
+  .content-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .wrapper {
+    overflow-x: hidden !important;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .row {
+    --bs-gutter-x: 1rem;
+  }
+
+  .btn,
+  button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

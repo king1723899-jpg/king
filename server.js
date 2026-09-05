@@ -6003,9 +6003,30 @@ app.get("/url-rewrite.js", (_req, res) => {
     }catch(_e){}
   }
 
+  function applyKing777Branding(){
+    try{
+      document.title = 'King777';
+      var nodes = document.querySelectorAll('body *');
+      for(var i=0;i<nodes.length;i++){
+        var node = nodes[i];
+        if(!node || node.children.length || !node.nodeValue) continue;
+        node.nodeValue = node.nodeValue.replace(/ambaniexchange/gi,'King777').replace(/ambani exchange/gi,'King777').replace(/reddy anna/gi,'King777');
+      }
+      var branded = document.querySelectorAll('[alt],[title],[placeholder]');
+      for(var j=0;j<branded.length;j++){
+        var item = branded[j];
+        ['alt','title','placeholder'].forEach(function(attr){
+          var value = item.getAttribute(attr);
+          if(value) item.setAttribute(attr, value.replace(/ambaniexchange/gi,'King777').replace(/ambani exchange/gi,'King777').replace(/reddy anna/gi,'King777'));
+        });
+      }
+    }catch(_e){}
+  }
+
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', function(){
       removeLegacyUsersCreateAccountLink();
+      applyKing777Branding();
       bindRouteWatchers();
       syncAdminPermissionState();
       setTimeout(syncAdminPermissionState, 250);
@@ -6013,6 +6034,7 @@ app.get("/url-rewrite.js", (_req, res) => {
     });
   }else{
     removeLegacyUsersCreateAccountLink();
+    applyKing777Branding();
     bindRouteWatchers();
     syncAdminPermissionState();
     setTimeout(syncAdminPermissionState, 250);
@@ -6021,6 +6043,7 @@ app.get("/url-rewrite.js", (_req, res) => {
   setTimeout(removeLegacyUsersCreateAccountLink, 600);
   setInterval(function(){
     removeLegacyUsersCreateAccountLink();
+    applyKing777Branding();
     syncAdminPermissionState();
     applyPermissionsIfReady();
   }, 4000);
@@ -10072,6 +10095,13 @@ app.all(/^\/api\/.+/, trySnapshot);
 const sendHtml = (res, file) => {
   if (!fs.existsSync(file)) return res.status(404).type("text/plain").send("Not found");
   let html = fs.readFileSync(file, "utf8");
+  html = html.replace(/ambaniexchange/gi, "King777").replace(/ambani exchange/gi, "King777").replace(/reddy anna/gi, "King777");
+  if (!html.includes("/css/king777-theme.css")) {
+    html = html.includes("</head>")
+      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-theme.css?v=1" />\n  </head>')
+      : html;
+  }
+  html = html.replace(/\/static\/js\/bundle\.js(?:\?[^"']*)?/g, "/static/js/bundle.js?v=king777-1");
   const marker = '<script src="/url-rewrite.js"></script>';
   if (!html.includes(marker)) html = html.includes("</head>") ? html.replace("</head>", `  ${marker}\n  </head>`) : `${marker}\n${html}`;
   // Keep content-type stable for strict cPanel availability checks.
@@ -10081,9 +10111,26 @@ const sendHtml = (res, file) => {
   res.end(Buffer.from(html, "utf8"));
 };
 
+const serveDecoratedHtmlAsset = (req, res, next) => {
+  if (req.method !== "GET" || !String(req.path || "").toLowerCase().endsWith(".html")) return next();
+  const relativePath = String(req.path || "").replace(/^\/+/, "");
+  const isAdminAsset = relativePath.toLowerCase().startsWith("admin/");
+  const baseDir = isAdminAsset ? ADMIN_DIR : ROOT;
+  const localPath = isAdminAsset ? path.join(ADMIN_DIR, relativePath.slice("admin/".length)) : path.join(ROOT, relativePath);
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedPath = path.resolve(localPath);
+  if (!resolvedPath.startsWith(`${resolvedBase}${path.sep}`) || !fs.existsSync(resolvedPath)) return next();
+  return sendHtml(res, resolvedPath);
+};
+app.use(serveDecoratedHtmlAsset);
+
 const staticAssetSetHeaders = (res, filePath) => {
   const ext = String(path.extname(filePath) || "").toLowerCase();
   if (!ext || ext === ".html") {
+    res.setHeader("Cache-Control", "no-cache");
+    return;
+  }
+  if ([".js", ".css"].includes(ext)) {
     res.setHeader("Cache-Control", "no-cache");
     return;
   }
@@ -10142,6 +10189,7 @@ app.get("/", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get("/dash", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login.html")));
 app.get("/admin/client-onboarding", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
+app.get("/admin/add-user", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/add-admin", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/manage-admins", (_req, res) => res.redirect(302, "/admin/list-clients"));
