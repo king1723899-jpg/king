@@ -7718,6 +7718,8 @@ app.get("/api/get-parent-user-detail", (req, res) => {
   }
 
   const wallet = ensureWallet(u.id);
+  const parent = u.parent_id ? getUserById(String(u.parent_id)) : null;
+  const parentWallet = parent ? ensureWallet(parent.id) : ensureWallet(authUser.id);
   const profileRow = db.prepare("SELECT data_json FROM user_profiles WHERE user_id=?").get(u.id);
   const row = {
     ...u,
@@ -7726,7 +7728,18 @@ app.get("/api/get-parent-user-detail", (req, res) => {
     wallet_casino_exposer: toNum(wallet.casino_exposer, 0),
     profile_json: profileRow?.data_json || "{}",
   };
-  res.json(env("", [buildUserListItem(row)]));
+  res.json(env("", [{
+    ...buildUserListItem(row),
+    parent: {
+      _id: parent?.id || authUser.id,
+      username: parent?.username || authUser.username,
+    },
+    parentBalance: {
+      balance: toNum(parentWallet.balance, 0),
+      exposer: toNum(parentWallet.exposer, 0),
+      casinoexposer: toNum(parentWallet.casino_exposer, 0),
+    },
+  }]));
 });
 app.get("/api/get-user-book", (req, res) => {
   const authUser = reqAuthUser(req);

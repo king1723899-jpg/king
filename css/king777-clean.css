@@ -228,6 +228,10 @@ html body [class*="table-responsive-"]::-webkit-scrollbar-thumb {
     z-index: 1000;
   }
 
+  html body .admin > .admin-sidebar.hidden {
+    transform: translateX(-100%) !important;
+  }
+
   html body .admin > .main,
   html body .admin > .main + div,
   html body .admin > footer {
@@ -244,6 +248,15 @@ html body [class*="table-responsive-"]::-webkit-scrollbar-thumb {
     z-index: 1100;
     background: var(--king-purple) !important;
     color: #101114 !important;
+    cursor: pointer;
+  }
+
+  html body .admin:has(> .admin-sidebar.hidden) > .main,
+  html body .admin:has(> .admin-sidebar.hidden) > .main + div,
+  html body .admin:has(> .admin-sidebar.hidden) > footer {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
   }
 }
 
@@ -309,6 +322,16 @@ html body [class*="table-responsive-"]::-webkit-scrollbar-thumb {
     transform: translateX(-100%);
   }
 
+  html body .admin > .admin-sidebar:not(.hidden) {
+    transform: translateX(0) !important;
+  }
+
+  html body .mobile-menu-btn,
+  html body .desktop-menu-btn {
+    cursor: pointer;
+    z-index: 1100;
+  }
+
   html body .admin > .main,
   html body .admin > .main + div,
   html body .admin > footer {
@@ -317,6 +340,17 @@ html body [class*="table-responsive-"]::-webkit-scrollbar-thumb {
     margin-left: 0;
   }
 
+
+/* Keep the React sidebar state authoritative after legacy styles load. */
+html body .admin > .admin-sidebar.hidden {
+  transform: translateX(-100%) !important;
+}
+
+@media (min-width: 769px) {
+  html body .admin > .admin-sidebar:not(.hidden) {
+    transform: translateX(0) !important;
+  }
+}
   html body .sidebar a,
   html body .side-bar a,
   html body .left-sidebar a,

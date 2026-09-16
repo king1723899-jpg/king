@@ -201,7 +201,16 @@ async function run() {
     );
     await checkApi(
       "API /api/get-parent-user-detail",
-      `/api/get-parent-user-detail?username=${encodeURIComponent(sampleUser)}`
+      `/api/get-parent-user-detail?username=${encodeURIComponent(sampleUser)}`,
+      "GET",
+      null,
+      (r) => {
+        const parentBalance = r.json?.data?.[0]?.parentBalance;
+        if (r.status === 200 && parentBalance && Number.isFinite(Number(parentBalance.balance))) {
+          return pass(r, "parent balance available for deposit validation");
+        }
+        return fail(r, `expected parentBalance.balance for deposit validation, got status ${r.status}`);
+      }
     );
   } else {
     add("API user detail checks", fail({}, "no sample user from /api/get-user-list"));
