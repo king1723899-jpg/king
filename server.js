@@ -44,7 +44,7 @@ const PROVIDER_GAME_CODE_OVERRIDES_PATH = path.join(DB_DIR, "provider_game_code_
 const CASINO_GAME_HEALTH_PATH = path.join(DB_DIR, "casino_game_health.json");
 const CASINO_GAME_CONTROL_PATH = path.join(DB_DIR, "casino_game_controls.json");
 const SNAPSHOT_ROOT = pickExistingPath(
-  [path.join(ROOT, "api_data"), path.join(ROOT, "api.ambaniexchange.org")],
+  [path.join(ROOT, "api_data")],
   path.join(ROOT, "api_data")
 );
 const PROVIDER_LOCAL_CATALOG_DIRS = [
@@ -58,14 +58,14 @@ const ADMIN_DIR = pickExistingPath(
 );
 const UPLOADS_DIR = path.join(ROOT, "uploads");
 
-const JWT_SECRET = process.env.JWT_SECRET || "ambani_local_access_secret";
-const JWT_REFRESH = process.env.JWT_REFRESH_SECRET || "ambani_local_refresh_secret";
+const JWT_SECRET = process.env.JWT_SECRET || "king777_local_access_secret";
+const JWT_REFRESH = process.env.JWT_REFRESH_SECRET || "king777_local_refresh_secret";
 const CASINO_PLAY_URL_TEMPLATE = String(process.env.CASINO_PLAY_URL_TEMPLATE || "").trim();
 const ENCRYPTION_KEY_CANDIDATES = [
   process.env.ENCRYPTION_KEY,
   process.env.REACT_APP_ENCRYPTION_KEY,
   "UysThsnGhsnYsnsy6962787GHyyj8788w5",
-  "reddyanna-secret-encryption-key-2024-secure-betting-platform",
+  "king777-secret-encryption-key-2024-secure-betting-platform",
 ]
   .map((v) => String(v || "").trim())
   .filter(Boolean);
@@ -73,15 +73,15 @@ const SIGNING_KEY_CANDIDATES = [
   process.env.SIGNING_KEY,
   process.env.REACT_APP_SIGNING_KEY,
   "WEfytw85677FGHvsbntGHFHG647286dhgRTYb67",
-  "reddyanna-secret-signing-key-2024-hmac-verification",
+  "king777-secret-signing-key-2024-hmac-verification",
 ]
   .map((v) => String(v || "").trim())
   .filter(Boolean);
 const ENCRYPTION_KEY = ENCRYPTION_KEY_CANDIDATES[0] || "UysThsnGhsnYsnsy6962787GHyyj8788w5";
 const SIGNING_KEY = SIGNING_KEY_CANDIDATES[0] || "WEfytw85677FGHvsbntGHFHG647286dhgRTYb67";
-const DEFAULT_LOGIN_USERNAME = process.env.DEFAULT_LOGIN_USERNAME || "riwanbhaixxx";
-const DEFAULT_LOGIN_PASSWORD = process.env.DEFAULT_LOGIN_PASSWORD || "riwanbhaixxx";
-const DEFAULT_REGISTRATION_CODE = process.env.DEFAULT_REGISTRATION_CODE || "AMBANIEXCHANGEWINN";
+const DEFAULT_LOGIN_USERNAME = process.env.DEFAULT_LOGIN_USERNAME || "kingadmin";
+const DEFAULT_LOGIN_PASSWORD = process.env.DEFAULT_LOGIN_PASSWORD || "kingadmin";
+const DEFAULT_REGISTRATION_CODE = process.env.DEFAULT_REGISTRATION_CODE || "KING777WINN";
 const CASINO_UNAVAILABLE_MESSAGE = "This is not currently available";
 
 const boolTrue = new Set(["1", "true", "yes", "on"]);
@@ -430,7 +430,7 @@ const SIGNUP_REQUIRE_OTP = envBool(process.env.SIGNUP_REQUIRE_OTP);
 
 const OTP_SMS_PROVIDER = String(process.env.OTP_SMS_PROVIDER || "none").trim().toLowerCase();
 const OTP_SMS_TEMPLATE =
-  String(process.env.OTP_SMS_TEMPLATE || "Your OTP for AmbaniExchange is {otp}.").trim();
+  String(process.env.OTP_SMS_TEMPLATE || "Your OTP for King777 is {otp}.").trim();
 const OTP_SMS_API_URL = String(process.env.OTP_SMS_API_URL || "").trim();
 const OTP_SMS_API_TOKEN = String(process.env.OTP_SMS_API_TOKEN || "").trim();
 const OTP_SMS_API_HEADERS_JSON = String(process.env.OTP_SMS_API_HEADERS_JSON || "").trim();
@@ -7558,16 +7558,30 @@ app.post("/api/update-user-wallet", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
-  const userId = String(req.body?.userId || req.body?.id || "").trim();
-  if (!userId) return res.status(400).json(env("userId is required", {}, true, 400));
-  const target = getUserById(userId);
+  const requestedUserId = String(req.body?.userId || req.body?.id || "").trim();
+  const requestedUsername = String(req.body?.username || req.body?.userName || "").trim();
+  const target = (requestedUserId && getUserById(requestedUserId)) ||
+    (requestedUsername && getUserByUsername(requestedUsername));
+  const userId = target?.id || requestedUserId;
+  if (!userId) return res.status(400).json(env("userId or username is required", {}, true, 400));
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
   if (!canActorAccessTargetUser(authUser, authRole, target)) {
     return res.status(403).json(env("Access denied", {}, true, 403));
   }
   const w = ensureWallet(userId);
-  const b = req.body?.balance !== undefined ? toNum(req.body.balance, w.balance) : w.balance;
-  const e = req.body?.exposer !== undefined ? toNum(req.body.exposer, w.exposer) : w.exposer;
+  const walletUpdateType = String(req.body?.walletUpdateType || req.body?.type || "").trim().toUpperCase();
+  const amountProvided = req.body?.amount !== undefined;
+  const amount = toNum(req.body?.amount, NaN);
+  const b = req.body?.balance !== undefined
+    ? toNum(req.body.balance, w.balance)
+    : walletUpdateType !== "EXP" && amountProvided && Number.isFinite(amount)
+      ? Math.max(0, amount)
+      : w.balance;
+  const e = req.body?.exposer !== undefined
+    ? toNum(req.body.exposer, w.exposer)
+    : walletUpdateType === "EXP" && amountProvided && Number.isFinite(amount)
+      ? Math.max(0, amount)
+      : w.exposer;
   const c = req.body?.casinoexposer !== undefined ? toNum(req.body.casinoexposer, w.casino_exposer) : w.casino_exposer;
   const now = nowIso();
   db.prepare("UPDATE wallets SET balance=?,exposer=?,casino_exposer=?,updated_at=? WHERE user_id=?").run(b, e, c, now, userId);
@@ -7578,7 +7592,14 @@ app.post("/api/update-user-wallet", (req, res) => {
     casinoExposer: c,
     updatedAt: now,
   }).catch(() => {});
-  res.json(env("Wallet updated", { balance: b, exposer: e, casinoexposer: c }));
+  res.json(env("Wallet updated", {
+    userId,
+    username: target.username,
+    balance: b,
+    exposer: e,
+    casinoexposer: c,
+    walletUpdateType: walletUpdateType || null,
+  }));
 });
 
 app.get("/api/get-user-list", async (req, res) => {
@@ -10095,10 +10116,18 @@ app.all(/^\/api\/.+/, trySnapshot);
 const sendHtml = (res, file) => {
   if (!fs.existsSync(file)) return res.status(404).type("text/plain").send("Not found");
   let html = fs.readFileSync(file, "utf8");
-  html = html.replace(/ambaniexchange/gi, "King777").replace(/ambani exchange/gi, "King777").replace(/reddy anna/gi, "King777");
+  html = html
+    .replace(/ambaniexchange/gi, "King777")
+    .replace(/ambani exchange/gi, "King777")
+    .replace(/reddy ?anna/gi, "King777");
   if (!html.includes("/css/king777-theme.css")) {
     html = html.includes("</head>")
       ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-theme.css?v=1" />\n  </head>')
+      : html;
+  }
+  if (!html.includes("/css/king777-clean.css")) {
+    html = html.includes("</head>")
+      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-clean.css?v=1" />\n  </head>')
       : html;
   }
   html = html.replace(/\/static\/js\/bundle\.js(?:\?[^"']*)?/g, "/static/js/bundle.js?v=king777-1");
@@ -10123,6 +10152,25 @@ const serveDecoratedHtmlAsset = (req, res, next) => {
   return sendHtml(res, resolvedPath);
 };
 app.use(serveDecoratedHtmlAsset);
+
+const serveBrandedScript = (req, res, next) => {
+  if (req.method !== "GET" || !String(req.path || "").toLowerCase().endsWith(".js")) return next();
+  const relativeScriptPath = String(req.originalUrl || `${String(req.baseUrl || "")}${String(req.path || "")}`)
+    .split("?")[0]
+    .replace(/^\/+/, "");
+  const file = path.join(ROOT, relativeScriptPath);
+  const resolved = path.resolve(file);
+  if (!resolved.startsWith(`${path.resolve(ROOT)}${path.sep}`) || !fs.existsSync(resolved)) return next();
+  let script = fs.readFileSync(resolved, "utf8");
+  script = script
+    .replace(/(["'])ambaniexchange\1/gi, "$1King777$1")
+    .replace(/(["'])ambani exchange\1/gi, "$1King777$1")
+    .replace(/(["'])reddy ?anna\1/gi, "$1King777$1")
+    .replace(/(["'])riwanbhaixxx\1/gi, "$1kingadmin$1")
+    .replace(/ambaniexchange@gmail\.com/gi, "support@king777.com");
+  res.type("application/javascript").set("Cache-Control", "no-cache").send(script);
+};
+app.use("/static/js", serveBrandedScript);
 
 const staticAssetSetHeaders = (res, filePath) => {
   const ext = String(path.extname(filePath) || "").toLowerCase();

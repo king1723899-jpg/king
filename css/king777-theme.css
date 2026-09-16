@@ -1,19 +1,21 @@
-/* King777 shared monochrome theme and responsive safety layer. */
+/* King777 shared dark theme and responsive safety layer. */
 :root {
-  --king-black: #0b0b0b;
-  --king-ink: #171717;
-  --king-muted: #6b6b6b;
-  --king-line: #dedede;
-  --king-paper: #ffffff;
-  --king-soft: #f5f5f5;
-  --king-focus: #000000;
+  --king-black: #050506;
+  --king-ink: #f4f7ef;
+  --king-muted: #a4aaad;
+  --king-line: rgba(194, 166, 255, 0.24);
+  --king-paper: #15171c;
+  --king-soft: #1d2027;
+  --king-green: #b7ff5a;
+  --king-purple: #c2a6ff;
+  --king-focus: #b7ff5a;
 }
 
 html,
 body {
   max-width: 100%;
   overflow-x: hidden;
-  background: var(--king-paper) !important;
+  background: var(--king-black) !important;
   color: var(--king-ink) !important;
 }
 
@@ -51,15 +53,15 @@ button,
 .btn-info,
 .btn-warning,
 .btn-danger {
-  background: var(--king-black) !important;
-  border-color: var(--king-black) !important;
-  color: #fff !important;
+  background: var(--king-green) !important;
+  border-color: var(--king-green) !important;
+  color: var(--king-black) !important;
 }
 
 .btn-outline-primary,
 .btn-outline-secondary {
-  background: #fff !important;
-  border-color: var(--king-black) !important;
+  background: var(--king-purple) !important;
+  border-color: var(--king-purple) !important;
   color: var(--king-black) !important;
 }
 
@@ -76,6 +78,30 @@ button,
 .panel-card,
 .modal-content {
   background: var(--king-paper) !important;
+}
+
+body,
+main,
+.wrapper,
+.content-wrapper,
+.main-container,
+.sidebar,
+.navbar,
+.header,
+footer {
+  background-color: var(--king-black) !important;
+  color: var(--king-ink) !important;
+}
+
+a,
+.text-primary {
+  color: var(--king-green) !important;
+}
+
+.text-secondary,
+.muted,
+small {
+  color: var(--king-muted) !important;
 }
 
 .table thead,

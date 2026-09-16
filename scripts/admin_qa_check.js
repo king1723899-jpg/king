@@ -6,18 +6,18 @@
     node scripts/admin_qa_check.js
 
   Optional env:
-    QA_BASE_URL=https://ambaniexchange.xrichwin.online
-    QA_ADMIN_USER=riwanbhaixxx
-    QA_ADMIN_PASS=riwanbhaixxx
+    QA_BASE_URL=http://localhost:3000
+    QA_ADMIN_USER=kingadmin
+    QA_ADMIN_PASS=kingadmin
     QA_TIMEOUT_MS=12000
     QA_INSECURE_TLS=1
 */
 
-const BASE_URL = String(process.env.QA_BASE_URL || "https://ambaniexchange.xrichwin.online")
+const BASE_URL = String(process.env.QA_BASE_URL || "http://localhost:3000")
   .trim()
   .replace(/\/+$/, "");
-const ADMIN_USER = String(process.env.QA_ADMIN_USER || "riwanbhaixxx").trim();
-const ADMIN_PASS = String(process.env.QA_ADMIN_PASS || "riwanbhaixxx").trim();
+const ADMIN_USER = String(process.env.QA_ADMIN_USER || "kingadmin").trim();
+const ADMIN_PASS = String(process.env.QA_ADMIN_PASS || "kingadmin").trim();
 const TIMEOUT_MS = Number(process.env.QA_TIMEOUT_MS || 12000);
 const INSECURE_TLS = String(process.env.QA_INSECURE_TLS || "").trim() === "1";
 
@@ -128,7 +128,17 @@ async function run() {
   };
 
   await checkApi("API /api/health", "/health");
-  await checkApi("API /api/user-info", "/api/user-info");
+  await checkApi(
+    "API /api/user-info",
+    "/api/user-info",
+    "GET",
+    null,
+    (r) => {
+      const user = r.json?.data?.user;
+      if (r.status === 200 && user?.username && user?.role) return pass(r, "profile user payload present");
+      return fail(r, `expected authenticated profile user, got status ${r.status}`);
+    }
+  );
   const userListRes = await checkApi(
     "API /api/get-user-list",
     "/api/get-user-list?page=1&limit=20",

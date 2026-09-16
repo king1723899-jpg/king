@@ -1,0 +1,151 @@
+:root {
+  --king-bg: #050506;
+  --king-surface: #15171c;
+  --king-surface-alt: #1d2027;
+  --king-green: #b7ff5a;
+  --king-purple: #c2a6ff;
+  --king-text: #f4f7ef;
+  --king-muted: #a4aaad;
+  --king-border: rgba(194, 166, 255, 0.24);
+}
+
+html,
+html body {
+  background: var(--king-bg) !important;
+  color: var(--king-text) !important;
+}
+
+html body,
+html body #root,
+html body .app,
+html body .page-wrapper,
+html body .main-content,
+html body .content-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
+html body .card,
+html body .panel,
+html body .panel-card,
+html body .modal-content,
+html body .featured-box,
+html body .featured-box-login,
+html body .loginInner1,
+html body .dropdown-menu {
+  background: var(--king-surface) !important;
+  color: var(--king-text) !important;
+  border-color: var(--king-border) !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34) !important;
+}
+
+html body input,
+html body select,
+html body textarea,
+html body .form-control,
+html body .form-select {
+  background: var(--king-surface-alt) !important;
+  color: var(--king-text) !important;
+  border-color: var(--king-border) !important;
+}
+
+html body input::placeholder,
+html body textarea::placeholder {
+  color: var(--king-muted) !important;
+}
+
+html body .btn-primary,
+html body .btn-success,
+html body .btn-theme,
+html body .btn-submit,
+html body .btn-login,
+html body .login-btn,
+html body .signup-btn {
+  background: var(--king-green) !important;
+  color: #101114 !important;
+  border-color: var(--king-green) !important;
+}
+
+html body .rules-btn,
+html body .theme-option.active,
+html body .theme-switcher__trigger,
+html body .nav-tab.active,
+html body .btn-secondary,
+html body .btn-warning,
+html body .btn-outline-primary,
+html body .btn-outline-secondary {
+  background: var(--king-purple) !important;
+  color: #101114 !important;
+  border-color: var(--king-purple) !important;
+}
+
+html body a,
+html body .text-primary,
+html body .link-primary {
+  color: var(--king-green) !important;
+}
+
+html body .text-muted,
+html body small,
+html body .muted {
+  color: var(--king-muted) !important;
+}
+
+html body .table,
+html body .table th,
+html body .table td {
+  color: var(--king-text) !important;
+  border-color: var(--king-border) !important;
+}
+
+html body .table thead,
+html body .table thead th {
+  background: var(--king-surface-alt) !important;
+  color: var(--king-green) !important;
+}
+
+@media (max-width: 768px) {
+  html body {
+    overflow-x: hidden !important;
+  }
+
+  html body .container,
+  html body .container-fluid,
+  html body .row,
+  html body .card,
+  html body .panel,
+  html body .featured-box,
+  html body .main-content,
+  html body .content-wrapper {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  html body .table-responsive,
+  html body [class*="table-responsive-"] {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html body table {
+    min-width: 620px;
+  }
+
+  html body .navbar,
+  html body .navbar-nav,
+  html body .nav-tabs,
+  html body .toolbar,
+  html body .button-group {
+    flex-wrap: wrap;
+  }
+
+  html body button,
+  html body .btn,
+  html body input,
+  html body select,
+  html body textarea {
+    max-width: 100%;
+  }
+}

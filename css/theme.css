@@ -1,25 +1,25 @@
 
 :root {
-  --theme1-bg: #f3f4f6;
-  --theme1-bg90: #ffffff;
-  --theme2-bg: #111827;
-  --theme2-bg70: #374151;
-  --theme2-bg85: #1f2937;
-  --primary-color: #111827;
-  --secondary-color: #374151;
-  --main-color: #111827;
-  --gold-color: #f3f4f6;
-  --gold-deep: #d1d5db;
-  --page-bg: #f5f5f5;
-  --panel-bg: #ffffff;
-  --panel-alt: #f9fafb;
-  --text-color: #111827;
-  --muted-color: #4b5563;
-  --border-soft: rgba(17, 24, 39, 0.12);
-  --shadow-soft: rgba(17, 24, 39, 0.08);
-  --grey-color: #6b7280;
-  --success-color: #16a34a;
-  --warning-color: #d97706;
+  --theme1-bg: #101114;
+  --theme1-bg90: #17191e;
+  --theme2-bg: #050506;
+  --theme2-bg70: #24212f;
+  --theme2-bg85: #14121b;
+  --primary-color: #b7ff5a;
+  --secondary-color: #c2a6ff;
+  --main-color: #b7ff5a;
+  --gold-color: #c2a6ff;
+  --gold-deep: #9475d9;
+  --page-bg: #0b0c0f;
+  --panel-bg: #15171c;
+  --panel-alt: #1d2027;
+  --text-color: #f4f7ef;
+  --muted-color: #a4aaad;
+  --border-soft: rgba(194, 166, 255, 0.24);
+  --shadow-soft: rgba(0, 0, 0, 0.38);
+  --grey-color: #a4aaad;
+  --success-color: #b7ff5a;
+  --warning-color: #c2a6ff;
 }
 
 :root,
@@ -29,35 +29,82 @@ body {
 }
 
 body[data-theme="light"] {
-  --theme1-bg: #ffffff;
-  --theme1-bg90: #f9fafb;
-  --theme2-bg: #111827;
-  --theme2-bg70: #374151;
-  --theme2-bg85: #1f2937;
-  --page-bg: #f8fafc;
-  --panel-bg: #ffffff;
-  --panel-alt: #f3f4f6;
-  --text-color: #111827;
-  --muted-color: #4b5563;
-  --border-soft: rgba(17, 24, 39, 0.12);
-  --shadow-soft: rgba(17, 24, 39, 0.06);
-  --grey-color: #6b7280;
+  --theme1-bg: #101114;
+  --theme1-bg90: #17191e;
+  --theme2-bg: #050506;
+  --theme2-bg70: #24212f;
+  --theme2-bg85: #14121b;
+  --page-bg: #0b0c0f;
+  --panel-bg: #15171c;
+  --panel-alt: #1d2027;
+  --text-color: #f4f7ef;
+  --muted-color: #a4aaad;
+  --border-soft: rgba(194, 166, 255, 0.24);
+  --shadow-soft: rgba(0, 0, 0, 0.38);
+  --grey-color: #a4aaad;
 }
 
 body[data-theme="dark"] {
-  --theme1-bg: #1f2937;
-  --theme1-bg90: #111827;
-  --theme2-bg: #0b0b0d;
-  --theme2-bg70: #374151;
-  --theme2-bg85: #111827;
-  --page-bg: #111111;
-  --panel-bg: #1a1a1a;
-  --panel-alt: #212121;
-  --text-color: #f5f5f5;
-  --muted-color: #d1d5db;
-  --border-soft: rgba(255, 255, 255, 0.12);
-  --shadow-soft: rgba(0, 0, 0, 0.28);
-  --grey-color: #d1d5db;
+  --theme1-bg: #101114;
+  --theme1-bg90: #17191e;
+  --theme2-bg: #050506;
+  --theme2-bg70: #24212f;
+  --theme2-bg85: #14121b;
+  --page-bg: #0b0c0f;
+  --panel-bg: #15171c;
+  --panel-alt: #1d2027;
+  --text-color: #f4f7ef;
+  --muted-color: #a4aaad;
+  --border-soft: rgba(194, 166, 255, 0.24);
+  --shadow-soft: rgba(0, 0, 0, 0.38);
+  --grey-color: #a4aaad;
+}
+
+body,
+body[data-theme="light"],
+body[data-theme="dark"],
+body[data-theme="midnight"] {
+  background: var(--page-bg) !important;
+  color: var(--text-color) !important;
+}
+
+.card,
+.panel,
+.modal-content,
+.dropdown-menu,
+.table-responsive,
+input,
+select,
+textarea,
+.form-control,
+.form-select {
+  background-color: var(--panel-bg) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-soft) !important;
+}
+
+a,
+.text-primary,
+.btn-link {
+  color: var(--primary-color) !important;
+}
+
+.btn-primary,
+.btn-success,
+.btn-dark,
+.btn-info {
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #101114 !important;
+}
+
+.btn-secondary,
+.btn-warning,
+.btn-outline-primary,
+.btn-outline-secondary {
+  background: var(--secondary-color) !important;
+  border-color: var(--secondary-color) !important;
+  color: #101114 !important;
 }
 
 body[data-theme="midnight"] {
@@ -168,14 +215,14 @@ footer,
 .badge,
 .btn-theme,
 .btn-primary {
-  color: var(--text-color) !important;
-  background: linear-gradient(135deg, var(--theme2-bg70), var(--theme2-bg85)) !important;
-  border-color: var(--theme2-bg70) !important;
+  color: #101114 !important;
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
 }
 
 .btn-theme,
 .btn-primary {
-  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.2);
+  box-shadow: 0 8px 20px rgba(183, 255, 90, 0.16);
 }
 
 .theme-switcher {
@@ -197,8 +244,8 @@ footer,
 .theme-switcher__trigger {
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--theme2-bg70), var(--theme2-bg85));
-  color: #07131f;
+  background: var(--secondary-color);
+  color: #101114;
   font-weight: 700;
   padding: 10px 14px;
   cursor: pointer;
@@ -226,9 +273,9 @@ footer,
 }
 
 .theme-option.active {
-  background: linear-gradient(135deg, var(--theme2-bg70), var(--theme2-bg85));
-  color: #07131f;
-  border-color: transparent;
+  background: var(--secondary-color);
+  color: #101114;
+  border-color: var(--secondary-color);
   font-weight: 700;
 }
 
@@ -248,6 +295,76 @@ footer,
   .theme-switcher__trigger {
     padding: 9px 12px;
     font-size: 12px;
+  }
+}
+
+/* Final cascade for controls injected by the frontend bundle. */
+html body .btn-primary,
+html body .btn-success,
+html body .btn-theme,
+html body .login-btn,
+html body .signup-btn,
+html body .btn-login,
+html body .btn-submit {
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #101114 !important;
+}
+
+html body .rules-btn,
+html body .theme-option.active,
+html body .theme-switcher__trigger,
+html body .nav-tab.active {
+  background: var(--secondary-color) !important;
+  border-color: var(--secondary-color) !important;
+  color: #101114 !important;
+}
+
+/* Keep dense betting/admin surfaces usable on narrow screens. */
+@media (max-width: 768px) {
+  .container,
+  .container-fluid,
+  .row,
+  .main-content,
+  .content-wrapper,
+  .panel-card,
+  .card {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .table-responsive,
+  .table-responsive-sm,
+  .table-responsive-md,
+  .table-responsive-lg {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 620px;
+  }
+
+  input,
+  select,
+  textarea,
+  .form-control,
+  .form-select,
+  .btn,
+  button {
+    max-width: 100%;
+  }
+
+  .btn,
+  button {
+    min-height: 40px;
   }
 }
 

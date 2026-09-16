@@ -2,31 +2,31 @@
 @import url('/assets/fonts/hind.css');
 
 :root {
-  --text-primary: #111827;
-  --text-secondary: #374151;
-  --primary-bg: #ffffff;
-  --secondary-bg: #111111;
-  --link-bg: #d1d5db;
-  --grey-bg: #e5e7eb;
-  --light-bg: #f3f4f6;
-  --suspended-color: #374151;
-  --red-color: #111827;
-  --yellow-color: #f3f4f6;
-  --green-color: #16a34a;
-  --white-color: #ffffff;
-  --site-color: #111111;
-  --green-bg: #1f2937;
-  --blue-color: #111827;
+  --text-primary: #b7ff5a;
+  --text-secondary: #c2a6ff;
+  --primary-bg: #0b0c0f;
+  --secondary-bg: #050506;
+  --link-bg: #24212f;
+  --grey-bg: #1d2027;
+  --light-bg: #15171c;
+  --suspended-color: #c2a6ff;
+  --red-color: #c2a6ff;
+  --yellow-color: #b7ff5a;
+  --green-color: #b7ff5a;
+  --white-color: #f4f7ef;
+  --site-color: #b7ff5a;
+  --green-bg: #202d19;
+  --blue-color: #c2a6ff;
 }
 
 .back {
-  background-color: #f3f4f6 !important;
-  color: #111827 !important;
+  background-color: #202d19 !important;
+  color: #b7ff5a !important;
 }
 
 .lay {
-  background-color: #e5e7eb !important;
-  color: #111827 !important;
+  background-color: #24212f !important;
+  color: #c2a6ff !important;
 }
 
 .new-logo-desktop-img {
@@ -38,7 +38,8 @@
 }
 
 .bg-orange-gradient {
-  background: linear-gradient(180deg, #fa7e29 0%, #F6682F 80%, #F6682F 100%) !important;
+  background: #c2a6ff !important;
+  color: #101114 !important;
 }
 
 /* new nav menu */
@@ -115,9 +116,9 @@
 }
 
 .nav-tab.active {
-  background: #111827;
+  background: #15171c;
   text-decoration: none;
-  color: #fff;
+  color: #b7ff5a;
 }
 
 .nav-icon-img {
@@ -152,7 +153,7 @@
   gap: 1rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-soft);
   background: #111827;
 }
 
@@ -225,7 +226,7 @@
 
 .sidebar-header {
   padding: 0 1.5rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-soft);
   margin-bottom: 1rem;
 }
 
@@ -974,8 +975,8 @@
 }
 
 .reusable-accordion-content {
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
   padding: 1.25rem;
 }
 
@@ -2427,7 +2428,7 @@ marquee {
   padding: 8px 16px 0;
   margin: 0 0 0 8px;
   text-decoration: none;
-  color: #1e1e1e;
+  color: #f4f7ef;
   border: 1px solid #bfbfbf;
   background-color: #bfbfbf;
 }
