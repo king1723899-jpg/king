@@ -79,6 +79,20 @@ html body .btn-outline-secondary {
   border-color: var(--king-purple) !important;
 }
 
+html body .bg-green,
+html body .btn.bg-green {
+  background: var(--king-green) !important;
+  color: #101114 !important;
+  border-color: var(--king-green) !important;
+}
+
+html body .bg-red,
+html body .btn.bg-red {
+  background: var(--king-purple) !important;
+  color: #101114 !important;
+  border-color: var(--king-purple) !important;
+}
+
 html body a,
 html body .text-primary,
 html body .link-primary {
@@ -102,6 +116,135 @@ html body .table thead,
 html body .table thead th {
   background: var(--king-surface-alt) !important;
   color: var(--king-green) !important;
+}
+
+/* Admin shell: keep the navigation and content frame aligned at laptop widths. */
+html body .sidebar,
+html body .side-bar,
+html body .left-sidebar,
+html body .admin-sidebar,
+html body aside {
+  background: var(--king-surface) !important;
+  border-color: var(--king-border) !important;
+  color: var(--king-text) !important;
+  box-sizing: border-box;
+}
+
+html body .sidebar a,
+html body .side-bar a,
+html body .left-sidebar a,
+html body .admin-sidebar a,
+html body aside a,
+html body .sidebar .nav-link,
+html body .side-bar .nav-link,
+html body .left-sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--king-text) !important;
+  border-color: var(--king-border) !important;
+}
+
+html body .sidebar a:hover,
+html body .side-bar a:hover,
+html body .left-sidebar a:hover,
+html body .admin-sidebar a:hover,
+html body aside a:hover,
+html body .sidebar a.active,
+html body .side-bar a.active,
+html body .left-sidebar a.active {
+  background: var(--king-purple) !important;
+  color: #101114 !important;
+}
+
+html body .sidebar a.active svg,
+html body .sidebar a.active i,
+html body .side-bar a.active svg,
+html body .side-bar a.active i,
+
+html body .admin-sidebar .nav-icon,
+html body .admin-sidebar .nav-icon svg,
+html body .admin-sidebar .nav-icon i {
+  color: var(--king-green) !important;
+}
+
+html body .admin-sidebar .dropdown-header,
+html body .admin-sidebar .dropdown-header svg,
+html body .admin-sidebar .dropdown-header i {
+  color: var(--king-purple) !important;
+}
+html body aside a.active svg,
+html body aside a.active i {
+  color: #101114 !important;
+}
+
+html body .main-content,
+html body .content-wrapper,
+html body .page-wrapper,
+html body .admin-content,
+html body .admin-main {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  background: var(--king-bg) !important;
+  color: var(--king-text) !important;
+}
+
+html body .table-responsive,
+html body [class*="table-responsive-"] {
+  max-width: 100%;
+  scrollbar-color: var(--king-purple) var(--king-surface);
+}
+
+html body .table-responsive::-webkit-scrollbar,
+html body [class*="table-responsive-"]::-webkit-scrollbar {
+  height: 8px;
+}
+
+html body .table-responsive::-webkit-scrollbar-thumb,
+html body [class*="table-responsive-"]::-webkit-scrollbar-thumb {
+  background: var(--king-purple);
+}
+
+@media (min-width: 769px) {
+  html body .admin {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-left: 0 !important;
+    overflow-x: hidden;
+  }
+
+  html body .admin > .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px !important;
+    max-width: 280px;
+    height: 100vh;
+    transform: translateX(0) !important;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+
+  html body .admin > .main,
+  html body .admin > .main + div,
+  html body .admin > footer {
+    width: calc(100% - 280px);
+    max-width: calc(100% - 280px);
+    margin-left: 280px;
+    min-width: 0;
+  }
+
+  html body .admin > .desktop-menu-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1100;
+    background: var(--king-purple) !important;
+    color: #101114 !important;
+  }
 }
 
 @media (max-width: 768px) {
@@ -147,5 +290,47 @@ html body .table thead th {
   html body select,
   html body textarea {
     max-width: 100%;
+  }
+
+  html body .sidebar,
+  html body .side-bar,
+  html body .left-sidebar,
+  html body .admin-sidebar,
+  html body aside {
+    position: relative;
+    width: 100% !important;
+    max-width: 100%;
+    min-height: auto;
+  }
+
+  html body .admin > .admin-sidebar {
+    width: 280px !important;
+    max-width: 280px;
+    transform: translateX(-100%);
+  }
+
+  html body .admin > .main,
+  html body .admin > .main + div,
+  html body .admin > footer {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+  }
+
+  html body .sidebar a,
+  html body .side-bar a,
+  html body .left-sidebar a,
+  html body .admin-sidebar a,
+  html body aside a {
+    min-height: 40px;
+  }
+
+  html body .main-content,
+  html body .content-wrapper,
+  html body .page-wrapper,
+  html body .admin-content,
+  html body .admin-main {
+    margin-left: 0 !important;
+    width: 100% !important;
   }
 }
