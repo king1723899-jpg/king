@@ -1,4 +1,50 @@
 (function () {
+  function isStandaloneAddUserPath(value) {
+    try {
+      var pathname = new URL(String(value || ""), window.location.origin).pathname.replace(/\/+$/, "") || "/";
+      return pathname === "/admin/add-user" || pathname === "/admin/client-onboarding" || pathname === "/add-user";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function standaloneAddUserUrl(value) {
+    try {
+      var parsed = new URL(String(value || ""), window.location.origin);
+      return "/admin/add-user" + parsed.search + parsed.hash;
+    } catch (_) {
+      return "/admin/add-user";
+    }
+  }
+
+  var nativePushState = window.history && window.history.pushState;
+  var nativeReplaceState = window.history && window.history.replaceState;
+  if (nativePushState) {
+    window.history.pushState = function (state, title, url) {
+      if (isStandaloneAddUserPath(url)) {
+        window.location.assign(standaloneAddUserUrl(url));
+        return;
+      }
+      return nativePushState.apply(this, arguments);
+    };
+  }
+  if (nativeReplaceState) {
+    window.history.replaceState = function (state, title, url) {
+      if (isStandaloneAddUserPath(url)) {
+        window.location.assign(standaloneAddUserUrl(url));
+        return;
+      }
+      return nativeReplaceState.apply(this, arguments);
+    };
+  }
+
+  document.addEventListener("click", function (event) {
+    var link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+    if (!link || !isStandaloneAddUserPath(link.href)) return;
+    event.preventDefault();
+    window.location.assign(standaloneAddUserUrl(link.href));
+  }, true);
+
   if (window.__casinoLaunchLoaderBootstrapped) return;
   window.__casinoLaunchLoaderBootstrapped = true;
 

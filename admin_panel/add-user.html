@@ -7,29 +7,87 @@
   <link rel="stylesheet" href="/css/bootstrap.min.css" />
   <link rel="stylesheet" href="/css/admin-style.css?v=32" />
   <style>
-    body {
-      background: #f5f7fb;
-      font-family: "Segoe UI", Arial, sans-serif;
-      color: #1f2937;
+    :root {
+      --brand-black: #050505;
+      --brand-yellow: #f4c400;
+      --page-gray: #eeeeee;
+      --line: #111111;
     }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page-gray);
+      font-family: Arial, sans-serif;
+      color: #111;
+    }
+
+    .topbar {
+      min-height: 62px;
+      background: var(--brand-black);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      border-bottom: 3px solid var(--brand-yellow);
+    }
+    .brand { font-size: 24px; font-weight: 800; letter-spacing: 1px; color: var(--brand-yellow); }
+    .topbar a { color: #fff; text-decoration: none; font-size: 14px; }
+    .topbar a:hover { color: var(--brand-yellow); }
+    .page-title {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 16px 6px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .page-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 28px; }
     .panel-card {
-      border: 1px solid #d6deeb;
-      border-radius: 12px;
+      border: 0;
+      border-radius: 0;
       background: #fff;
-      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+      padding: 14px 12px !important;
     }
     .section-title {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       margin: 0 0 14px;
-      color: #0f172a;
+      color: #111;
+    }
+    fieldset.account-section {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      margin: 0 0 12px;
+      padding: 12px 12px 16px;
+    }
+    fieldset.account-section legend {
+      float: none;
+      width: auto;
+      margin: 0;
+      padding: 0 5px;
+      font-size: 15px;
+      font-weight: 700;
     }
     .field-label {
-      font-weight: 600;
+      font-weight: 400;
       margin-bottom: 6px;
-      font-size: 13px;
-      color: #334155;
+      font-size: 14px;
+      color: #111;
     }
+    .form-control, .form-select { border: 1px solid #b8b8b8; border-radius: 3px; min-height: 42px; }
+    .form-control:focus, .form-select:focus { border-color: #79bdf2; box-shadow: 0 0 0 3px rgba(75, 166, 239, .28); }
+    .primary-action { background: #111; border-color: #111; color: #fff; min-width: 120px; }
+    .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
+    .secondary-action { min-width: 100px; }
+    .commission-grid { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+    .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
+    .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
+    .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
+    .commission-remaining { margin-top: 10px; font-weight: 700; color: #166534; }
+    .commission-remaining.over { color: #991b1b; }
     .status-box {
       border-radius: 8px;
       padding: 10px 12px;
@@ -63,34 +121,53 @@
       font-size: 13px;
       vertical-align: middle;
     }
+    @media (max-width: 576px) {
+      .topbar { padding: 0 14px; }
+      .brand { font-size: 20px; }
+      .page-title { font-size: 18px; padding-top: 14px; }
+      .page-wrap { padding: 0 8px 20px; }
+      fieldset.account-section { padding: 10px 8px 12px; }
+    }
   </style>
 </head>
 <body>
-  <div class="container py-4 py-lg-5">
+  <header class="topbar">
+    <div class="brand">KING777</div>
+    <a href="/admin/list-clients">Clients</a>
+  </header>
+  <h1 class="page-title">Add/Edit Client Account</h1>
+  <div class="page-wrap">
     <div class="row justify-content-center">
-      <div class="col-12 col-xl-10">
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-          <h1 class="h4 mb-2 mb-md-0">King777 | Add User</h1>
-          <a class="btn btn-outline-secondary btn-sm" href="/admin/list-clients">List Clients</a>
-        </div>
+      <div class="col-12">
 
         <div class="panel-card p-3 p-md-4">
           <form id="clientForm" novalidate>
-            <h2 class="section-title">General Information</h2>
+            <fieldset class="account-section">
+              <legend>Account Details</legend>
             <div class="row g-3">
-              <div class="col-md-6">
-                <label class="field-label" for="userName">User Name *</label>
+              <div class="col-12 col-md-6">
+                <label class="field-label" for="partnershipType">Account Type:</label>
+                <select class="form-select" id="partnershipType" name="partnershipType" required>
+                  <option value="">Select User Type</option>
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super Master</option>
+                  <option value="master">Master Account</option>
+                  <option value="client">User</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="field-label" for="userName">User Name:</label>
                 <input class="form-control" id="userName" name="userName" placeholder="User Name" required />
               </div>
-              <div class="col-md-6">
+              <div class="col-12 col-md-6">
                 <label class="field-label" for="fullName">Full Name *</label>
                 <input class="form-control" id="fullName" name="fullName" placeholder="Full Name" required />
               </div>
-              <div class="col-md-6">
+              <div class="col-12 col-md-6">
                 <label class="field-label" for="password">Password *</label>
                 <input class="form-control" id="password" name="password" type="password" placeholder="Password" required />
               </div>
-              <div class="col-md-6">
+              <div class="col-12 col-md-6">
                 <label class="field-label" for="confirmPassword">Confirm Password *</label>
                 <input class="form-control" id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm Password" required />
               </div>
@@ -119,20 +196,11 @@
                 <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="0 = no separate limit" />
               </div>
             </div>
+            </fieldset>
 
-            <h2 class="section-title mt-4">Partnership Information</h2>
-            <div class="row g-3">
-              <div class="col-md-4">
-                <label class="field-label" for="partnershipType">Partnership Type</label>
-                <select class="form-select" id="partnershipType" name="partnershipType">
-                  <option value="">Select Partnership Type</option>
-                  <option value="super_admin">Super Admin</option>
-                  <option value="admin">Admin</option>
-                  <option value="sub_admin">Sub Admin</option>
-                  <option value="client" selected>User</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+            <fieldset class="account-section">
+              <legend>Partnership Information</legend>
+              <div class="row g-3">
               <div class="col-md-4">
                 <label class="field-label" for="transactionCode">Transaction Code *</label>
                 <input class="form-control" id="transactionCode" name="transactionCode" placeholder="Transaction Code" required />
@@ -142,34 +210,26 @@
                 <input class="form-control" id="remark" name="remark" placeholder="Remark" />
               </div>
             </div>
+            </fieldset>
 
             <div class="row g-3 mt-1">
-              <div class="col-md-4">
-                <label class="field-label" for="hasSubAdmins">Sub-admins for this user?</label>
-                <select class="form-select" id="hasSubAdmins" name="hasSubAdmins">
-                  <option value="no" selected>No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label class="field-label" for="adminShare">Admin Share (%)</label>
-                <input class="form-control" id="adminShare" name="adminShare" type="number" min="0" max="100" step="0.01" value="0" />
-              </div>
-              <div class="col-12" id="subAdminPartnerships" hidden>
-                <label class="field-label">Select up to 5 sub-admins and assign shares</label>
-                <div id="subAdminOptions" class="row g-2"></div>
-                <div class="input-group mt-2" style="max-width: 520px;">
-                  <input id="newSubAdminUsername" class="form-control" placeholder="New sub-admin username" />
+              <div class="col-12" id="subAdminPartnerships">
+                <label class="field-label">Commission Partners (up to 5)</label>
+                <div id="commissionRows" class="commission-grid"></div>
+                <div class="commission-help">Choose up to five existing Admins or Master Accounts. Commission shares cannot exceed 100%.</div>
+                <div id="commissionRemaining" class="commission-remaining">Remaining commission: 100%</div>
+                <div class="input-group mt-3" style="max-width: 520px;">
+                  <input id="newSubAdminUsername" class="form-control" placeholder="New Master Account username" />
                   <input id="newSubAdminPassword" class="form-control" type="password" placeholder="Password" />
-                  <button id="createSubAdminBtn" class="btn btn-outline-primary" type="button">Create</button>
+                  <button id="createSubAdminBtn" class="btn btn-outline-primary" type="button">Create Master</button>
                 </div>
                 <div id="subAdminStatus" class="status-box"></div>
               </div>
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-4">
-              <button id="submitBtn" type="submit" class="btn btn-primary">Submit</button>
-              <button type="reset" class="btn btn-outline-secondary">Reset</button>
+              <button id="submitBtn" type="submit" class="btn primary-action">Submit</button>
+              <button type="reset" class="btn btn-outline-secondary secondary-action">Reset</button>
             </div>
             <div id="formStatus" class="status-box"></div>
           </form>
@@ -221,9 +281,9 @@
       const recordsBody = document.getElementById("recordsBody");
       const refreshBtn = document.getElementById("refreshBtn");
       const searchInput = document.getElementById("searchInput");
-      const hasSubAdmins = document.getElementById("hasSubAdmins");
       const subAdminPartnerships = document.getElementById("subAdminPartnerships");
-      const subAdminOptions = document.getElementById("subAdminOptions");
+      const commissionRows = document.getElementById("commissionRows");
+      const commissionRemaining = document.getElementById("commissionRemaining");
       const subAdminStatus = document.getElementById("subAdminStatus");
       const createSubAdminBtn = document.getElementById("createSubAdminBtn");
       let searchDebounce = null;
@@ -266,6 +326,14 @@
         return headers;
       }
 
+      function handleUnauthorized() {
+        ["token-admin", "refreshToken-admin", "userType-admin", "token", "refreshToken", "userType"].forEach(function (key) {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
+        window.location.replace("/admin/login?return=" + encodeURIComponent(window.location.pathname));
+      }
+
       function currentUserId() {
         const token = getToken();
         try {
@@ -276,20 +344,55 @@
         }
       }
 
+      function currentUser() {
+        const token = getToken();
+        try {
+          return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        } catch (_) {
+          return {};
+        }
+      }
+
       function renderSubAdmins(items) {
-        subAdminOptions.innerHTML = (Array.isArray(items) ? items : []).map(function (item) {
-          return '<div class="col-md-6"><div class="input-group"><span class="input-group-text"><input class="sub-admin-check" type="checkbox" value="' + escapeHtml(item.id) + '" /></span><span class="input-group-text flex-grow-1">' + escapeHtml(item.username) + '</span><input class="form-control sub-admin-share" data-partner-id="' + escapeHtml(item.id) + '" type="number" min="0" max="100" step="0.01" value="0" /></div></div>';
-        }).join("") || '<div class="col-12 text-muted">No sub-admins available</div>';
+        const actor = currentUser();
+        const partners = [{ id: actor.userId || actor._id, username: actor.username || "Current admin" }]
+          .concat(Array.isArray(items) ? items : [])
+          .filter(function (item, index, list) {
+            return item.id && list.findIndex(function (candidate) { return String(candidate.id) === String(item.id); }) === index;
+          });
+        const options = '<option value="">Select partner</option>' + partners.map(function (item) {
+          return '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.username) + '</option>';
+        }).join("");
+        commissionRows.innerHTML = Array.from({ length: 5 }, function (_, index) {
+          return '<div class="commission-row"><select class="form-select commission-partner" aria-label="Commission partner ' + (index + 1) + '">' + options + '</select><input class="form-control commission-share" type="number" min="0" max="100" step="0.01" value="0" aria-label="Commission percentage ' + (index + 1) + '" /></div>';
+        }).join("");
+        commissionRows.querySelectorAll(".commission-share").forEach(function (input) {
+          input.addEventListener("input", updateCommissionRemaining);
+        });
+        updateCommissionRemaining();
+      }
+
+      function updateCommissionRemaining() {
+        const total = Array.from(document.querySelectorAll(".commission-share")).reduce(function (sum, input) {
+          return sum + Math.max(0, Number(input.value) || 0);
+        }, 0);
+        const remaining = 100 - total;
+        commissionRemaining.textContent = "Remaining commission: " + remaining.toFixed(2).replace(/\.00$/, "") + "%";
+        commissionRemaining.classList.toggle("over", remaining < 0);
       }
 
       async function loadSubAdmins() {
         try {
-          const response = await fetch("/api/admin/sub-admins", { headers: buildHeaders(false) });
+          const response = await fetch("/api/admin/masters", { headers: buildHeaders(false) });
           const payload = await response.json().catch(function () { return {}; });
-          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to load sub-admins");
+          if (response.status === 401) {
+            handleUnauthorized();
+            return;
+          }
+          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to load Master Accounts");
           renderSubAdmins(payload.data || []);
         } catch (error) {
-          subAdminStatus.textContent = error.message || "Unable to load sub-admins";
+          subAdminStatus.textContent = error.message || "Unable to load Master Accounts";
         }
       }
 
@@ -371,11 +474,12 @@
           partnershipType: form.partnershipType.value,
           remark: form.remark.value,
           transactionCode: form.transactionCode.value,
-          partnerships: [{ partnerId: currentUserId(), sharePercentage: form.adminShare.value || 0 }]
-            .concat(Array.from(document.querySelectorAll(".sub-admin-check:checked")).map(function (checkbox) {
-              const share = document.querySelector('.sub-admin-share[data-partner-id="' + CSS.escape(checkbox.value) + '"]');
-              return { partnerId: checkbox.value, sharePercentage: share ? share.value : 0 };
-            }))
+          partnerships: Array.from(document.querySelectorAll(".commission-row")).map(function (row) {
+            return {
+              partnerId: row.querySelector(".commission-partner").value,
+              sharePercentage: row.querySelector(".commission-share").value || 0,
+            };
+          })
             .filter(function (entry) { return Number(entry.sharePercentage) > 0; })
         };
 
@@ -388,14 +492,17 @@
             body: JSON.stringify(payload),
           });
           const result = await response.json().catch(function () { return {}; });
+          if (response.status === 401) {
+            handleUnauthorized();
+            return;
+          }
           if (!response.ok || result.error) {
             throw new Error(result.message || "Unable to save");
           }
           showStatus(formStatus, result.message || "Saved successfully", "success");
           form.reset();
           form.partnershipType.value = "client";
-          hasSubAdmins.value = "no";
-          subAdminPartnerships.hidden = true;
+          loadSubAdmins();
           await loadRecords();
         } catch (error) {
           showStatus(formStatus, error.message || "Unable to save", "error");
@@ -405,25 +512,36 @@
         }
       });
 
-      hasSubAdmins.addEventListener("change", function () {
-        subAdminPartnerships.hidden = hasSubAdmins.value !== "yes";
-        if (hasSubAdmins.value === "yes") loadSubAdmins();
-      });
+      loadSubAdmins();
       createSubAdminBtn.addEventListener("click", async function () {
         const username = document.getElementById("newSubAdminUsername").value.trim();
         const password = document.getElementById("newSubAdminPassword").value;
         try {
-          const response = await fetch("/api/admin/sub-admins", { method: "POST", headers: buildHeaders(true), body: JSON.stringify({ username, password }) });
+          const response = await fetch("/api/admin/masters", { method: "POST", headers: buildHeaders(true), body: JSON.stringify({ username, password }) });
           const payload = await response.json().catch(function () { return {}; });
-          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to create sub-admin");
-          showStatus(subAdminStatus, "Sub-admin created", "success");
+          if (response.status === 401) {
+            handleUnauthorized();
+            return;
+          }
+          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to create Master Account. Please log in as an Admin or Super Admin.");
+          showStatus(subAdminStatus, "Master Account created", "success");
           document.getElementById("newSubAdminUsername").value = "";
           document.getElementById("newSubAdminPassword").value = "";
           loadSubAdmins();
         } catch (error) {
-          showStatus(subAdminStatus, error.message || "Unable to create sub-admin", "error");
+          showStatus(subAdminStatus, error.message || "Unable to create Master Account", "error");
         }
       });
+
+      form.addEventListener("submit", function (event) {
+        const total = Array.from(document.querySelectorAll(".commission-share")).reduce(function (sum, input) {
+          return sum + Math.max(0, Number(input.value) || 0);
+        }, 0);
+        if (total > 100) {
+          event.preventDefault();
+          showStatus(formStatus, "Commission shares cannot exceed 100%.", "error");
+        }
+      }, true);
 
       refreshBtn.addEventListener("click", function () {
         loadRecords();

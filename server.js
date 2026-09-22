@@ -79,8 +79,8 @@ const SIGNING_KEY_CANDIDATES = [
   .filter(Boolean);
 const ENCRYPTION_KEY = ENCRYPTION_KEY_CANDIDATES[0] || "UysThsnGhsnYsnsy6962787GHyyj8788w5";
 const SIGNING_KEY = SIGNING_KEY_CANDIDATES[0] || "WEfytw85677FGHvsbntGHFHG647286dhgRTYb67";
-const DEFAULT_LOGIN_USERNAME = process.env.DEFAULT_LOGIN_USERNAME || "kingadmin";
-const DEFAULT_LOGIN_PASSWORD = process.env.DEFAULT_LOGIN_PASSWORD || "kingadmin";
+const DEFAULT_LOGIN_USERNAME = process.env.DEFAULT_LOGIN_USERNAME || "king007";
+const DEFAULT_LOGIN_PASSWORD = process.env.DEFAULT_LOGIN_PASSWORD || "1234";
 const DEFAULT_REGISTRATION_CODE = process.env.DEFAULT_REGISTRATION_CODE || "KING777WINN";
 const CASINO_UNAVAILABLE_MESSAGE = "This is not currently available";
 
@@ -144,7 +144,7 @@ const CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP =
     ? true
     : envBool(process.env.CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP);
 
-const DEMO_USERS_COUNT = Math.max(1, envNum(process.env.DEMO_USERS_COUNT, 50));
+const DEMO_USERS_COUNT = Math.max(0, envNum(process.env.DEMO_USERS_COUNT, 0));
 const DEMO_INITIAL_BALANCE = Math.max(0, envNum(process.env.DEMO_INITIAL_BALANCE, 500000));
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "demo@123";
 const ADMIN_INITIAL_BALANCE = Math.max(0, envNum(process.env.ADMIN_INITIAL_BALANCE, 10000));
@@ -159,25 +159,25 @@ const OWNER_UNLIMITED_COINS =
 const HIERARCHY_ROLE = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
-  SUB_ADMIN: "sub_admin",
+  MASTER: "master",
   USER: "user",
 };
 const HIERARCHY_CHILD_ROLE = {
   [HIERARCHY_ROLE.SUPER_ADMIN]: HIERARCHY_ROLE.ADMIN,
-  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.SUB_ADMIN,
-  [HIERARCHY_ROLE.SUB_ADMIN]: HIERARCHY_ROLE.USER,
+  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.MASTER,
+  [HIERARCHY_ROLE.MASTER]: HIERARCHY_ROLE.USER,
 };
 const HIERARCHY_LEVEL = {
   [HIERARCHY_ROLE.SUPER_ADMIN]: 1,
   [HIERARCHY_ROLE.ADMIN]: 2,
-  [HIERARCHY_ROLE.SUB_ADMIN]: 3,
+  [HIERARCHY_ROLE.MASTER]: 3,
   [HIERARCHY_ROLE.USER]: 4,
 };
 const normalizeHierarchyRole = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (["owner", "super_admin", "superadmin", "sadmin", "smdl", "super master", "super-master", "super_master"].includes(raw)) return HIERARCHY_ROLE.SUPER_ADMIN;
   if (["admin", "master_agent", "masteragent", "master", "mdl"].includes(raw)) return HIERARCHY_ROLE.ADMIN;
-  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return HIERARCHY_ROLE.SUB_ADMIN;
+  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return HIERARCHY_ROLE.MASTER;
   return HIERARCHY_ROLE.USER;
 };
 const getExpectedChildRole = (parentRole) => HIERARCHY_CHILD_ROLE[normalizeHierarchyRole(parentRole)] || null;
@@ -188,15 +188,15 @@ const OWNER_ROLE_SET = new Set(["super_admin"]);
 const PANEL_ROLE_DEPTH = {
   super_admin: 0,
   admin: 1,
-  sub_admin: 2,
+  master: 2,
   user: 3,
 };
 const normalizePanelRole = (value, fallback = "user") => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return fallback;
   if (["owner", "super_admin", "superadmin", "sadmin", "super master", "super-master", "super_master", "supermaster", "smdl"].includes(raw)) return "super_admin";
-  if (["admin", "master", "mdl", "master_agent", "masteragent"].includes(raw)) return "admin";
-  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "sub_admin";
+  if (["admin", "mdl", "master_agent", "masteragent"].includes(raw)) return "admin";
+  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
   if (["user", "client", "player"].includes(raw)) return "user";
   return fallback;
 };
@@ -890,6 +890,7 @@ ensureTableColumn("users", "partnership_remaining", "REAL NOT NULL DEFAULT 100")
 ensureTableColumn("bets", "settlement_result", "TEXT");
 ensureTableColumn("bets", "settlement_net", "REAL");
 ensureTableColumn("bets", "settled_at", "TEXT");
+db.prepare("UPDATE users SET role='master' WHERE lower(role)='sub_admin'").run();
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_partnerships (
   id TEXT PRIMARY KEY,
@@ -3613,6 +3614,7 @@ const seedUsers = () => {
   setSetting("stake.default", { simple: STAKE_SIMPLE, detail: STAKE_DETAIL });
 };
 const seedDemoUsers = () => {
+  if (DEMO_USERS_COUNT === 0) return;
   const created = nowIso();
   const passwordHash = hashPass(DEMO_PASSWORD);
   const insertUser = db.prepare(
@@ -4987,10 +4989,10 @@ const sanitizeAdminUsername = (value) =>
 const normalizeMobileNumber = (value) => String(value || "").trim().replace(/[^\d+]/g, "");
 const normalizeAdminPartnershipType = (value) => {
   const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return "sub_admin";
+  if (!raw) return "master";
   if (["super_admin", "superadmin", "super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_admin";
-  if (["admin", "master", "master agent", "master-agent", "master_agent", "mdl"].includes(raw)) return "admin";
-  if (["sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "sub_admin";
+  if (["admin", "master agent", "master-agent", "master_agent", "mdl"].includes(raw)) return "admin";
+  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
   if (["client", "user", "player"].includes(raw)) return "client";
   return "other";
 };
@@ -4998,14 +5000,14 @@ const panelRoleToPartnershipType = (role) => {
   const normalizedRole = normalizePanelRole(role, "user");
   if (normalizedRole === "super_admin") return "super_admin";
   if (normalizedRole === "admin") return "admin";
-  if (normalizedRole === "sub_admin") return "sub_admin";
+  if (normalizedRole === "master") return "master";
   return "client";
 };
 const partnershipTypeToPanelRole = (partnershipType) => {
   const normalizedType = normalizeAdminPartnershipType(partnershipType);
   if (normalizedType === "super_admin") return "super_admin";
   if (normalizedType === "admin") return "admin";
-  if (normalizedType === "sub_admin") return "sub_admin";
+  if (normalizedType === "master") return "master";
   return "user";
 };
 const resolveAccountRoleFromInput = (body = {}, actorRole = "user") => {
@@ -5015,7 +5017,7 @@ const resolveAccountRoleFromInput = (body = {}, actorRole = "user") => {
     ? normalizePanelRole(explicitRoleText, "user")
     : partnershipTypeToPanelRole(body.partnershipType || body.partnership);
   const normalizedActorRole = normalizePanelRole(actorRole, "user");
-  if (normalizedActorRole === "sub_admin" && requestedRole === "sub_admin") requestedRole = "user";
+  if (normalizedActorRole === "master" && requestedRole === "master") requestedRole = "user";
   return normalizePanelRole(requestedRole, "user");
 };
 const maskTransactionCode = (value) => {
@@ -5344,7 +5346,7 @@ const listManagedAdminStmt = db.prepare(
   FROM users u
   LEFT JOIN user_profiles p ON p.user_id = u.id
   LEFT JOIN admin_feature_permissions af ON af.user_id = u.id
-  WHERE lower(u.role) IN ('super_admin','admin','sub_admin')
+  WHERE lower(u.role) IN ('super_admin','admin','master','sub_admin')
   ORDER BY datetime(u.created_at) DESC, u.created_at DESC`
 );
 const getAdminFeaturePermissionsForUser = (user, role) => {
@@ -6329,7 +6331,7 @@ const handleRegister = async (req, res) => {
         0,
         now
       );
-      if (authActor && Array.isArray(explicitPartnerships) && requestedRole === "user") {
+      if (authActor && Array.isArray(explicitPartnerships)) {
         saveUserPartnerships(uid, explicitPartnerships, authActor, authActorRole, now);
       }
     })();
@@ -6428,23 +6430,30 @@ const handleRegister = async (req, res) => {
     },
   });
 };
-app.post("/api/register", handleRegister);
-app.post("/api/register2", handleRegister);
-app.get("/api/admin/sub-admins", (req, res) => {
+const sendLegacyRegistrationRemoved = (_req, res) =>
+  res.status(410).json(
+    env("Public registration has been removed. Create users from the admin panel.", {
+      disabled: true,
+      replacement: "/admin/add-user",
+    }, true, 410)
+  );
+app.post("/api/register", sendLegacyRegistrationRemoved);
+app.post("/api/register2", sendLegacyRegistrationRemoved);
+app.get("/api/admin/masters", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
   if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role=? ORDER BY username").all("sub_admin");
+  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role IN ('admin','master','sub_admin') ORDER BY role,username").all();
   const visibleRows = rows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
   return res.json(env("", visibleRows));
 });
-app.post("/api/admin/sub-admins", (req, res) => {
+app.post("/api/admin/masters", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
-  if (!canRoleCreateRole(authRole, "sub_admin")) return res.status(403).json(env("Only an admin can create a sub_admin", {}, true, 403));
+  if (!canRoleCreateRole(authRole, "master")) return res.status(403).json(env("Only an admin can create a Master Account", {}, true, 403));
   const username = sanitizeAdminUsername(req.body?.username || req.body?.userName);
   const password = String(req.body?.password || "").trim();
   const fullName = String(req.body?.fullName || username).trim();
@@ -6460,8 +6469,8 @@ app.post("/api/admin/sub-admins", (req, res) => {
         userId,
         username,
         hashPass(password),
-        "sub_admin",
-        panelRoleDepth("sub_admin") + 1,
+        "master",
+        panelRoleDepth("master") + 1,
         authUser.id,
         Date.now(),
         now,
@@ -6476,18 +6485,20 @@ app.post("/api/admin/sub-admins", (req, res) => {
       db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(userId, 0, 0, 0, now);
       db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
         userId,
-        JSON.stringify({ fullName, source: "on_the_fly_sub_admin", createdById: authUser.id, systemRole: "sub_admin" }),
+        JSON.stringify({ fullName, source: "on_the_fly_master", createdById: authUser.id, systemRole: "master" }),
         now,
         now
       );
     })();
     directChildUserIdsCache.delete(String(authUser.id));
     userListResponseCache.clear();
-    return res.status(201).json(env("Sub-admin created", { userId, username, role: "sub_admin", parentId: authUser.id }));
+    return res.status(201).json(env("Master Account created", { userId, username, role: "master", parentId: authUser.id }));
   } catch (e) {
-    return res.status(500).json(env(e.message || "Unable to create sub_admin", {}, true, 500));
+    return res.status(500).json(env(e.message || "Unable to create Master Account", {}, true, 500));
   }
 });
+app.get("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
+app.post("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
 app.post("/api/admin/client-onboarding", async (req, res) => {
   if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
     return res.status(403).json(env("B2B platform only", {}, true, 403));
@@ -6601,7 +6612,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
         now,
         now
       );
-      if (requestedRole === "user") {
+      if (Array.isArray(partnershipInput)) {
         const partnership = saveUserPartnerships(userId, partnershipInput, authUser, authRole, now);
         db.prepare("UPDATE user_profiles SET data_json=?,updated_at=? WHERE user_id=?").run(
           JSON.stringify({ ...profile, partnership: { ...profile.partnership, partners: partnership.entries.map((entry) => ({ partnerId: entry.partnerId, sharePercentage: entry.sharePercentage })), remainingPercentage: partnership.remainingShare } }),
@@ -6883,7 +6894,7 @@ const login = (admin = false) => (req, res) => {
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
 
   const normalizedRole = String(u.role || "").trim().toLowerCase();
-  const allowedAdminRoles = new Set(["super_admin", "admin", "sub_admin", "1", "2", "3"]);
+  const allowedAdminRoles = new Set(["super_admin", "admin", "master", "sub_admin", "1", "2", "3"]);
   const isDefaultAdminCredential = username === DEFAULT_LOGIN_USERNAME;
   const canUseAdminLogin = isDefaultAdminCredential || allowedAdminRoles.has(normalizedRole);
 
@@ -10251,6 +10262,7 @@ app.get("/dash", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login.html")));
 app.get("/admin/client-onboarding", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
 app.get("/admin/add-user", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
+app.get("/signup", (_req, res) => res.redirect(302, "/admin/add-user"));
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/add-admin", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/manage-admins", (_req, res) => res.redirect(302, "/admin/list-clients"));
