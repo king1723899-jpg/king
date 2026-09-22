@@ -36,6 +36,18 @@
   margin-right: 12px;
   display: flex;
 }
+.text-logo {
+  color: #ffd447;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  line-height: 1;
+}
+.suspense-loading .text-logo,
+.preloader-logo {
+  font-size: 34px;
+  padding: 24px;
+  text-align: center;
+}
 
 .bg-orange-gradient {
   background: #c2a6ff !important;

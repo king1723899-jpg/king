@@ -512,11 +512,10 @@
                               className: "signup-logo",
                               children: /*#__PURE__*/ (0,
                               react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_10__.jsxDEV)(
-                                "img",
+                                "div",
                                 {
-                                  src: "/imgs/logo.png",
-                                  alt: "ambaniexchange",
-                                  className: "signup-logo-img",
+                                  className: "text-logo signup-logo-img",
+                                  children: "KING777",
                                 },
                                 void 0,
                                 false,

@@ -2526,6 +2526,23 @@ tr.suspended-fancy {
   letter-spacing: 1.5px;
   line-height: 1.2;
 }
+.text-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd447;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  line-height: 1;
+  text-decoration: none;
+}
+.admin-sidebar .text-logo.logo-image,
+.admin-sidebar .text-logo.wd-100 {
+  width: 100%;
+  max-width: 200px;
+  min-height: 42px;
+  font-size: 26px;
+}
 .admin-sidebar .logo-text,
 .admin-sidebar .nav-text,
 .admin-sidebar .dropdown-header,

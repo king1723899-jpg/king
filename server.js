@@ -6909,7 +6909,7 @@ const login = (admin = false) => (req, res) => {
   const username = String(req.body?.username || req.body?.mobile || "").trim();
   const password = String(req.body?.password || "").trim();
   if (!username || !password) return res.status(400).json({ message: "Username and password are required" });
-  const u = getUserByUsername(username);
+  const u = getUserByUsername(username) || getUserByUsernameCaseInsensitiveStmt.get(username);
   if (!u) return res.status(401).json({ message: "Invalid credentials" });
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
 

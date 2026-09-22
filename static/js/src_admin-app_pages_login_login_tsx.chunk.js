@@ -120,13 +120,9 @@ const Login = () => {
               className: "loginInner1",
               children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_9__.jsxDEV)("div", {
                 className: "log-logo m-b-20 text-center",
-                children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_9__.jsxDEV)("img", {
-                  src: "/imgs/logo.png",
-                  className: "logo-login",
-                  style: {
-                    maxWidth: "250px",
-                    maxHeight: "100px"
-                  }
+                children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_9__.jsxDEV)("div", {
+                  className: "text-logo logo-login",
+                  children: "KING777"
                 }, void 0, false, {
                   fileName: _jsxFileName,
                   lineNumber: 79,

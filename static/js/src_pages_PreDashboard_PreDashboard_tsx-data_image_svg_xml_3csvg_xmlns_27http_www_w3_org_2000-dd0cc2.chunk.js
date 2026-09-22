@@ -1698,11 +1698,10 @@
                                               className: "logo-container",
                                               children: /*#__PURE__*/ (0,
                                               react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_14__.jsxDEV)(
-                                                "img",
+                                                "div",
                                                 {
-                                                  src: "/logo.png",
-                                                  alt: "REDDY.CLUB Logo",
-                                                  className: "logo-image",
+                                                  className: "text-logo logo-image",
+                                                  children: "KING777",
                                                 },
                                                 void 0,
                                                 false,
@@ -1904,11 +1903,10 @@
                                                 className: "logo-container",
                                                 children: /*#__PURE__*/ (0,
                                                 react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_14__.jsxDEV)(
-                                                  "img",
+                                                  "div",
                                                   {
-                                                    src: "/darklogo.png",
-                                                    alt: "REDDY.CLUB Logo",
-                                                    className: "logo-image",
+                                                    className: "text-logo logo-image",
+                                                    children: "KING777",
                                                   },
                                                   void 0,
                                                   false,

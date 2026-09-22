@@ -93,10 +93,10 @@
                                           "log-logo m-b-20 text-center",
                                         children: /*#__PURE__*/ (0,
                                         react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_2__.jsxDEV)(
-                                          "img",
+                                          "div",
                                           {
-                                            src: "/imgs/logo.png",
-                                            className: "logo-login",
+                                            className: "text-logo logo-login",
+                                            children: "KING777",
                                           },
                                           void 0,
                                           false,

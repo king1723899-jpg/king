@@ -716,7 +716,7 @@ const Sidebar = ({
   const [treeData, setTreeData] = react__WEBPACK_IMPORTED_MODULE_0___default().useState([]);
   const [expanded, setExpanded] = react__WEBPACK_IMPORTED_MODULE_0___default().useState([]);
   const [isCollapsed, setIsCollapsed] = react__WEBPACK_IMPORTED_MODULE_0___default().useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = react__WEBPACK_IMPORTED_MODULE_0___default().useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = react__WEBPACK_IMPORTED_MODULE_0___default().useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 768px)').matches);
   const [openDropdowns, setOpenDropdowns] = react__WEBPACK_IMPORTED_MODULE_0___default().useState({
     reports: false,
     transactions: false,
@@ -727,6 +727,27 @@ const Sidebar = ({
   const [userMessage, setUserMessage] = react__WEBPACK_IMPORTED_MODULE_0___default().useState('');
   const [isOpen, setIsOpen] = react__WEBPACK_IMPORTED_MODULE_0___default().useState(false);
   const [gameList, setGameList] = react__WEBPACK_IMPORTED_MODULE_0___default().useState([]);
+
+  react__WEBPACK_IMPORTED_MODULE_0___default().useEffect(() => {
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+    const syncSidebarForViewport = () => {
+      const shouldOpen = !mobileQuery.matches;
+      setIsSidebarOpen(shouldOpen);
+      onToggleHidden === null || onToggleHidden === void 0 ? void 0 : onToggleHidden(!shouldOpen);
+    };
+    const closeAfterNavigation = event => {
+      const link = event.target && event.target.closest ? event.target.closest('.admin-sidebar a[href]') : null;
+      if (!link || !mobileQuery.matches || link.getAttribute('href') === '#') return;
+      setIsSidebarOpen(false);
+      onToggleHidden === null || onToggleHidden === void 0 ? void 0 : onToggleHidden(true);
+    };
+    window.addEventListener('resize', syncSidebarForViewport);
+    document.addEventListener('click', closeAfterNavigation, true);
+    return () => {
+      window.removeEventListener('resize', syncSidebarForViewport);
+      document.removeEventListener('click', closeAfterNavigation, true);
+    };
+  }, [onToggleHidden]);
 
   // React.useEffect(() => {
 
@@ -1044,11 +1065,9 @@ const Sidebar = ({
           className: "logo-section",
           children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
             className: "custom-logo",
-            children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("img", {
-              // src='/darklogo.png'
-              src: "/darklogo.png",
-              alt: "reddyannas",
-              className: "logo-image"
+            children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
+              className: "text-logo logo-image",
+              children: "KING777"
             }, void 0, false, {
               fileName: _jsxFileName,
               lineNumber: 362,
@@ -1840,9 +1859,9 @@ const Sidebar = ({
       direction: "left",
       children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
         className: "drawer-header",
-        children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("img", {
-          src: "/darklogo.png",
-          className: "wd-100"
+        children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
+          className: "text-logo wd-100",
+          children: "KING777"
         }, void 0, false, {
           fileName: _jsxFileName,
           lineNumber: 624,

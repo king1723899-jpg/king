@@ -457,11 +457,10 @@
                         className: "forgot-password-logo",
                         children: /*#__PURE__*/ (0,
                         react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_5__.jsxDEV)(
-                          "img",
+                          "div",
                           {
-                            src: "/goldlogo.png",
-                            alt: "ambaniexchange",
-                            className: "logo-image",
+                            className: "text-logo logo-image",
+                            children: "KING777",
                           },
                           void 0,
                           false,
