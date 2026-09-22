@@ -159,24 +159,32 @@ const OWNER_UNLIMITED_COINS =
 const HIERARCHY_ROLE = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
+  SUPER_MASTER: "super_master",
+  SUB_SUPER_MASTER: "sub_super_master",
   MASTER: "master",
   USER: "user",
 };
 const HIERARCHY_CHILD_ROLE = {
   [HIERARCHY_ROLE.SUPER_ADMIN]: HIERARCHY_ROLE.ADMIN,
-  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.MASTER,
+  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.SUPER_MASTER,
+  [HIERARCHY_ROLE.SUPER_MASTER]: HIERARCHY_ROLE.SUB_SUPER_MASTER,
+  [HIERARCHY_ROLE.SUB_SUPER_MASTER]: HIERARCHY_ROLE.MASTER,
   [HIERARCHY_ROLE.MASTER]: HIERARCHY_ROLE.USER,
 };
 const HIERARCHY_LEVEL = {
   [HIERARCHY_ROLE.SUPER_ADMIN]: 1,
   [HIERARCHY_ROLE.ADMIN]: 2,
-  [HIERARCHY_ROLE.MASTER]: 3,
-  [HIERARCHY_ROLE.USER]: 4,
+  [HIERARCHY_ROLE.SUPER_MASTER]: 3,
+  [HIERARCHY_ROLE.SUB_SUPER_MASTER]: 4,
+  [HIERARCHY_ROLE.MASTER]: 5,
+  [HIERARCHY_ROLE.USER]: 6,
 };
 const normalizeHierarchyRole = (value) => {
   const raw = String(value || "").trim().toLowerCase();
-  if (["owner", "super_admin", "superadmin", "sadmin", "smdl", "super master", "super-master", "super_master"].includes(raw)) return HIERARCHY_ROLE.SUPER_ADMIN;
-  if (["admin", "master_agent", "masteragent", "master", "mdl"].includes(raw)) return HIERARCHY_ROLE.ADMIN;
+  if (["owner", "super_admin", "superadmin", "sadmin", "smdl"].includes(raw)) return HIERARCHY_ROLE.SUPER_ADMIN;
+  if (["admin", "master_agent", "masteragent", "mdl"].includes(raw)) return HIERARCHY_ROLE.ADMIN;
+  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return HIERARCHY_ROLE.SUPER_MASTER;
+  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return HIERARCHY_ROLE.SUB_SUPER_MASTER;
   if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return HIERARCHY_ROLE.MASTER;
   return HIERARCHY_ROLE.USER;
 };
@@ -188,14 +196,18 @@ const OWNER_ROLE_SET = new Set(["super_admin"]);
 const PANEL_ROLE_DEPTH = {
   super_admin: 0,
   admin: 1,
-  master: 2,
-  user: 3,
+  super_master: 2,
+  sub_super_master: 3,
+  master: 4,
+  user: 5,
 };
 const normalizePanelRole = (value, fallback = "user") => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return fallback;
-  if (["owner", "super_admin", "superadmin", "sadmin", "super master", "super-master", "super_master", "supermaster", "smdl"].includes(raw)) return "super_admin";
+  if (["owner", "super_admin", "superadmin", "sadmin", "smdl"].includes(raw)) return "super_admin";
   if (["admin", "mdl", "master_agent", "masteragent"].includes(raw)) return "admin";
+  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_master";
+  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return "sub_super_master";
   if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
   if (["user", "client", "player"].includes(raw)) return "user";
   return fallback;
@@ -206,6 +218,8 @@ const canRoleCreateRole = (actorRole, childRole) => {
   const actor = normalizePanelRole(actorRole, "user");
   const child = normalizePanelRole(childRole, "user");
   if (actor === "user") return false;
+  if (actor === "super_admin") return true;
+  if (actor === "admin" && child === "admin") return true;
   return panelRoleDepth(actor) < panelRoleDepth(child);
 };
 const roleForAdminPanelUi = (value) => {
@@ -4990,8 +5004,10 @@ const normalizeMobileNumber = (value) => String(value || "").trim().replace(/[^\
 const normalizeAdminPartnershipType = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "master";
-  if (["super_admin", "superadmin", "super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_admin";
+  if (["super_admin", "superadmin"].includes(raw)) return "super_admin";
   if (["admin", "master agent", "master-agent", "master_agent", "mdl"].includes(raw)) return "admin";
+  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_master";
+  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return "sub_super_master";
   if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
   if (["client", "user", "player"].includes(raw)) return "client";
   return "other";
@@ -5000,6 +5016,8 @@ const panelRoleToPartnershipType = (role) => {
   const normalizedRole = normalizePanelRole(role, "user");
   if (normalizedRole === "super_admin") return "super_admin";
   if (normalizedRole === "admin") return "admin";
+  if (normalizedRole === "super_master") return "super_master";
+  if (normalizedRole === "sub_super_master") return "sub_super_master";
   if (normalizedRole === "master") return "master";
   return "client";
 };
@@ -5007,6 +5025,8 @@ const partnershipTypeToPanelRole = (partnershipType) => {
   const normalizedType = normalizeAdminPartnershipType(partnershipType);
   if (normalizedType === "super_admin") return "super_admin";
   if (normalizedType === "admin") return "admin";
+  if (normalizedType === "super_master") return "super_master";
+  if (normalizedType === "sub_super_master") return "sub_super_master";
   if (normalizedType === "master") return "master";
   return "user";
 };
@@ -5346,7 +5366,7 @@ const listManagedAdminStmt = db.prepare(
   FROM users u
   LEFT JOIN user_profiles p ON p.user_id = u.id
   LEFT JOIN admin_feature_permissions af ON af.user_id = u.id
-  WHERE lower(u.role) IN ('super_admin','admin','master','sub_admin')
+  WHERE lower(u.role) IN ('super_admin','admin','super_master','sub_super_master','master','sub_admin')
   ORDER BY datetime(u.created_at) DESC, u.created_at DESC`
 );
 const getAdminFeaturePermissionsForUser = (user, role) => {
@@ -6445,7 +6465,7 @@ app.get("/api/admin/masters", (req, res) => {
   const authRole = reqAuthRole(req, authUser.role);
   if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role IN ('admin','master','sub_admin') ORDER BY role,username").all();
+  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role IN ('admin','super_master','sub_super_master','master','sub_admin') ORDER BY role,username").all();
   const visibleRows = rows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
   return res.json(env("", visibleRows));
 });
@@ -6894,7 +6914,7 @@ const login = (admin = false) => (req, res) => {
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
 
   const normalizedRole = String(u.role || "").trim().toLowerCase();
-  const allowedAdminRoles = new Set(["super_admin", "admin", "master", "sub_admin", "1", "2", "3"]);
+  const allowedAdminRoles = new Set(["super_admin", "admin", "super_master", "sub_super_master", "master", "sub_admin", "1", "2", "3"]);
   const isDefaultAdminCredential = username === DEFAULT_LOGIN_USERNAME;
   const canUseAdminLogin = isDefaultAdminCredential || allowedAdminRoles.has(normalizedRole);
 
@@ -10154,7 +10174,7 @@ const sendHtml = (res, file) => {
       ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-clean.css?v=1" />\n  </head>')
       : html;
   }
-  html = html.replace(/\/static\/js\/bundle\.js(?:\?[^"']*)?/g, "/static/js/bundle.js?v=king777-1");
+  html = html.replace(/\/static\/js\/bundle\.js(?:\?[^"']*)?/g, "/static/js/bundle.js?v=king777-2");
   const marker = '<script src="/url-rewrite.js"></script>';
   if (!html.includes(marker)) html = html.includes("</head>") ? html.replace("</head>", `  ${marker}\n  </head>`) : `${marker}\n${html}`;
   // Keep content-type stable for strict cPanel availability checks.
