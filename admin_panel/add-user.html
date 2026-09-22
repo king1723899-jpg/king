@@ -230,11 +230,11 @@
                 <label class="field-label" for="partnershipType">Account Type:</label>
                 <select class="form-select" id="partnershipType" name="partnershipType" required>
                   <option value="">Select User Type</option>
-                  <option value="admin">Admin</option>
-                  <option value="super_master">Super Master</option>
-                  <option value="sub_super_master">Sub Super Master</option>
-                  <option value="master">Master Account</option>
-                  <option value="client">User</option>
+                  <option value="admin" data-role-option="admin">Admin</option>
+                  <option value="super_master" data-role-option="super_master">Super Master</option>
+                  <option value="sub_super_master" data-role-option="sub_super_master">Sub Super Master</option>
+                  <option value="master" data-role-option="master">Master Account</option>
+                  <option value="client" data-role-option="user">User</option>
                 </select>
               </div>
               <div class="col-12 col-md-6">
@@ -368,6 +368,25 @@
       const createSubAdminBtn = document.getElementById("createSubAdminBtn");
       let searchDebounce = null;
 
+      function applyRoleOptions() {
+        const role = String(currentUser().actualRole || currentUser().role || "user").toLowerCase();
+        const depth = { super_admin: 0, admin: 1, super_master: 2, sub_super_master: 3, master: 4, user: 5 };
+        const actorDepth = depth[role] === undefined ? depth.user : depth[role];
+        Array.from(form.partnershipType.options).forEach(function (option) {
+          const optionRole = option.getAttribute("data-role-option");
+          const allowed = option.value === "" || role === "super_admin" || (role === "admin" && optionRole === "admin") || (optionRole && depth[optionRole] > actorDepth);
+          option.hidden = !allowed;
+          option.disabled = !allowed;
+        });
+        if (form.partnershipType.options[form.partnershipType.selectedIndex]?.disabled) {
+          form.partnershipType.value = "";
+        }
+        const canCreateMaster = role === "super_admin" || ["admin", "super_master", "sub_super_master"].includes(role);
+        createSubAdminBtn.hidden = !canCreateMaster;
+        document.getElementById("newSubAdminUsername").hidden = !canCreateMaster;
+        document.getElementById("newSubAdminPassword").hidden = !canCreateMaster;
+      }
+
       function syncStandaloneMenu() {
         const mobile = window.matchMedia("(max-width: 768px)").matches;
         standaloneSidebar.classList.toggle("is-closed", mobile);
@@ -382,6 +401,7 @@
       });
       window.addEventListener("resize", syncStandaloneMenu);
       syncStandaloneMenu();
+      applyRoleOptions();
 
       function showStatus(target, text, type) {
         target.className = "status-box";
