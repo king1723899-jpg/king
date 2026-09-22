@@ -172,13 +172,9 @@
                 <label class="field-label" for="confirmPassword">Confirm Password *</label>
                 <input class="form-control" id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm Password" required />
               </div>
-              <div class="col-md-4">
-                <label class="field-label" for="city">City</label>
-                <input class="form-control" id="city" name="city" placeholder="City" />
-              </div>
-              <div class="col-md-4">
-                <label class="field-label" for="mobileNumber">Mobile Number</label>
-                <input class="form-control" id="mobileNumber" name="mobileNumber" placeholder="Mobile Number" />
+              <div class="col-12 col-md-4">
+                <label class="field-label" for="referenceName">Reference Name</label>
+                <input class="form-control" id="referenceName" name="referenceName" placeholder="Reference Name" />
               </div>
               <div class="col-md-4">
                 <label class="field-label" for="creditAmount">Opening Credit</label>
@@ -186,7 +182,7 @@
               </div>
               <div class="col-md-4">
                 <label class="field-label" for="creditLimit">Credit Reference</label>
-                <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="0 = no separate limit" />
+                <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="Credit Reference" />
               </div>
               <div class="col-md-4">
                 <label class="field-label" for="minBet">Minimum Bet</label>
@@ -194,7 +190,7 @@
               </div>
               <div class="col-md-4">
                 <label class="field-label" for="maxBet">Maximum Bet</label>
-                <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="0 = no separate limit" />
+                <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="Maximum Bet" />
               </div>
             </div>
             </fieldset>
@@ -243,7 +239,7 @@
           </div>
           <div class="row g-2 mb-3">
             <div class="col-md-4">
-              <input id="searchInput" class="form-control form-control-sm" placeholder="Search username / city / mobile" />
+              <input id="searchInput" class="form-control form-control-sm" placeholder="Search username / reference" />
             </div>
           </div>
           <div id="listStatus" class="status-box"></div>
@@ -253,8 +249,7 @@
                 <tr>
                   <th>User Name</th>
                   <th>Full Name</th>
-                  <th>City</th>
-                  <th>Mobile</th>
+                  <th>Reference Name</th>
                   <th>Credit</th>
                   <th>Partnership</th>
                   <th>Remark</th>
@@ -263,7 +258,7 @@
                 </tr>
               </thead>
               <tbody id="recordsBody">
-                <tr><td colspan="9" class="text-center text-muted py-4">No records</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">No records</td></tr>
               </tbody>
             </table>
           </div>
@@ -415,7 +410,7 @@
 
       function renderRows(items) {
         if (!Array.isArray(items) || !items.length) {
-          recordsBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No records</td></tr>';
+          recordsBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records</td></tr>';
           return;
         }
         recordsBody.innerHTML = items
@@ -424,8 +419,7 @@
               "<tr>" +
               "<td>" + escapeHtml(item.username) + "</td>" +
               "<td>" + escapeHtml(item.fullName) + "</td>" +
-              "<td>" + escapeHtml(item.city) + "</td>" +
-              "<td>" + escapeHtml(item.mobileNumber) + "</td>" +
+              "<td>" + escapeHtml(item.referenceName) + "</td>" +
               "<td>" + escapeHtml(item.creditAmount) + "</td>" +
               "<td>" + escapeHtml(item.partnership && item.partnership.type) + "</td>" +
               "<td>" + escapeHtml(item.partnership && item.partnership.remark) + "</td>" +
@@ -466,8 +460,7 @@
           fullName: form.fullName.value,
           password: form.password.value,
           confirmPassword: form.confirmPassword.value,
-          city: form.city.value,
-          mobileNumber: form.mobileNumber.value,
+          referenceName: form.referenceName.value,
           creditAmount: form.creditAmount.value,
           creditLimit: form.creditLimit.value,
           minBet: form.minBet.value,

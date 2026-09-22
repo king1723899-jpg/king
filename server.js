@@ -5078,6 +5078,10 @@ const resolveActionActor = (req) => {
   return String(actor.username || actor.id || "admin");
 };
 const buildAdminClientListItem = (row) => ({
+  ...(() => {
+    const profile = parseProfileJson(row?.profile_json || "{}");
+    return { referenceName: String(profile?.referenceName || "") };
+  })(),
   id: row?.id,
   userId: row?.user_id,
   username: row?.username || "",
@@ -6537,6 +6541,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const confirmPassword = String(body.confirmPassword || body.confirm_password || "").trim();
   const city = String(body.city || "").trim();
   const mobileNumber = normalizeMobileNumber(body.mobileNumber || body.mobile || body.phone);
+  const referenceName = String(body.referenceName || body.reference_name || "").trim();
   const creditAmount = Math.max(0, toNum(body.creditAmount ?? body.credit ?? body.amount, 0));
   let userLimits;
   try {
@@ -6580,6 +6585,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const actor = String(authUser.username || authUser.id || "admin");
   const profile = {
     fullName,
+    referenceName,
     city,
     mobileNumber,
     creditRefrences: creditAmount,
@@ -6753,12 +6759,14 @@ app.get("/api/admin/client-onboarding", (req, res) => {
         g.created_by,
         g.created_at,
         g.updated_at,
+        up.data_json AS profile_json,
         p.partnership_type,
         p.remark,
         p.transaction_code,
         w.balance AS wallet_balance
       FROM admin_client_general g
       LEFT JOIN admin_client_partnership p ON p.general_id = g.id
+      LEFT JOIN user_profiles up ON up.user_id = g.user_id
       LEFT JOIN wallets w ON w.user_id = g.user_id
       ORDER BY datetime(g.created_at) DESC, g.created_at DESC`
     )

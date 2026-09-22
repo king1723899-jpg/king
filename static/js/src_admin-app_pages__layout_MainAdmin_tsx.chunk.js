@@ -2315,14 +2315,12 @@ ___CSS_LOADER_EXPORT___.push([module.id, `/* Admin Sidebar Styles */
   
   .admin-sidebar.collapsed .dropdown-section.open .dropdown-menu {
     display: block;
-    position: absolute;
-    left: 100%;
-    top: 0;
-    width: 200px;
+    position: static;
+    width: 100%;
     background: #1A202C;
-    border-radius: 0 4px 4px 0;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
-    z-index: 1001;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: auto;
   }
   
   .admin-sidebar.collapsed .nav-link {
@@ -2353,6 +2351,13 @@ ___CSS_LOADER_EXPORT___.push([module.id, `/* Admin Sidebar Styles */
   .admin.sidebar-collapsed {
     margin-left: 70px;
   }
+
+  .admin > .main {
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    overflow-x: hidden;
+  }
   
   .admin.sidebar-hidden {
     margin-left: 0;
@@ -2378,6 +2383,12 @@ ___CSS_LOADER_EXPORT___.push([module.id, `/* Admin Sidebar Styles */
     
     .admin {
       margin-left: 0;
+      width: 100%;
+    }
+
+    .admin > .main {
+      width: 100%;
+      overflow-x: hidden;
     }
     
     .admin.sidebar-collapsed {
