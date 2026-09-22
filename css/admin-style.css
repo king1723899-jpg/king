@@ -10,24 +10,24 @@
 }
 
 :root {
-  --text-primary: #b7ff5a;
-  --text-secondary: #c2a6ff;
-  --primary-bg: #0b0c0f;
-  --secondary-bg: #050506;
-  --link-bg: #24212f;
-  --grey-bg: #1d2027;
-  --light-bg: #15171c;
-  --suspended-color: #c2a6ff;
-  --red-color: #c2a6ff;
-  --yellow-color: #b7ff5a;
-  --green-color: #b7ff5a;
-  --white-color: #f4f7ef;
-  --site-color: #b7ff5a;
-  --green-bg: #202d19;
-  --blue-color: #c2a6ff;
-  --them1color: #b7ff5a;
-  --theme2color: #050506;
-  --theme2-bg70: #24212f;
+  --text-primary: #d9ff4f;
+  --text-secondary: #9ee493;
+  --primary-bg: #101510;
+  --secondary-bg: #070a07;
+  --link-bg: #18351f;
+  --grey-bg: #1d2a20;
+  --light-bg: #152219;
+  --suspended-color: #ffd447;
+  --red-color: #ffd447;
+  --yellow-color: #ffd447;
+  --green-color: #9ee493;
+  --white-color: #f5ffe9;
+  --site-color: #d9ff4f;
+  --green-bg: #1e4928;
+  --blue-color: #9ee493;
+  --them1color: #d9ff4f;
+  --theme2color: #070a07;
+  --theme2-bg70: #18351f;
 }
 
 html,
@@ -2498,6 +2498,184 @@ tr.suspended-fancy {
 
 .blinking:hover span {
   animation: blinkingHoverText 0.8s infinite;
+}
+
+/* King777 admin shell palette and text-only branding. */
+.admin-sidebar {
+  background: #0b120d !important;
+  color: #f5ffe9 !important;
+  border-right: 1px solid #315d35;
+  box-shadow: 3px 0 14px rgba(4, 12, 5, .35) !important;
+}
+.admin-sidebar .sidebar-header,
+.admin-sidebar .logo-section {
+  background: #111d13 !important;
+  border-color: #315d35 !important;
+}
+.admin-sidebar .logo-image,
+.admin-sidebar .custom-logo img,
+.admin-sidebar .sidebar-header img {
+  display: none !important;
+}
+.admin-sidebar .custom-logo::after {
+  content: 'KING777';
+  display: block;
+  color: #ffd447;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  line-height: 1.2;
+}
+.admin-sidebar .logo-text,
+.admin-sidebar .nav-text,
+.admin-sidebar .dropdown-header,
+.admin-sidebar .nav-link,
+.admin-sidebar .toggle-btn {
+  color: #f5ffe9 !important;
+}
+.admin-sidebar .nav-item,
+.admin-sidebar .bottom-nav-item,
+.admin-sidebar .dropdown-section,
+.admin-sidebar .dropdown-menu li {
+  border-color: #25492b !important;
+}
+.admin-sidebar .nav-link:hover,
+.admin-sidebar .dropdown-header:hover,
+.admin-sidebar .dropdown-section.open .dropdown-header {
+  background: #18351f !important;
+  border-left-color: #ffd447 !important;
+  color: #ffd447 !important;
+}
+.admin-sidebar .nav-icon,
+.admin-sidebar svg {
+  color: #9ee493 !important;
+  fill: currentColor;
+}
+.admin-sidebar .dropdown-menu {
+  background: #0f1b11 !important;
+}
+.admin-sidebar .dropdown-menu a:hover {
+  background: #25492b !important;
+  color: #ffd447 !important;
+}
+.admin-sidebar .toggle-btn:hover {
+  background: #25492b !important;
+}
+.admin .main-container,
+.admin main,
+.admin .content-wrapper,
+.admin .page-content {
+  background: #eef6e9 !important;
+}
+.admin .btn-primary,
+.admin button.btn-primary,
+.admin .primary-action {
+  background: #2f7d32 !important;
+  border-color: #2f7d32 !important;
+  color: #fff !important;
+}
+.admin .btn-primary:hover,
+.admin button.btn-primary:hover,
+.admin .primary-action:hover {
+  background: #ffd447 !important;
+  border-color: #ffd447 !important;
+  color: #111 !important;
+}
+.admin a,
+.admin .text-primary,
+.admin .table thead th {
+  color: #2f7d32;
+}
+
+/* Keep the fixed admin shell usable on phones and foldable displays. */
+.admin {
+  min-width: 0 !important;
+  overflow-x: hidden;
+}
+.admin .main,
+.admin .container-fluid,
+.admin .main-container,
+.admin .page-content {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.admin table {
+  max-width: 100%;
+}
+.admin .table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.admin .card,
+.admin .row,
+.admin [class*="col-"] {
+  min-width: 0;
+}
+.admin .dashboard-container,
+.admin .dashboard-content,
+.admin .match-list,
+.admin .sport-section {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+.admin .dashboard-header,
+.admin .card-header {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.admin .dashboard-header h1,
+.admin .dashboard-header h2,
+.admin .dashboard-header h3,
+.admin .dashboard-header h4,
+.admin .card-header h1,
+.admin .card-header h2,
+.admin .card-header h3,
+.admin .card-header h4 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .admin-sidebar { width: 250px !important; }
+  .admin { margin-left: 250px !important; }
+  .admin.sidebar-collapsed { margin-left: 64px !important; }
+}
+
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: min(82vw, 300px) !important;
+    max-width: 300px;
+    z-index: 1100;
+  }
+  .admin { margin-left: 0 !important; width: 100%; }
+  .admin.sidebar-collapsed { margin-left: 0 !important; }
+  .admin .main { width: 100%; padding: 0 8px 16px; }
+  .admin .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
+  .admin .table { font-size: 12px; }
+  .admin .table th, .admin .table td { white-space: nowrap; }
+  .admin .dashboard-header, .admin .card-header { align-items: flex-start !important; }
+  .admin .dashboard-header .btn, .admin .card-header .btn { width: 100%; }
+}
+
+@media (max-width: 430px) {
+  .admin .main { padding-left: 4px; padding-right: 4px; }
+  .admin .card { border-radius: 0; }
+  .admin .card-body { padding: 10px !important; }
+  .admin .table { font-size: 11px; }
+  .admin .dashboard-header h1,
+  .admin .dashboard-header h2,
+  .admin .dashboard-header h3,
+  .admin .dashboard-header h4,
+  .admin .card-header h1,
+  .admin .card-header h2,
+  .admin .card-header h3,
+  .admin .card-header h4 { font-size: 16px; }
+}
+
+@media (min-width: 768px) and (max-width: 900px) and (orientation: portrait) {
+  .admin-sidebar { width: 220px !important; }
+  .admin { margin-left: 220px !important; }
 }
 
 @keyframes blinkingText {

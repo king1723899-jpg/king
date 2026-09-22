@@ -97,21 +97,21 @@ const InplayMatch = () => {
   }, {
     sportId: '99',
     name: 'POLITICS',
-    icon: 'ðŸ›ï¸',
+    icon: 'POL',
     color: '#ffffff',
     bgColor: '#003559',
     isImage: false
   }, {
     sportId: '88',
     name: 'CASINO',
-    icon: 'ðŸŽ°',
+    icon: 'CAS',
     color: '#ffffff',
     bgColor: '#003559',
     isImage: false
   }, {
     sportId: '888',
     name: 'ICASINO',
-    icon: 'ðŸŽ²',
+    icon: 'ICA',
     color: '#ffffff',
     bgColor: '#003559',
     isImage: false
@@ -121,35 +121,35 @@ const InplayMatch = () => {
   const sportConfig = {
     '4': {
       name: 'CRICKET',
-      icon: 'ðŸ'
+      icon: 'CRK'
     },
     '2': {
       name: 'TENNIS',
-      icon: 'ðŸŽ¾'
+      icon: 'TNS'
     },
     '1': {
       name: 'SOCCER',
-      icon: 'âš½'
+      icon: 'SOC'
     },
     '7': {
       name: 'HORSE RACE',
-      icon: 'ðŸ‡'
+      icon: 'HRS'
     },
     '4339': {
       name: 'GREYHOUND',
-      icon: 'ðŸ•'
+      icon: 'GHD'
     },
     '99': {
       name: 'POLITICS',
-      icon: 'ðŸ›ï¸'
+      icon: 'POL'
     },
     '88': {
       name: 'CASINO',
-      icon: 'ðŸŽ°'
+      icon: 'CAS'
     },
     '888': {
       name: 'ICASINO',
-      icon: 'ðŸŽ²'
+      icon: 'ICA'
     }
   };
 
@@ -260,12 +260,12 @@ const InplayMatch = () => {
   const fetchCurrentMatches = async () => {
     setLoading(true);
     try {
-      console.log('ðŸš€ InplayMatch: Fetching current matches from all sports');
+      console.log('InplayMatch: Fetching current matches from all sports');
 
       // Fetch matches from all sports - corrected sport IDs
       const allSports = ['1', '2', '4', '7', '4339', '99', '88', '888']; // 1=Soccer, 2=Tennis, 4=Cricket
       const matchPromises = allSports.map(sport => _services_sports_service__WEBPACK_IMPORTED_MODULE_3__["default"].getLiveMatches(sport).catch(error => {
-        console.warn(`âš ï¸ Error fetching sport ${sport}:`, error);
+        console.warn(`InplayMatch: Error fetching sport ${sport}:`, error);
         return {
           data: {
             data: []
@@ -365,7 +365,7 @@ const InplayMatch = () => {
         const bTime = new Date(b.matchDateTime || b.stime || '1970-01-01').getTime();
         return aTime - bTime;
       });
-      console.log(`ðŸ“Š InplayMatch: Processed ${sortedMatches.length} current matches (filtered from ${combinedMatches.length} total)`);
+      console.log(`InplayMatch: Processed ${sortedMatches.length} current matches (filtered from ${combinedMatches.length} total)`);
 
       // Merge hardcoded categories with API data
       const mergedSportsData = mergeHardcodedWithApiData(sortedMatches);
@@ -667,7 +667,7 @@ const SportSection = ({
         onClick: () => handleMatchClick(match),
         children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_2__.jsxDEV)("div", {
           className: "match-lock-icon",
-          children: match.inPlay || match.iplay ? 'ðŸŸ¢' : 'ðŸ”’'
+          children: match.inPlay || match.iplay ? 'LIVE' : 'LOCK'
         }, void 0, false, {
           fileName: _jsxFileName,
           lineNumber: 88,
