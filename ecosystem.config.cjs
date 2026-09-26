@@ -12,6 +12,8 @@ module.exports = {
         NODE_ENV: "production",
         HOST: "0.0.0.0",
         PORT: 3000,
+        ENABLE_TEST_ACCOUNTS: "true",
+        TEST_ACCOUNT_PASSWORD: "test@123",
       },
     },
   ],

@@ -147,6 +147,8 @@ const CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP =
 const DEMO_USERS_COUNT = Math.max(0, envNum(process.env.DEMO_USERS_COUNT, 0));
 const DEMO_INITIAL_BALANCE = Math.max(0, envNum(process.env.DEMO_INITIAL_BALANCE, 500000));
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "demo@123";
+const ENABLE_TEST_ACCOUNTS = envBool(process.env.ENABLE_TEST_ACCOUNTS);
+const TEST_ACCOUNT_PASSWORD = process.env.TEST_ACCOUNT_PASSWORD || "test@123";
 const ADMIN_INITIAL_BALANCE = Math.max(0, envNum(process.env.ADMIN_INITIAL_BALANCE, 10000));
 const DEFAULT_USER_OPENING_BALANCE = Math.max(0, envNum(process.env.DEFAULT_USER_OPENING_BALANCE, 0));
 const PLATFORM_MODE = String(process.env.PLATFORM_MODE || "b2b").trim().toLowerCase();
@@ -3675,6 +3677,41 @@ const seedDemoUsers = () => {
     }).catch(() => {});
   }
 };
+const seedTestAccounts = () => {
+  if (!ENABLE_TEST_ACCOUNTS) return;
+  const created = nowIso();
+  const passwordHash = hashPass(TEST_ACCOUNT_PASSWORD);
+  const accounts = [
+    { id: "test_admin_001", username: "testadmin001", role: "admin", level: 2, parentId: `admin_${DEFAULT_LOGIN_USERNAME}`, balance: 0 },
+    { id: "test_super_master_001", username: "testsupermaster001", role: "super_master", level: 3, parentId: "test_admin_001", balance: 0 },
+    { id: "test_sub_super_master_001", username: "testsubsupermaster001", role: "sub_super_master", level: 4, parentId: "test_super_master_001", balance: 0 },
+    { id: "test_master_001", username: "testmaster001", role: "master", level: 5, parentId: "test_sub_super_master_001", balance: 0 },
+  ];
+  const insertUser = db.prepare(
+    "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password=excluded.password,role=excluded.role,level=excluded.level,parent_id=excluded.parent_id,updated_at=excluded.updated_at"
+  );
+  const ensureWalletStmt = db.prepare("INSERT OR IGNORE INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)");
+  const transaction = db.transaction(() => {
+    for (const account of accounts) {
+      insertUser.run(account.id, account.username, passwordHash, account.role, account.level, account.parentId, Date.now() + account.level, created, created);
+      ensureWalletStmt.run(account.id, account.balance, 0, 0, created);
+    }
+  });
+  transaction();
+  for (const account of accounts) {
+    syncUserToMysql({
+      id: account.id,
+      username: account.username,
+      password: passwordHash,
+      role: account.role,
+      level: account.level,
+      parentId: account.parentId,
+      sessionId: Date.now() + account.level,
+      createdAt: created,
+      updatedAt: created,
+    }).catch(() => {});
+  }
+};
 const seedRegistrationCode = () => {
   const code = normalizeCode(DEFAULT_REGISTRATION_CODE);
   if (!code) return;
@@ -4237,6 +4274,7 @@ const syncSnapshotToDb = () => {
 
 seedUsers();
 seedDemoUsers();
+seedTestAccounts();
 seedRegistrationCode();
 seedSports();
 seedMatches();
