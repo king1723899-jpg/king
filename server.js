@@ -6336,6 +6336,10 @@ const handleRegister = async (req, res) => {
     0,
     toNum(req.body?.creditRefrences ?? req.body?.creditReferences ?? req.body?.creditAmount, DEFAULT_USER_OPENING_BALANCE)
   );
+  const parentWallet = parentId ? ensureWallet(parentId) : null;
+  if (parentWallet && initialBalance > toNum(parentWallet.balance, 0)) {
+    return res.status(400).json({ status: false, message: "Opening credit exceeds the parent available balance" });
+  }
   try {
     db.transaction(() => {
       db.prepare(
@@ -6355,6 +6359,9 @@ const handleRegister = async (req, res) => {
         0,
         now
       );
+      if (parentWallet && initialBalance > 0) {
+        db.prepare("UPDATE wallets SET balance=balance-?,updated_at=? WHERE user_id=?").run(initialBalance, now, parentId);
+      }
       if (authActor && Array.isArray(explicitPartnerships)) {
         saveUserPartnerships(uid, explicitPartnerships, authActor, authActorRole, now);
       }
@@ -6582,6 +6589,10 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const sessionId = Date.now();
   const parentId = getCreationParentId(authUser, authRole);
   const accountLevel = Math.max(1, panelRoleDepth(requestedRole) + 1);
+  const parentWallet = parentId ? ensureWallet(parentId) : null;
+  if (parentWallet && creditAmount > toNum(parentWallet.balance, 0)) {
+    return res.status(400).json(env("Opening credit exceeds the parent available balance", {}, true, 400));
+  }
   const actor = String(authUser.username || authUser.id || "admin");
   const profile = {
     fullName,
@@ -6632,6 +6643,9 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
         0,
         now
       );
+      if (parentWallet && creditAmount > 0) {
+        db.prepare("UPDATE wallets SET balance=balance-?,updated_at=? WHERE user_id=?").run(creditAmount, now, parentId);
+      }
       db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
         userId,
         profileJson,
@@ -7150,6 +7164,60 @@ app.post("/api/add-transaction-password", (req, res) => {
   syncUserProfileToMysql({ userId: target.id, dataJson, createdAt: row ? now : now, updatedAt: now }).catch(() => {});
   return res.json(env("Transaction password saved", { success: true }));
 });
+app.post("/api/reset-transaction-password", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  const target =
+    getUserById(String(req.body?.userId || req.body?.id || "").trim()) ||
+    getUserByUsername(String(req.body?.username || "").trim());
+  if (!target) return res.status(404).json(env("User not found", {}, true, 404));
+  if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  const transactionPassword = String(req.body?.transactionPassword || "").trim();
+  if (!transactionPassword) return res.status(400).json(env("transactionPassword is required", {}, true, 400));
+  const row = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(target.id);
+  const profile = row ? safeParse(row.data_json, {}) || {} : {};
+  const now = nowIso();
+  profile.transactionPasswordHash = hashPass(transactionPassword);
+  profile.transactionPasswordUpdatedAt = now;
+  const dataJson = JSON.stringify(profile);
+  db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
+    target.id,
+    dataJson,
+    row?.created_at || now,
+    now
+  );
+  syncUserProfileToMysql({ userId: target.id, dataJson, createdAt: row?.created_at || now, updatedAt: now }).catch(() => {});
+  return res.json(env("Transaction password reset successfully", { success: true }));
+});
+app.post("/api/save-general-setting", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  const target = getUserById(String(req.body?.userId || req.body?.id || "").trim());
+  if (!target) return res.status(404).json(env("User not found", {}, true, 404));
+  if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  const transactionPassword = String(req.body?.transactionPassword || "").trim();
+  if (!transactionPassword) return res.status(400).json(env("transactionPassword is required", {}, true, 400));
+  const userSetting = req.body?.userSetting;
+  if (!userSetting || typeof userSetting !== "object" || Array.isArray(userSetting)) {
+    return res.status(400).json(env("userSetting is required", {}, true, 400));
+  }
+  const row = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(target.id);
+  const profile = row ? safeParse(row.data_json, {}) || {} : {};
+  const now = nowIso();
+  profile.userSetting = userSetting;
+  const dataJson = JSON.stringify(profile);
+  db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
+    target.id,
+    dataJson,
+    row?.created_at || now,
+    now
+  );
+  syncUserProfileToMysql({ userId: target.id, dataJson, createdAt: row?.created_at || now, updatedAt: now }).catch(() => {});
+  userListResponseCache.clear();
+  return res.json(env("General settings saved", { userId: target.id, userSetting }));
+});
 app.post("/api/update-user-status", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
@@ -7183,6 +7251,7 @@ app.post("/api/update-user-status", (req, res) => {
     now
   );
   syncUserProfileToMysql({ userId: target.id, dataJson, createdAt: row ? now : now, updatedAt: now }).catch(() => {});
+  userListResponseCache.clear();
   return res.json(env("User status updated", { success: true, isLogin: nextIsActive, betLock: nextBetLock }));
 });
 const buildActorVisibleUserIdSet = (authUser, authRole) => {
@@ -7574,23 +7643,61 @@ app.post("/api/user-account-balance", (req, res) => {
   const userId = String(req.body?.userId || req.body?.id || "").trim();
   const amt = toNum(req.body?.amount, NaN);
   if (!userId || !Number.isFinite(amt)) return res.status(400).json(env("userId and amount are required", {}, true, 400));
+  if (amt <= 0) return res.status(400).json(env("Amount must be greater than zero", {}, true, 400));
   const target = getUserById(userId);
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
   if (!canActorAccessTargetUser(authUser, authRole, target)) {
     return res.status(403).json(env("Access denied", {}, true, 403));
   }
-  const w = ensureWallet(userId);
-  const nb = toNum(w.balance, 0) + amt;
+  const updateType = String(req.body?.balanceUpdateType || "D").trim().toUpperCase();
+  if (!["D", "W"].includes(updateType)) return res.status(400).json(env("Invalid balance update type", {}, true, 400));
+  const parentUserId = String(req.body?.parentUserId || target.parent_id || "").trim();
+  const parent = parentUserId && parentUserId !== userId ? getUserById(parentUserId) : null;
+  if (parent && String(target.parent_id || "") !== parent.id) {
+    return res.status(400).json(env("Target user is not assigned to this parent", {}, true, 400));
+  }
+  if (parent && !canActorAccessTargetUser(authUser, authRole, parent)) {
+    return res.status(403).json(env("Access denied", {}, true, 403));
+  }
+
+  const targetWallet = ensureWallet(userId);
+  const parentWallet = parent ? ensureWallet(parent.id) : null;
+  const targetBalance = toNum(targetWallet.balance, 0);
+  const parentBalance = parentWallet ? toNum(parentWallet.balance, 0) : null;
+  const nextTargetBalance = updateType === "D" ? targetBalance + amt : targetBalance - amt;
+  const nextParentBalance = parentWallet
+    ? updateType === "D"
+      ? parentBalance - amt
+      : parentBalance + amt
+    : null;
+  if (nextTargetBalance < 0) return res.status(400).json(env("Insufficient user balance", {}, true, 400));
+  if (nextParentBalance !== null && nextParentBalance < 0) {
+    return res.status(400).json(env("Insufficient parent balance", {}, true, 400));
+  }
+
   const now = nowIso();
-  db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nb, now, userId);
+  db.transaction(() => {
+    db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nextTargetBalance, now, userId);
+    if (parentWallet) db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nextParentBalance, now, parent.id);
+  })();
   syncWalletToMysql({
     userId,
-    balance: nb,
-    exposer: toNum(w.exposer, 0),
-    casinoExposer: toNum(w.casino_exposer, 0),
+    balance: nextTargetBalance,
+    exposer: toNum(targetWallet.exposer, 0),
+    casinoExposer: toNum(targetWallet.casino_exposer, 0),
     updatedAt: now,
   }).catch(() => {});
-  res.json(env("Balance updated", { balance: nb }));
+  if (parentWallet) {
+    syncWalletToMysql({
+      userId: parent.id,
+      balance: nextParentBalance,
+      exposer: toNum(parentWallet.exposer, 0),
+      casinoExposer: toNum(parentWallet.casino_exposer, 0),
+      updatedAt: now,
+    }).catch(() => {});
+  }
+  userListResponseCache.clear();
+  res.json(env("Balance updated", { balance: nextTargetBalance, parentBalance: nextParentBalance, balanceUpdateType: updateType }));
 });
 
 app.post("/api/update-user-wallet", (req, res) => {
@@ -7607,10 +7714,17 @@ app.post("/api/update-user-wallet", (req, res) => {
   if (!canActorAccessTargetUser(authUser, authRole, target)) {
     return res.status(403).json(env("Access denied", {}, true, 403));
   }
+  const targetParent = target.parent_id ? getUserById(String(target.parent_id)) : null;
   const w = ensureWallet(userId);
   const walletUpdateType = String(req.body?.walletUpdateType || req.body?.type || "").trim().toUpperCase();
   const amountProvided = req.body?.amount !== undefined;
   const amount = toNum(req.body?.amount, NaN);
+  if (walletUpdateType === "CRD" && targetParent && Number.isFinite(amount)) {
+    const parentWallet = ensureWallet(targetParent.id);
+    if (amount > toNum(parentWallet.balance, 0)) {
+      return res.status(400).json(env("Credit reference exceeds the parent available balance", {}, true, 400));
+    }
+  }
   const b = req.body?.balance !== undefined
     ? toNum(req.body.balance, w.balance)
     : walletUpdateType !== "EXP" && amountProvided && Number.isFinite(amount)
@@ -7624,6 +7738,20 @@ app.post("/api/update-user-wallet", (req, res) => {
   const c = req.body?.casinoexposer !== undefined ? toNum(req.body.casinoexposer, w.casino_exposer) : w.casino_exposer;
   const now = nowIso();
   db.prepare("UPDATE wallets SET balance=?,exposer=?,casino_exposer=?,updated_at=? WHERE user_id=?").run(b, e, c, now, userId);
+  if (walletUpdateType === "CRD") {
+    const creditReference = Math.max(0, Number.isFinite(amount) ? amount : toNum(target.credit_limit, 0));
+    const profileRow = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(userId);
+    const profile = profileRow ? safeParse(profileRow.data_json, {}) || {} : {};
+    profile.creditRefrences = creditReference;
+    profile.creditReferences = creditReference;
+    db.prepare("UPDATE users SET credit_limit=?,updated_at=? WHERE id=?").run(creditReference, now, userId);
+    db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
+      userId,
+      JSON.stringify(profile),
+      profileRow?.created_at || now,
+      now
+    );
+  }
   syncWalletToMysql({
     userId,
     balance: b,
@@ -7631,6 +7759,7 @@ app.post("/api/update-user-wallet", (req, res) => {
     casinoExposer: c,
     updatedAt: now,
   }).catch(() => {});
+  userListResponseCache.clear();
   res.json(env("Wallet updated", {
     userId,
     username: target.username,
@@ -7786,28 +7915,55 @@ app.get("/api/get-user-book", (req, res) => {
   const authRole = reqAuthRole(req, authUser.role);
   if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const visibleUsers = queryUserRowsSqlite().filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
+  const allUserRows = queryUserRowsSqlite();
+  const visibleUsers = allUserRows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
   const bets = db.prepare("SELECT user_id,pnl,stack,exposure,status FROM bets").all();
   const userIds = new Set(visibleUsers.map((row) => String(row.id)));
   const totals = { downlineob: 0, downcr: 0, totalmasterb: 0, downpl: 0, avpl: 0, mypl: 0 };
+  const visibleItems = visibleUsers.map(buildUserListItem);
+  if (!visibleItems.some((item) => String(item._id) === String(authUser.id))) {
+    const authRow = allUserRows.find((row) => String(row.id) === String(authUser.id));
+    if (authRow) visibleItems.push(buildUserListItem(authRow));
+  }
+  const authItem = visibleItems.find((item) => String(item._id) === String(authUser.id));
+  const parent = authUser.parent_id ? getUserById(String(authUser.parent_id)) : null;
+  const parentItem = parent ? buildUserListItem({
+    ...parent,
+    wallet_balance: toNum(ensureWallet(parent.id).balance, 0),
+    wallet_exposer: toNum(ensureWallet(parent.id).exposer, 0),
+    wallet_casino_exposer: toNum(ensureWallet(parent.id).casino_exposer, 0),
+    profile_json: db.prepare("SELECT data_json FROM user_profiles WHERE user_id=?").get(parent.id)?.data_json || "{}",
+  }) : null;
+  for (const item of visibleItems) {
+    if (String(item._id) === String(authUser.id) || item.role === "super_admin") continue;
+    totals.downcr += toNum(item.creditRefrences, 0);
+    totals.totalmasterb += toNum(item.balance?.balance, 0);
+    totals.downlineob += toNum(item.balance?.exposer, 0) + toNum(item.balance?.casinoexposer, 0);
+    totals.downpl += toNum(item.balance?.profitLoss, 0);
+  }
   for (const bet of bets) {
     if (!userIds.has(String(bet.user_id))) continue;
-    totals.downlineob += toNum(bet.exposure, 0);
-    totals.downcr += toNum(bet.stack, 0);
-    totals.totalmasterb += 1;
-    totals.downpl += toNum(bet.pnl, 0);
+    if (String(bet.user_id) === String(authUser.id)) {
+      totals.mypl += toNum(bet.pnl, 0);
+    } else {
+      totals.downlineob += toNum(bet.exposure, 0);
+      totals.downpl += toNum(bet.pnl, 0);
+    }
   }
-  const balances = visibleUsers.reduce((sum, row) => sum + toNum(row.wallet_balance, 0), 0);
+  const ownBalance = toNum(authItem?.balance?.balance, 0);
+  const available = ownBalance - totals.downlineob;
+  const authProfitLoss = toNum(authItem?.balance?.profitLoss, 0);
   const result = {
-    uplevelcr: 0,
+    uplevelcr: toNum(parentItem?.creditRefrences, 0),
     downlineob: Number(totals.downlineob.toFixed(2)),
     downcr: Number(totals.downcr.toFixed(2)),
-    totalmasterb: totals.totalmasterb,
-    upperlvell: 0,
+    totalmasterb: Number(totals.totalmasterb.toFixed(2)),
+    upperlvell: Number(toNum(authItem?.balance?.balance, 0).toFixed(2)),
     downpl: Number(totals.downpl.toFixed(2)),
-    available: Number(balances.toFixed(2)),
-    avpl: Number(totals.downpl.toFixed(2)),
-    mypl: 0,
+    available: Number(available.toFixed(2)),
+    availableB: Number(available.toFixed(2)),
+    avpl: Number((available + totals.downpl).toFixed(2)),
+    mypl: Number(authProfitLoss.toFixed(2)),
   };
   return res.json(env("", result));
 });

@@ -1578,8 +1578,11 @@
                                                           {
                                                             className:
                                                               "d-inline-block",
-                                                            children:
+                                                            children: [
                                                               "Account List",
+                                                              " - Logged in: ",
+                                                              userState?.user?.username || "Unknown",
+                                                            ],
                                                           },
                                                           void 0,
                                                           false,
