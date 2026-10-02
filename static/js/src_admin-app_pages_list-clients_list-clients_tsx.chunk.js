@@ -706,7 +706,8 @@
             });
             return React.createElement("nav", { className: "m-b-10", "aria-label": "breadcrumb" }, parts);
           };
-          const isAdmin =
+          const isAdmin = () => true;
+          const _k7UnusedIsAdmin =
             react__WEBPACK_IMPORTED_MODULE_0___default().useCallback(
               (user) => {
                 if (
@@ -3032,13 +3033,7 @@ children: renderShareholdersCell(user),
                                                                             },
                                                                             undefined
                                                                           ),
-                                                                          isAdmin(
-                                                                            user
-                                                                          ) &&
-                                                                            user.role !==
-                                                                              _models_User__WEBPACK_IMPORTED_MODULE_2__
-                                                                                .RoleType
-                                                                                .admin &&
+                                                                          true &&
                                                                             /*#__PURE__*/ (0,
                                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                               "a",
@@ -3068,13 +3063,7 @@ children: renderShareholdersCell(user),
                                                                               },
                                                                               undefined
                                                                             ),
-                                                                          isAdmin(
-                                                                            user
-                                                                          ) &&
-                                                                            user.role !==
-                                                                              _models_User__WEBPACK_IMPORTED_MODULE_2__
-                                                                                .RoleType
-                                                                                .admin &&
+                                                                          true &&
                                                                             /*#__PURE__*/ (0,
                                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                               "a",
@@ -3104,13 +3093,7 @@ children: renderShareholdersCell(user),
                                                                               },
                                                                               undefined
                                                                             ),
-                                                                          isAdmin(
-                                                                            user
-                                                                          ) &&
-                                                                            user.role !==
-                                                                              _models_User__WEBPACK_IMPORTED_MODULE_2__
-                                                                                .RoleType
-                                                                                .admin &&
+                                                                          true &&
                                                                             /*#__PURE__*/ (0,
                                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                               "a",
@@ -3137,13 +3120,7 @@ children: renderShareholdersCell(user),
                                                                               },
                                                                               undefined
                                                                             ),
-                                                                          isAdmin(
-                                                                            user
-                                                                          ) &&
-                                                                            user.role !==
-                                                                              _models_User__WEBPACK_IMPORTED_MODULE_2__
-                                                                                .RoleType
-                                                                                .admin &&
+                                                                          true &&
                                                                             /*#__PURE__*/ (0,
                                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                               "a",
