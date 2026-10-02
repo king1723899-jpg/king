@@ -627,6 +627,85 @@
             const ownration = userp[4] ? userp[4].ownRatio : "0";
             return ownration;
           };
+          const SHAREHOLDER_MODAL_ID = "king777-shareholder-modal";
+          const closeShareholderModal = () => {
+            const existing = document.getElementById(SHAREHOLDER_MODAL_ID);
+            if (existing) existing.remove();
+          };
+          const showShareholders = (user) => {
+            closeShareholderModal();
+            const list = Array.isArray(user && user.shareholders) ? user.shareholders : [];
+            const total = list.reduce((s, p) => s + (Number(p.sharePercentage) || 0), 0);
+            const remaining = Math.max(0, 100 - total);
+            const esc = (v) =>
+              String(v === undefined || v === null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+            const roleLabel = (r) => (_models_User__WEBPACK_IMPORTED_MODULE_2__.RoleName && _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleName[r]) || r || "";
+            const rows = list
+              .map((p) => `<tr><td>${esc(p.username)}</td><td>${esc(roleLabel(p.role))}</td><td style="text-align:right">${esc(Number(p.sharePercentage) || 0)}%</td></tr>`)
+              .join("");
+            const segments = list
+              .map((p, i) => `<div title="${esc(p.username)}" style="width:${Math.min(100, Number(p.sharePercentage) || 0)}%;background:hsl(${(i * 67) % 360},60%,45%)"></div>`)
+              .join("");
+            const overlay = document.createElement("div");
+            overlay.id = SHAREHOLDER_MODAL_ID;
+            overlay.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px");
+            overlay.innerHTML =
+              `<div role="dialog" aria-modal="true" style="background:#fff;color:#111;border-radius:6px;max-width:460px;width:100%;max-height:90vh;overflow:auto;padding:16px">` +
+              `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Shareholders - ${esc(user && user.username)}</strong><button type="button" data-close style="border:0;background:none;font-size:22px;line-height:1;cursor:pointer" aria-label="Close">&times;</button></div>` +
+              (list.length
+                ? `<table class="table table-bordered table-sm"><thead><tr><th>Partner</th><th>Role</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total allocated</th><th style="text-align:right">${esc(Number(total.toFixed(2)))}%</th></tr></tfoot></table>` +
+                  `<div style="display:flex;height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden">${segments}</div>` +
+                  `<div style="font-size:12px;margin-top:6px">${esc(Number(total.toFixed(2)))}% allocated of 100% &middot; ${esc(Number(remaining.toFixed(2)))}% unassigned</div>`
+                : `<p style="margin:0">No shareholders assigned (0% of 100% allocated).</p>`) +
+              `</div>`;
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay || (e.target.closest && e.target.closest("[data-close]"))) closeShareholderModal();
+            });
+            document.body.appendChild(overlay);
+          };
+          const k7Cols = (arr, pend) => [arr[0], arr[1], pend, arr[2], arr[5], arr[3], arr[4]].concat(arr.slice(6));
+          const renderShareholdersCell = (user) => {
+            const count = Array.isArray(user && user.shareholders) ? user.shareholders.length : 0;
+            return react__WEBPACK_IMPORTED_MODULE_0___default().createElement(
+              "a",
+              {
+                href: "#",
+                className: "badge badge-info",
+                style: { cursor: "pointer" },
+                onClick: (e) => {
+                  e.preventDefault();
+                  showShareholders(user);
+                },
+              },
+              count ? `${count} Partner${count > 1 ? "s" : ""}` : "View Shareholders"
+            );
+          };
+          const ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], sub_admin: ["SB", "Sub Admin"], super_master: ["SM", "Super Master"], sub_super_master: ["SSM", "Sub Super Master"], master: ["M", "Master"], user: ["U", "User"] };
+          const renderRoleBadge = (role) => {
+            const key = String(role || "user").toLowerCase();
+            const [short, title] = ROLE_BADGES[key] || [key.slice(0, 3).toUpperCase(), key];
+            return (0, react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)("span", { className: "role-badge role-" + key, title, children: short }, "role-" + key, false, { fileName: _jsxFileName, lineNumber: 0, columnNumber: 0 }, undefined);
+          };
+          const renderBreadcrumb = () => {
+            const crumbs = (users && users.breadcrumb) || [];
+            if (!crumbs.length) return null;
+            const React = react__WEBPACK_IMPORTED_MODULE_0___default();
+            const CustomLink = _pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_10__.CustomLink;
+            const roleName = _models_User__WEBPACK_IMPORTED_MODULE_2__.RoleName || {};
+            const parts = [];
+            crumbs.forEach((c, i) => {
+              const label = `${roleName[c.role] || c.role || "Account"} [${c.username}]`;
+              if (i > 0) parts.push(React.createElement("span", { key: `sep${i}`, className: "mx-1" }, ">"));
+              if (i === crumbs.length - 1) {
+                parts.push(React.createElement("strong", { key: `c${i}` }, label));
+              } else {
+                parts.push(
+                  React.createElement(CustomLink, { key: `c${i}`, to: i === 0 ? "/list-clients" : `/list-clients/${c.username}` }, label)
+                );
+              }
+            });
+            return React.createElement("nav", { className: "m-b-10", "aria-label": "breadcrumb" }, parts);
+          };
           const isAdmin =
             react__WEBPACK_IMPORTED_MODULE_0___default().useCallback(
               (user) => {
@@ -1745,9 +1824,9 @@
                                                         children: username
                                                           ? /*#__PURE__*/ (0,
                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
-                                                              _pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_10__.CustomLink,
+                                                              "a",
                                                               {
-                                                                to: `/add-user/${username}`,
+                                                                href: "/admin/add-user",
                                                                 className:
                                                                   "btn btn-diamond",
                                                                 children:
@@ -1765,9 +1844,9 @@
                                                             )
                                                           : /*#__PURE__*/ (0,
                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
-                                                              _pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_10__.CustomLink,
+                                                              "a",
                                                               {
-                                                                to: `/add-user`,
+                                                                href: "/admin/add-user",
                                                                 className:
                                                                   "btn btn-diamond",
                                                                 children:
@@ -1942,6 +2021,7 @@
                                       },
                                       undefined
                                     ),
+renderBreadcrumb(),
                                     /*#__PURE__*/ (0,
                                     react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                       "div",
@@ -1968,7 +2048,7 @@
                                                   react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                     "tr",
                                                     {
-                                                      children: [
+                                                      children: k7Cols([
                                                         /*#__PURE__*/ (0,
                                                         react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                           "th",
@@ -2024,7 +2104,7 @@
                                                           "th",
                                                           {
                                                             children:
-                                                              "Client (P/L)",
+                                                              "Current P/L",
                                                           },
                                                           void 0,
                                                           false,
@@ -2076,7 +2156,7 @@
                                                           {
                                                             className:
                                                               "noExport",
-                                                            children: "U St",
+                                                            children: "U Lock",
                                                           },
                                                           void 0,
                                                           false,
@@ -2094,7 +2174,7 @@
                                                           {
                                                             className:
                                                               "noExport",
-                                                            children: "B St",
+                                                            children: "B Lock",
                                                           },
                                                           void 0,
                                                           false,
@@ -2128,7 +2208,7 @@
                                                           "th",
                                                           {
                                                             children:
-                                                              "Default %",
+                                                              "My %",
                                                           },
                                                           void 0,
                                                           false,
@@ -2145,7 +2225,7 @@
                                                           "th",
                                                           {
                                                             children:
-                                                              "Account Type",
+                                                              "Type",
                                                           },
                                                           void 0,
                                                           false,
@@ -2175,7 +2255,7 @@
                                                           },
                                                           undefined
                                                         ),
-                                                      ],
+                                                      ], (0, react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)("th", { children: "Pending Balance" }, void 0, false, { fileName: _jsxFileName, lineNumber: 0, columnNumber: 0 }, undefined)),
                                                     },
                                                     void 0,
                                                     true,
@@ -2205,7 +2285,7 @@
                                                     react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                       "tr",
                                                       {
-                                                        children: [
+                                                        children: k7Cols([
                                                           /*#__PURE__*/ (0,
                                                           react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                             "th",
@@ -2410,7 +2490,7 @@
                                                             },
                                                             undefined
                                                           ),
-                                                        ],
+                                                        ], (0, react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)("th", { children: "" }, void 0, false, { fileName: _jsxFileName, lineNumber: 0, columnNumber: 0 }, undefined)),
                                                       },
                                                       void 0,
                                                       true,
@@ -2453,13 +2533,14 @@
                                                             react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                               "tr",
                                                               {
-                                                                children: [
+                                                                children: k7Cols([
                                                                   /*#__PURE__*/ (0,
                                                                   react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                     "td",
                                                                     {
                                                                       children:
                                                                         [
+                                                                          renderRoleBadge(user.role),
                                                                           user.role !==
                                                                             _models_User__WEBPACK_IMPORTED_MODULE_2__
                                                                               .RoleType
@@ -2735,7 +2816,7 @@
                                                                             className:
                                                                               "form-control",
                                                                             type: "checkbox",
-                                                                            name: "U St",
+                                                                            name: "U Lock",
                                                                             checked:
                                                                               user ===
                                                                                 null ||
@@ -2794,7 +2875,7 @@
                                                                             className:
                                                                               "form-control",
                                                                             type: "checkbox",
-                                                                            name: "B St",
+                                                                            name: "B Lock",
                                                                             checked:
                                                                               user ===
                                                                                 null ||
@@ -2860,10 +2941,7 @@
                                                                   react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)(
                                                                     "td",
                                                                     {
-                                                                      children:
-                                                                        getcurrentpartnership(
-                                                                          user
-                                                                        ),
+children: renderShareholdersCell(user),
                                                                     },
                                                                     void 0,
                                                                     false,
@@ -3159,7 +3237,7 @@
                                                                     },
                                                                     undefined
                                                                   ),
-                                                                ],
+                                                                ], (0, react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_24__.jsxDEV)("td", { children: Math.max(0, (Number(user && user.creditRefrences) || 0) - (Number(user && user.balance && user.balance.balance) || 0)).toFixed(2) }, void 0, false, { fileName: _jsxFileName, lineNumber: 0, columnNumber: 0 }, undefined)),
                                                               },
                                                               user._id,
                                                               true,

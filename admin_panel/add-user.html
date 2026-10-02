@@ -140,7 +140,7 @@
     .primary-action { background: #2f7d32; border-color: #2f7d32; color: #fff; min-width: 120px; }
     .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
     .secondary-action { min-width: 100px; }
-    .commission-grid { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+    .commission-grid { display: grid; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
     .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
     .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
     .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
@@ -189,7 +189,7 @@
     @media (max-width: 768px) {
       .topbar { margin-left: 0; padding-left: 68px; }
       .standalone-content { margin-left: 0; }
-      .standalone-sidebar { width: min(86vw, 320px); }
+      html body #standaloneSidebar.standalone-sidebar { width: 280px !important; max-width: 86vw !important; }
     }
   </style>
 </head>
@@ -202,9 +202,10 @@
   <aside id="standaloneSidebar" class="standalone-sidebar">
     <div class="standalone-sidebar-brand">KING777</div>
     <nav class="standalone-nav">
-      <a href="/admin/">Home</a>
+      <a href="/admin/dashboard">Dashboard</a>
       <a href="/admin/list-clients">Users</a>
       <a href="/admin/add-user">Add User</a>
+      <a href="/admin/tokens">Deposit Tokens</a>
       <a href="/admin/market-analysis">Market Analysis</a>
       <a href="/admin/payment-method">Payment Details</a>
       <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
@@ -262,14 +263,19 @@
                 <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="Opening Credit" />
               </div>
               <div class="col-md-4">
+                <label class="field-label" for="depositToken">Deposit Token</label>
+                <input class="form-control" id="depositToken" name="depositToken" placeholder="KT-XXXXX-XXXXX (optional)" autocomplete="off" style="text-transform: uppercase;" />
+                <div class="commission-help mb-0">Token value is added to the new account balance. <a href="/admin/tokens">My tokens</a></div>
+              </div>
+              <div class="col-md-4">
                 <label class="field-label" for="creditLimit">Credit Reference</label>
                 <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="Credit Reference" />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-4" data-user-only>
                 <label class="field-label" for="minBet">Minimum Bet</label>
                 <input class="form-control" id="minBet" name="minBet" type="number" min="0" step="0.01" placeholder="Minimum Bet" />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-4" data-user-only>
                 <label class="field-label" for="maxBet">Maximum Bet</label>
                 <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="Maximum Bet" />
               </div>
@@ -293,9 +299,10 @@
             <div class="row g-3 mt-1">
               <div class="col-12" id="subAdminPartnerships">
                 <label class="field-label">Commission Partners (up to 5)</label>
-                <div id="commissionRows" class="commission-grid"></div>
                 <div class="commission-help">Choose up to five existing Admins or Master Accounts. Commission shares cannot exceed 100%.</div>
                 <div id="commissionRemaining" class="commission-remaining">Remaining commission: 100%</div>
+                <input id="partnerSearch" class="form-control mt-2" type="search" placeholder="Search partner by username or ID" aria-label="Search partners" style="max-width: 520px;" />
+                <div id="commissionRows" class="commission-grid mt-2"></div>
                 <div class="input-group mt-3" style="max-width: 520px;">
                   <input id="newSubAdminUsername" class="form-control" placeholder="New Master Account username" />
                   <input id="newSubAdminPassword" class="form-control" type="password" placeholder="Password" />
@@ -366,7 +373,23 @@
       const commissionRemaining = document.getElementById("commissionRemaining");
       const subAdminStatus = document.getElementById("subAdminStatus");
       const createSubAdminBtn = document.getElementById("createSubAdminBtn");
+      const partnerSearch = document.getElementById("partnerSearch");
+      const userOnlyFields = Array.from(document.querySelectorAll("[data-user-only]"));
       let searchDebounce = null;
+
+      function syncRoleFields() {
+        const isUser = form.partnershipType.value === "client";
+        userOnlyFields.forEach(function (box) {
+          box.hidden = !isUser;
+          box.querySelectorAll("input").forEach(function (input) {
+            input.disabled = !isUser;
+            if (!isUser) input.value = "";
+          });
+        });
+      }
+      form.partnershipType.addEventListener("change", syncRoleFields);
+      form.addEventListener("reset", function () { setTimeout(syncRoleFields, 0); });
+      partnerSearch.addEventListener("input", filterPartners);
 
       function applyRoleOptions() {
         const role = String(currentUser().actualRole || currentUser().role || "user").toLowerCase();
@@ -399,9 +422,15 @@
           standaloneSidebar.classList.add("is-closed");
         }
       });
+      document.addEventListener("click", function (event) {
+        if (!window.matchMedia("(max-width: 768px)").matches || standaloneSidebar.classList.contains("is-closed")) return;
+        if (event.target.closest("#standaloneSidebar, #standaloneMenuToggle")) return;
+        standaloneSidebar.classList.add("is-closed");
+      });
       window.addEventListener("resize", syncStandaloneMenu);
       syncStandaloneMenu();
       applyRoleOptions();
+      syncRoleFields();
 
       function showStatus(target, text, type) {
         target.className = "status-box";
@@ -476,7 +505,7 @@
             return item.id && list.findIndex(function (candidate) { return String(candidate.id) === String(item.id); }) === index;
           });
         const options = '<option value="">Select partner</option>' + partners.map(function (item) {
-          return '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.username) + '</option>';
+          return '<option value="' + escapeHtml(item.id) + '" data-search="' + escapeHtml((item.username + " " + item.id).toLowerCase()) + '">' + escapeHtml(item.username) + '</option>';
         }).join("");
         commissionRows.innerHTML = Array.from({ length: 5 }, function (_, index) {
           return '<div class="commission-row"><select class="form-select commission-partner" aria-label="Commission partner ' + (index + 1) + '">' + options + '</select><input class="form-control commission-share" type="number" min="0" max="100" step="0.01" value="0" aria-label="Commission percentage ' + (index + 1) + '" /></div>';
@@ -485,6 +514,18 @@
           input.addEventListener("input", updateCommissionRemaining);
         });
         updateCommissionRemaining();
+        filterPartners();
+      }
+
+      function filterPartners() {
+        const term = (partnerSearch.value || "").trim().toLowerCase();
+        commissionRows.querySelectorAll(".commission-partner").forEach(function (select) {
+          Array.from(select.options).forEach(function (option) {
+            const match = !term || !option.value || option.selected || (option.getAttribute("data-search") || "").indexOf(term) !== -1;
+            option.hidden = !match;
+            option.disabled = !match;
+          });
+        });
       }
 
       function updateCommissionRemaining() {
@@ -520,6 +561,13 @@
           .replace(/'/g, "&#39;");
       }
 
+      var ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], sub_admin: ["SB", "Sub Admin"], super_master: ["SM", "Super Master"], sub_super_master: ["SSM", "Sub Super Master"], master: ["M", "Master"], user: ["U", "User"] };
+      function roleBadge(role) {
+        var key = String(role || "user").toLowerCase();
+        var info = ROLE_BADGES[key] || [key.slice(0, 3).toUpperCase(), key];
+        return '<span class="role-badge role-' + escapeHtml(key) + '" title="' + escapeHtml(info[1]) + '">' + escapeHtml(info[0]) + "</span>";
+      }
+
       function formatDate(value) {
         if (!value) return "-";
         const dt = new Date(value);
@@ -536,7 +584,7 @@
           .map(function (item) {
             return (
               "<tr>" +
-              "<td>" + escapeHtml(item.username) + "</td>" +
+              "<td>" + roleBadge(item.role) + escapeHtml(item.username) + "</td>" +
               "<td>" + escapeHtml(item.fullName) + "</td>" +
               "<td>" + escapeHtml(item.referenceName) + "</td>" +
               "<td>" + escapeHtml(item.creditAmount) + "</td>" +
@@ -581,9 +629,10 @@
           confirmPassword: form.confirmPassword.value,
           referenceName: form.referenceName.value,
           creditAmount: form.creditAmount.value,
+          depositToken: form.depositToken.value.trim(),
           creditLimit: form.creditLimit.value,
-          minBet: form.minBet.value,
-          maxBet: form.maxBet.value,
+          minBet: form.partnershipType.value === "client" ? form.minBet.value : "",
+          maxBet: form.partnershipType.value === "client" ? form.maxBet.value : "",
           partnershipType: form.partnershipType.value,
           remark: form.remark.value,
           transactionCode: form.transactionCode.value,
@@ -615,6 +664,7 @@
           showStatus(formStatus, result.message || "Saved successfully", "success");
           form.reset();
           form.partnershipType.value = "client";
+          syncRoleFields();
           loadSubAdmins();
           await loadRecords();
         } catch (error) {

@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 (globalThis["webpackChunkfair_react"] = globalThis["webpackChunkfair_react"] || []).push([["src_admin-app_pages__layout_MainAdmin_tsx"],{
 
 /***/ "./src/admin-app/pages/_layout/MainAdmin.tsx":
@@ -234,23 +234,6 @@ const MainAdmin = () => {
       fileName: _jsxFileName,
       lineNumber: 174,
       columnNumber: 7
-    }, undefined), /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
-      style: {
-        position: "fixed",
-        right: "18px",
-        bottom: "16px",
-        zIndex: 2000,
-        padding: "7px 12px",
-        borderRadius: "999px",
-        background: "rgba(15, 23, 42, 0.9)",
-        color: "#f8fafc",
-        fontSize: "12px",
-        fontWeight: 600,
-        letterSpacing: "0.4px",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
-        border: "1px solid rgba(148, 163, 184, 0.35)"
-      },
-      children: "Developed By JASHXN"
     }, undefined), /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_elements_footer__WEBPACK_IMPORTED_MODULE_6__["default"], {}, void 0, false, {
       fileName: _jsxFileName,
       lineNumber: 188,
@@ -741,11 +724,20 @@ const Sidebar = ({
       setIsSidebarOpen(false);
       onToggleHidden === null || onToggleHidden === void 0 ? void 0 : onToggleHidden(true);
     };
+    const closeOnOutsideClick = event => {
+      const target = event.target;
+      if (!mobileQuery.matches || !target || !target.closest) return;
+      if (target.closest('.admin-sidebar') || target.closest('[class*="menu-btn"]')) return;
+      setIsSidebarOpen(false);
+      onToggleHidden === null || onToggleHidden === void 0 ? void 0 : onToggleHidden(true);
+    };
     window.addEventListener('resize', syncSidebarForViewport);
     document.addEventListener('click', closeAfterNavigation, true);
+    document.addEventListener('click', closeOnOutsideClick, true);
     return () => {
       window.removeEventListener('resize', syncSidebarForViewport);
       document.removeEventListener('click', closeAfterNavigation, true);
+      document.removeEventListener('click', closeOnOutsideClick, true);
     };
   }, [onToggleHidden]);
 
@@ -914,15 +906,16 @@ const Sidebar = ({
   };
   const menuItems = [{
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
-      icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faHome
+      icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faChartBar
     }, void 0, false, {
       fileName: _jsxFileName,
       lineNumber: 268,
       columnNumber: 13
     }, undefined),
-    text: 'Home',
-    link: '/',
-    color: '#ff6b6b'
+    text: 'Dashboard',
+    link: '/dashboard',
+    external: '/admin/dashboard',
+    color: '#55efc4'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
       icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faUsers
@@ -955,6 +948,18 @@ const Sidebar = ({
     }, undefined),
     text: 'Payment Details',
     link: '/payment-method',
+    color: '#fdcb6e'
+  }, {
+    icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
+      icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faExchangeAlt
+    }, void 0, false, {
+      fileName: _jsxFileName,
+      lineNumber: 286,
+      columnNumber: 13
+    }, undefined),
+    text: 'Deposit Tokens',
+    link: '/tokens',
+    external: '/admin/tokens',
     color: '#fdcb6e'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
@@ -1090,8 +1095,12 @@ const Sidebar = ({
               className: "nav-list",
               children: menuItems.map((item, index) => /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("li", {
                 className: "nav-item",
-                children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_4__.CustomLink, {
-                  to: item.link,
+                children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(item.external ? "a" : _pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_4__.CustomLink, {
+                  ...(item.external ? {
+                    href: item.external
+                  } : {
+                    to: item.link
+                  }),
                   className: "nav-link",
                   style: {
                     color: item.color

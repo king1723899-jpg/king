@@ -1,4 +1,4 @@
-﻿<html lang="en">
+<html lang="en">
 
 <head>
   <base href="/" />
@@ -28,8 +28,16 @@
   <link rel="stylesheet" href="/assets/vendor/owlcarousel/owl.carousel.min.css" />
   <link rel="stylesheet"
     href="/assets/vendor/owlcarousel/owl.theme.default.css" />
-  <link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles" />
-  <link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2" />
+  <script>
+    // Decide admin vs user styling before first paint so the legacy user look never flashes on admin routes.
+    (function () {
+      var admin = /(^|\/)admin(\/|$)/i.test(location.pathname || "");
+      if (admin) document.write('<style id="admin-boot-bg">html,body,#root{background:#050506 !important;color:#f5f5f5}</style>');
+      var off = admin ? " disabled" : "";
+      document.write('<link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles"' + off + '>');
+      document.write('<link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2"' + off + '>');
+    })();
+  </script>
   <link type="text/css" rel="stylesheet" href="/css/admin-style.css?v=32" id="admin-styles" />
   <script>
   (function () {
@@ -83,12 +91,6 @@
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
-  <div
-    id="dev-credit-login"
-    style="position:fixed;right:18px;bottom:16px;z-index:2000;padding:7px 12px;border-radius:999px;background:rgba(15,23,42,.9);color:#f8fafc;font-size:12px;font-weight:600;letter-spacing:.4px;box-shadow:0 8px 24px rgba(0,0,0,.22);border:1px solid rgba(148,163,184,.35);font-family:'Titillium Web',sans-serif;"
-  >
-    Developed By JASHXN
-  </div>
   <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

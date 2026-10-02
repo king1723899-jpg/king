@@ -1,4 +1,4 @@
-﻿<html lang="en">
+<html lang="en">
 
 <head>
   <base href="/" />
@@ -28,8 +28,16 @@
   <link rel="stylesheet" href="/assets/vendor/owlcarousel/owl.carousel.min.css" />
   <link rel="stylesheet"
     href="/assets/vendor/owlcarousel/owl.theme.default.css" />
-  <link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles" />
-  <link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2" />
+  <script>
+    // Decide admin vs user styling before first paint so the legacy user look never flashes on admin routes.
+    (function () {
+      var admin = /(^|\/)admin(\/|$)/i.test(location.pathname || "");
+      if (admin) document.write('<style id="admin-boot-bg">html,body,#root{background:#050506 !important;color:#f5f5f5}</style>');
+      var off = admin ? " disabled" : "";
+      document.write('<link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles"' + off + '>');
+      document.write('<link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2"' + off + '>');
+    })();
+  </script>
   <link type="text/css" rel="stylesheet" href="/css/admin-style.css?v=32" id="admin-styles" />
   <script>
   (function () {
@@ -74,38 +82,7 @@
       window.addEventListener('popstate', applyCssMode);
       window.addEventListener('hashchange', applyCssMode);
 
-      const THEME_KEY = 'ambani_theme';
-      const DEFAULT_THEME = 'dark';
-      const validThemes = ['dark', 'light', 'midnight'];
-
-      function applyTheme(theme) {
-        const mode = validThemes.includes(theme) ? theme : DEFAULT_THEME;
-        document.body.setAttribute('data-theme', mode);
-        try {
-          localStorage.setItem(THEME_KEY, mode);
-        } catch (error) {}
-        document.querySelectorAll('.theme-option').forEach((button) => {
-          button.classList.toggle('active', button.dataset.theme === mode);
-        });
-      }
-
-      let storedTheme = DEFAULT_THEME;
-      try {
-        storedTheme = localStorage.getItem(THEME_KEY) || DEFAULT_THEME;
-      } catch (error) {}
-      applyTheme(storedTheme);
-
-      const trigger = document.querySelector('.theme-switcher__trigger');
-      const switcher = document.querySelector('.theme-switcher');
-      document.querySelectorAll('.theme-option').forEach((button) => {
-        button.addEventListener('click', () => {
-          applyTheme(button.dataset.theme);
-          if (switcher) switcher.classList.remove('open');
-        });
-      });
-      if (trigger && switcher) {
-        trigger.addEventListener('click', () => switcher.classList.toggle('open'));
-      }
+      document.body.setAttribute('data-theme', 'dark');
 
       const toggleButtons = document.querySelectorAll('[data-menu-toggle], .navbar-toggler, .mobile-menu-btn');
       toggleButtons.forEach((button) => {
@@ -212,15 +189,6 @@
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
-
-  <div class="theme-switcher" aria-label="Theme switcher">
-    <button type="button" class="theme-switcher__trigger">Theme</button>
-    <div class="theme-switcher__options" aria-label="Theme options">
-      <button type="button" class="theme-option active" data-theme="dark">Dark</button>
-      <button type="button" class="theme-option" data-theme="light">Light</button>
-      <button type="button" class="theme-option" data-theme="midnight">Midnight</button>
-    </div>
-  </div>
   <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

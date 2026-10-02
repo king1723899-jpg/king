@@ -95,7 +95,7 @@
                                     fontFamily: "sans-serif",
                                     letterSpacing: "0.5px",
                                   },
-                                  children: "Reddy Anna Book",
+                                  children: "KING777 Book",
                                 },
                                 void 0,
                                 false,

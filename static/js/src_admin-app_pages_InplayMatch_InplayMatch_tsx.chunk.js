@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 (globalThis["webpackChunkfair_react"] = globalThis["webpackChunkfair_react"] || []).push([["src_admin-app_pages_InplayMatch_InplayMatch_tsx"],{
 
 /***/ "./src/admin-app/pages/InplayMatch/InplayMatch.tsx":
@@ -423,7 +423,7 @@ const InplayMatch = () => {
       className: "sports-header",
       children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxDEV)("div", {
         className: "welcome-banner",
-        children: "WELCOME TO Reddy Anna NO 1 ONLINE GAMING EXCHANGE"
+        children: "WELCOME TO KING777 ONLINE GAMING EXCHANGE"
       }, void 0, false, {
         fileName: _jsxFileName,
         lineNumber: 403,

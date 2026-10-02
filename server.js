@@ -5122,6 +5122,7 @@ const buildAdminClientListItem = (row) => ({
   })(),
   id: row?.id,
   userId: row?.user_id,
+  role: String(row?.user_role || "user").toLowerCase(),
   username: row?.username || "",
   fullName: row?.full_name || "",
   city: row?.city || "",
@@ -5915,9 +5916,9 @@ app.get("/url-rewrite.js", (_req, res) => {
   }
 
   function firstAllowedAdminPath(permissions, isOwner){
-    if(isOwner) return '/admin/';
+    if(isOwner) return '/admin/dashboard';
     var fallback = [
-      ['home','/admin/'],
+      ['home','/admin/dashboard'],
       ['users','/admin/list-clients'],
       ['market_analysis','/admin/market-analysis'],
       ['payment_details','/admin/payment-method'],
@@ -5934,7 +5935,7 @@ app.get("/url-rewrite.js", (_req, res) => {
     for(var i=0;i<fallback.length;i++){
       if(featureAllowed(fallback[i][0], permissions, false)) return fallback[i][1];
     }
-    return '/admin/';
+    return '/admin/dashboard';
   }
 
   function enforceRoutePermission(permissions, isOwner){
@@ -6568,6 +6569,347 @@ app.post("/api/admin/masters", (req, res) => {
 });
 app.get("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
 app.post("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
+db.exec(`
+CREATE TABLE IF NOT EXISTS deposit_tokens (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  value REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  assigned_to TEXT,
+  created_by TEXT,
+  note TEXT,
+  used_by TEXT,
+  used_for TEXT,
+  used_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deposit_tokens_assigned ON deposit_tokens(assigned_to, status);
+`);
+db.exec(`
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT,
+  type TEXT NOT NULL DEFAULT 'info',
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at);
+CREATE TABLE IF NOT EXISTS commission_records (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  from_user_id TEXT,
+  bet_id TEXT,
+  amount REAL NOT NULL DEFAULT 0,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_commission_records_user ON commission_records(user_id, created_at);
+`);
+const addNotification = (userId, title, message, type = "info", createdBy = "") => {
+  try {
+    if (!userId) return;
+    db.prepare("INSERT INTO notifications (id,user_id,title,message,type,is_read,created_by,created_at) VALUES (?,?,?,?,?,0,?,?)").run(
+      id("n_"), String(userId), String(title || "").slice(0, 160), String(message || "").slice(0, 500), String(type || "info"), String(createdBy || ""), nowIso()
+    );
+  } catch {}
+};
+app.get("/api/admin/notifications", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  const items = db
+    .prepare("SELECT id,title,message,type,is_read AS isRead,created_at AS createdAt FROM notifications WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 50")
+    .all(String(actor.user.id));
+  const unread = db.prepare("SELECT COUNT(*) AS c FROM notifications WHERE user_id=? AND is_read=0").get(String(actor.user.id)).c;
+  return res.json(env("", { items, unreadCount: unread, user: { username: actor.user.username, role: actor.role } }));
+});
+app.post("/api/admin/notifications/read", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  const nid = String(req.body?.id || "").trim();
+  if (nid) db.prepare("UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?").run(nid, String(actor.user.id));
+  else db.prepare("UPDATE notifications SET is_read=1 WHERE user_id=?").run(String(actor.user.id));
+  return res.json(env("Notifications updated", {}));
+});
+app.post("/api/admin/notifications", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  const target = getUserByUsername(String(req.body?.username || "").trim());
+  const title = String(req.body?.title || "").trim();
+  if (!target || !title) return res.status(400).json(env("username and title are required", {}, true, 400));
+  if (!canActorAccessTargetUser(actor.user, actor.role, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  addNotification(target.id, title, req.body?.message, "message", actor.user.username);
+  return res.status(201).json(env("Notification sent", {}));
+});
+
+const DASH_CASINO_PROVIDERS = [
+  ["Indian Poker/ Live Casino P&L", /indian ?poker(?! ?(ii|2))|live ?casino/i],
+  ["Indian Poker II P&L", /indian ?poker ?(ii|2)|poker ?(ii|2)/i],
+  ["Evolution P&L", /evolution/i],
+  ["Vivo P&L", /vivo/i],
+  ["Betgames P&L", /bet ?games/i],
+  ["Casino III P&L", /casino ?(iii|3)/i],
+  ["Spribe P&L", /spribe/i],
+  ["Mac88 P&L", /mac ?88/i],
+  ["Chicken Road P&L", /chicken/i],
+  ["Rvgames P&L", /rv ?games/i],
+  ["Ezugi P&L", /ezugi/i],
+];
+const DASH_OTHER_GAME = /sportsbook|virtual|lottery|other|tp/i;
+app.get("/api/admin/dashboard", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  const toDate = (v, fallback) => {
+    const d = v ? new Date(String(v)) : null;
+    return d && !Number.isNaN(d.getTime()) ? d : fallback;
+  };
+  const now = new Date();
+  const to = toDate(req.query.to, now);
+  const from = toDate(req.query.from, new Date(to.getTime() - 7 * 24 * 3600 * 1000));
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  const visible = getVisibleUserIdsForActor(actor.user, actor.role);
+  const users = db.prepare("SELECT id,username,role FROM users").all().filter((u) => String(u.id) !== String(actor.user.id) && (!visible || visible.has(String(u.id))));
+  const nameById = new Map(users.map((u) => [String(u.id), u.username]));
+  const playerIds = new Set(users.filter((u) => normalizePanelRole(u.role, "user") === "user").map((u) => String(u.id)));
+  const roleCounts = {};
+  users.forEach((u) => {
+    const role = normalizePanelRole(u.role, "user");
+    roleCounts[role] = (roleCounts[role] || 0) + 1;
+  });
+  const bets = db
+    .prepare(
+      `SELECT b.user_id, b.stack, b.settlement_net, b.market_name, b.gtype, b.type, s.name AS sport_name
+       FROM bets b LEFT JOIN matches m ON m.match_id=b.match_id LEFT JOIN sports s ON s.sport_id=m.sport_id
+       WHERE b.created_at>=? AND b.created_at<=?`
+    )
+    .all(fromIso, toIso)
+    .filter((b) => playerIds.has(String(b.user_id)));
+  const playerNet = new Map();
+  const marketNet = new Map();
+  const sportsMap = new Map();
+  const othersMap = new Map();
+  let sportsbookPnl = 0;
+  let betsNet = 0;
+  const bump = (map, key, patch) => {
+    const cur = map.get(key) || { bets: 0, amount: 0, pnl: 0 };
+    cur.bets += 1;
+    cur.amount += patch.amount;
+    cur.pnl += patch.pnl;
+    map.set(key, cur);
+  };
+  bets.forEach((b) => {
+    const net = toNum(b.settlement_net, 0);
+    const stack = toNum(b.stack, 0);
+    betsNet += net;
+    playerNet.set(String(b.user_id), (playerNet.get(String(b.user_id)) || 0) + net);
+    const sportName = b.sport_name || "Other";
+    const marketKey = sportName + "\u0001" + (b.market_name || "-");
+    marketNet.set(marketKey, (marketNet.get(marketKey) || 0) + net);
+    const gameType = String(b.gtype || b.type || "");
+    if (/sportsbook/i.test(gameType)) sportsbookPnl += net;
+    if (DASH_OTHER_GAME.test(gameType)) bump(othersMap, gameType || "Other", { amount: stack, pnl: net });
+    else bump(sportsMap, sportName, { amount: stack, pnl: net });
+  });
+  const casinoRows = db
+    .prepare("SELECT user_id,action,amount,provider_name,vendor_code FROM casino_provider_transactions WHERE created_at>=? AND created_at<=? AND status='success'")
+    .all(fromIso, toIso)
+    .filter((r) => playerIds.has(String(r.user_id)));
+  const casinoNet = new Map(DASH_CASINO_PROVIDERS.map(([label]) => [label, 0]));
+  let casinoTotal = 0;
+  casinoRows.forEach((r) => {
+    const action = String(r.action || "").toLowerCase();
+    const amount = toNum(r.amount, 0);
+    const signed = action === "credit" || action === "rollback" ? amount : action === "debit" ? -amount : 0;
+    if (!signed) return;
+    const text = String(r.provider_name || "") + " " + String(r.vendor_code || "");
+    const hit = DASH_CASINO_PROVIDERS.find(([, re]) => re.test(text));
+    const label = hit ? hit[0] : (String(r.provider_name || r.vendor_code || "Other").trim() || "Other") + " P&L";
+    casinoNet.set(label, (casinoNet.get(label) || 0) + signed);
+    casinoTotal += signed;
+    playerNet.set(String(r.user_id), (playerNet.get(String(r.user_id)) || 0) + signed);
+  });
+  const round = (n) => Math.round(n * 100) / 100;
+  const ranked = (entries, mapper) => {
+    const rows = entries.filter(([, v]) => v !== 0).map(mapper);
+    return {
+      winners: rows.filter((r) => r.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 5),
+      losers: rows.filter((r) => r.amount < 0).sort((a, b) => a.amount - b.amount).slice(0, 5),
+    };
+  };
+  const players = ranked([...playerNet.entries()], ([uid, v]) => ({ player: nameById.get(uid) || uid, amount: round(v) }));
+  const markets = ranked([...marketNet.entries()], ([k, v]) => {
+    const [sport, market] = k.split("\u0001");
+    return { sport, market, amount: round(v) };
+  });
+  const cashRows = db
+    .prepare("SELECT user_id,type,amount FROM deposits WHERE status='approved' AND updated_at>=? AND updated_at<=?")
+    .all(fromIso, toIso)
+    .filter((r) => playerIds.has(String(r.user_id)));
+  const sumType = (t) => round(cashRows.filter((r) => r.type === t).reduce((a, r) => a + toNum(r.amount, 0), 0));
+  const commissionRows = db
+    .prepare("SELECT user_id,amount FROM commission_records WHERE created_at>=? AND created_at<=?")
+    .all(fromIso, toIso)
+    .filter((r) => !visible ? true : String(r.user_id) === String(actor.user.id) || visible.has(String(r.user_id)));
+  const gameList = (map) => [...map.entries()].map(([name, v]) => ({ name, bets: v.bets, amount: round(v.amount), pnl: round(v.pnl) })).sort((a, b) => a.name.localeCompare(b.name));
+  const total = betsNet + casinoTotal;
+  return res.json(
+    env("", {
+      range: { from: fromIso, to: toIso },
+      pnl: round(total),
+      commission: round(commissionRows.reduce((a, r) => a + toNum(r.amount, 0), 0)),
+      deposit: sumType("deposit"),
+      withdrawal: sumType("withdraw"),
+      totalBets: bets.length,
+      sportsbookPnl: round(sportsbookPnl),
+      topPlayers: players,
+      topMarkets: markets,
+      userCount: roleCounts,
+      sportsGameplay: gameList(sportsMap),
+      othersGameplay: gameList(othersMap),
+      casino: [...casinoNet.entries()].map(([name, v]) => ({ name, pnl: round(v) })),
+      casinoTotal: round(casinoTotal),
+      totalPnl: round(total),
+    })
+  );
+});
+
+const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const generateTokenCode = () => {
+  const bytes = crypto.randomBytes(10);
+  let out = "";
+  for (let i = 0; i < 10; i += 1) out += TOKEN_ALPHABET[bytes[i] % TOKEN_ALPHABET.length];
+  return "KT-" + out.slice(0, 5) + "-" + out.slice(5);
+};
+const tokenActor = (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) {
+    res.status(401).json(env("Unauthorized", {}, true, 401));
+    return null;
+  }
+  const role = normalizePanelRole(reqAuthRole(req, authUser.role), "user");
+  if (role === "user") {
+    res.status(403).json(env("Admin access required", {}, true, 403));
+    return null;
+  }
+  return { user: authUser, role };
+};
+const emptyTokenStats = () => ({ generated: 0, generatedValue: 0, active: 0, activeValue: 0, used: 0, usedValue: 0, voided: 0, voidedValue: 0, fundedBalance: 0, userPnl: 0, housePnl: 0 });
+const addTokenStats = (stats, row) => {
+  const value = toNum(row.value, 0);
+  stats.generated += 1;
+  stats.generatedValue += value;
+  if (row.status === "used") {
+    stats.used += 1;
+    stats.usedValue += value;
+    const balance = toNum(row.funded_balance, 0);
+    stats.fundedBalance += balance;
+    stats.userPnl += balance - value;
+    stats.housePnl += value - balance;
+  } else if (row.status === "void") {
+    stats.voided += 1;
+    stats.voidedValue += value;
+  } else {
+    stats.active += 1;
+    stats.activeValue += value;
+  }
+};
+app.post("/api/admin/tokens", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  if (actor.role !== "super_admin") return res.status(403).json(env("Only Super Admin can generate tokens", {}, true, 403));
+  const body = req.body || {};
+  const value = toNum(body.value ?? body.amount, 0);
+  const count = Math.floor(toNum(body.count ?? body.quantity, 1));
+  const note = String(body.note || "").trim().slice(0, 200);
+  const assignee = String(body.assignedTo || body.admin || "").trim();
+  if (!(value > 0)) return res.status(400).json(env("Token value must be greater than 0", {}, true, 400));
+  if (!(count >= 1 && count <= 100)) return res.status(400).json(env("Count must be between 1 and 100", {}, true, 400));
+  const target = assignee ? getUserByUsername(assignee) : null;
+  if (!target || normalizePanelRole(target.role, "user") === "user") {
+    return res.status(400).json(env("Select a valid admin account to assign the tokens to", {}, true, 400));
+  }
+  const now = nowIso();
+  const insert = db.prepare(
+    "INSERT INTO deposit_tokens (id,code,value,status,assigned_to,created_by,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
+  );
+  const created = [];
+  try {
+    db.transaction(() => {
+      for (let i = 0; i < count; i += 1) {
+        const code = generateTokenCode();
+        insert.run(id("tk_"), code, value, "active", target.id, actor.user.id, note || null, now, now);
+        created.push(code);
+      }
+    })();
+  } catch (e) {
+    return res.status(500).json(env(e.message || "Unable to generate tokens", {}, true, 500));
+  }
+  addNotification(target.id, "Deposit tokens received", count + " token(s) worth " + value + " each assigned to you by " + actor.user.username, "token", actor.user.username);
+  return res.status(201).json(env("Tokens generated", { codes: created, value, assignedTo: target.username }));
+});
+app.get("/api/admin/tokens", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  const isSuper = actor.role === "super_admin";
+  const status = String(req.query.status || "").trim().toLowerCase();
+  const search = String(req.query.search || "").trim().toLowerCase();
+  const rows = db
+    .prepare(
+      `SELECT t.*, a.username AS assigned_username, u.username AS used_for_username, w.balance AS funded_balance
+       FROM deposit_tokens t
+       LEFT JOIN users a ON a.id=t.assigned_to
+       LEFT JOIN users u ON u.id=t.used_for
+       LEFT JOIN wallets w ON w.user_id=t.used_for
+       ${isSuper ? "" : "WHERE t.assigned_to=?"}
+       ORDER BY t.created_at DESC, t.rowid DESC`
+    )
+    .all(...(isSuper ? [] : [actor.user.id]));
+  const summary = emptyTokenStats();
+  const byAdmin = new Map();
+  rows.forEach((row) => {
+    addTokenStats(summary, row);
+    const key = String(row.assigned_to || "");
+    if (!byAdmin.has(key)) byAdmin.set(key, { adminId: key, username: row.assigned_username || key, ...emptyTokenStats() });
+    addTokenStats(byAdmin.get(key), row);
+  });
+  const items = rows
+    .filter((row) => (!status || row.status === status) && (!search || [row.code, row.assigned_username, row.used_for_username, row.note].some((v) => String(v || "").toLowerCase().includes(search))))
+    .slice(0, 500)
+    .map((row) => {
+      const value = toNum(row.value, 0);
+      const used = row.status === "used";
+      const balance = used ? toNum(row.funded_balance, 0) : null;
+      return {
+        id: row.id,
+        code: row.code,
+        value,
+        status: row.status,
+        note: row.note || "",
+        assignedTo: row.assigned_username || "",
+        usedFor: row.used_for_username || "",
+        usedAt: row.used_at || "",
+        createdAt: row.created_at,
+        currentBalance: balance,
+        userPnl: used ? balance - value : null,
+        housePnl: used ? value - balance : null,
+      };
+    });
+  return res.json(env("Tokens loaded", { items, summary, byAdmin: Array.from(byAdmin.values()), canGenerate: isSuper }));
+});
+app.post("/api/admin/tokens/:id/void", (req, res) => {
+  const actor = tokenActor(req, res);
+  if (!actor) return;
+  if (actor.role !== "super_admin") return res.status(403).json(env("Only Super Admin can void tokens", {}, true, 403));
+  const result = db
+    .prepare("UPDATE deposit_tokens SET status='void',updated_at=? WHERE id=? AND status='active'")
+    .run(nowIso(), String(req.params.id || ""));
+  if (!result.changes) return res.status(400).json(env("Only unused tokens can be voided", {}, true, 400));
+  return res.json(env("Token voided"));
+});
 app.post("/api/admin/client-onboarding", async (req, res) => {
   if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
     return res.status(403).json(env("B2B platform only", {}, true, 403));
@@ -6589,12 +6931,13 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const referenceName = String(body.referenceName || body.reference_name || "").trim();
   const creditAmount = Math.max(0, toNum(body.creditAmount ?? body.credit ?? body.amount, 0));
   let userLimits;
+  const requestedRole = resolveAccountRoleFromInput(body, authRole);
   try {
-    userLimits = readUserLimits(body);
+    // Bet limits only apply to player accounts
+    userLimits = readUserLimits(requestedRole === "user" ? body : { ...body, minBet: 0, maxBet: 0, min_bet: 0, max_bet: 0 });
   } catch (e) {
     return res.status(400).json(env(e.message, {}, true, 400));
   }
-  const requestedRole = resolveAccountRoleFromInput(body, authRole);
   if (!canRoleCreateRole(authRole, requestedRole)) {
     return res.status(403).json(env("You do not have permission to create this account type", {}, true, 403));
   }
@@ -6631,6 +6974,18 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   if (parentWallet && creditAmount > toNum(parentWallet.balance, 0)) {
     return res.status(400).json(env("Opening credit exceeds the parent available balance", {}, true, 400));
   }
+  const depositTokenCode = String(body.depositToken || body.deposit_token || "").trim().toUpperCase();
+  let depositToken = null;
+  if (depositTokenCode) {
+    depositToken = db.prepare("SELECT * FROM deposit_tokens WHERE code=?").get(depositTokenCode);
+    if (!depositToken) return res.status(400).json(env("Deposit token not found", {}, true, 400));
+    if (depositToken.status !== "active") return res.status(400).json(env("Deposit token is already " + depositToken.status, {}, true, 400));
+    if (authRole !== "super_admin" && String(depositToken.assigned_to || "") !== String(authUser.id)) {
+      return res.status(403).json(env("This token is not assigned to you", {}, true, 403));
+    }
+  }
+  const tokenValue = depositToken ? toNum(depositToken.value, 0) : 0;
+  const openingBalance = creditAmount + tokenValue;
   const actor = String(authUser.username || authUser.id || "admin");
   const profile = {
     fullName,
@@ -6676,13 +7031,19 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       }
       db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(
         userId,
-        creditAmount,
+        openingBalance,
         0,
         0,
         now
       );
       if (parentWallet && creditAmount > 0) {
         db.prepare("UPDATE wallets SET balance=balance-?,updated_at=? WHERE user_id=?").run(creditAmount, now, parentId);
+      }
+      if (depositToken) {
+        const redeemed = db
+          .prepare("UPDATE deposit_tokens SET status='used',used_by=?,used_for=?,used_at=?,updated_at=? WHERE id=? AND status='active'")
+          .run(authUser.id, userId, now, now, depositToken.id);
+        if (!redeemed.changes) throw new Error("Deposit token is no longer available");
       }
       db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
         userId,
@@ -6751,7 +7112,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
     }),
     syncWalletToMysql({
       userId,
-      balance: creditAmount,
+      balance: openingBalance,
       exposer: 0,
       casinoExposer: 0,
       updatedAt: now,
@@ -6767,6 +7128,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(userId),
     }),
   ]).catch(() => {});
+  addNotification(parentId, "New account created", username + " (" + requestedRole + ") was created with opening balance " + openingBalance, "account", username);
 
   return res.json(
     env("User saved successfully", {
@@ -6777,6 +7139,8 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       city,
       mobileNumber,
       creditAmount,
+      depositTokenValue: tokenValue,
+      openingBalance,
       role: requestedRole,
       parentId,
       partnershipType,
@@ -6815,8 +7179,10 @@ app.get("/api/admin/client-onboarding", (req, res) => {
         p.partnership_type,
         p.remark,
         p.transaction_code,
-        w.balance AS wallet_balance
+        w.balance AS wallet_balance,
+        usr.role AS user_role
       FROM admin_client_general g
+      LEFT JOIN users usr ON usr.id = g.user_id
       LEFT JOIN admin_client_partnership p ON p.general_id = g.id
       LEFT JOIN user_profiles up ON up.user_id = g.user_id
       LEFT JOIN wallets w ON w.user_id = g.user_id
@@ -6979,6 +7345,7 @@ const login = (admin = false) => (req, res) => {
   const canUseAdminLogin = isDefaultAdminCredential || allowedAdminRoles.has(normalizedRole);
 
   if (admin && !canUseAdminLogin) return res.status(403).json({ message: "Admin access only" });
+  if (!admin && canUseAdminLogin) return res.status(403).json({ message: "Admin accounts must sign in at /admin" });
 
   const effectiveRole = admin
     ? (canUseAdminLogin && normalizedRole ? normalizedRole : "admin")
@@ -7819,18 +8186,53 @@ app.get("/api/get-user-list", async (req, res) => {
   const statusFilter = normalizeStatusFilter(req.query?.status);
   const page = toNum(req.query?.page, 1);
   const limit = toNum(req.query?.limit, 50);
-  const userListCacheKey = `${authUser.id}|${authRole}|${searchTerm}|${typeFilter}|${statusFilter === null ? "all" : statusFilter}|${page}|${limit}`;
+  const userListCacheKey = `${authUser.id}|${authRole}|${String(req.query?.username || "")}|${String(req.query?.search || "")}|${typeFilter}|${statusFilter === null ? "all" : statusFilter}|${page}|${limit}`;
   const cachedPayload = userListResponseCache.get(userListCacheKey);
   if (cachedPayload) return res.json(env("", cachedPayload));
 
   let rows = queryUserRowsSqlite();
   if (!rows.length) rows = await queryUserRowsMysql();
 
-  let items = rows.map((row) => buildUserListItem(row)).filter((u) => !isClientListBlockedRole(u.role));
+  const drillUsername = String(req.query?.username || "").trim().toLowerCase();
+  const drillRow = drillUsername ? rows.find((row) => String(row.username || "").toLowerCase() === drillUsername) : null;
+  if (drillRow && visibleIds instanceof Set && String(drillRow.id) !== String(authUser.id) && !visibleIds.has(String(drillRow.id))) {
+    return res.status(403).json(env("You do not have access to this account", {}, true, 403));
+  }
+  const parentScopeId = String(drillRow ? drillRow.id : authUser.id);
+  const rowById = new Map(rows.map((row) => [String(row.id), row]));
+  const breadcrumb = [];
+  for (let cursor = drillRow, guard = 0; cursor && guard < 20; guard += 1) {
+    breadcrumb.unshift({ id: cursor.id, username: cursor.username, role: String(cursor.role || "").toLowerCase() });
+    if (String(cursor.id) === String(authUser.id)) break;
+    cursor = rowById.get(String(cursor.parent_id || ""));
+  }
+  if (!breadcrumb.length || String(breadcrumb[0].id) !== String(authUser.id)) {
+    breadcrumb.unshift({ id: authUser.id, username: authUser.username, role: normalizePanelRole(authRole, "user") });
+  }
+
+  // Strict tree view: only direct children of the viewed account
+  let items = rows
+    .filter((row) => String(row.parent_id || "") === parentScopeId)
+    .map((row) => buildUserListItem(row))
+    .filter((u) => !isClientListBlockedRole(u.role));
   if (visibleIds instanceof Set) {
     items = items.filter((u) => visibleIds.has(String(u?._id || "")));
   }
-  if (searchTerm) items = items.filter((u) => String(u.username || "").toLowerCase().includes(searchTerm));
+  const shareholderStmt = db.prepare(
+    "SELECT up.partner_id AS partnerId, up.share_percentage AS sharePercentage, u.username AS username, u.role AS role FROM user_partnerships up LEFT JOIN users u ON u.id = up.partner_id WHERE up.user_id=?"
+  );
+  items.forEach((u) => {
+    u.shareholders = shareholderStmt.all(u._id).map((s) => ({
+      partnerId: s.partnerId,
+      username: s.username || s.partnerId,
+      role: s.role || "",
+      sharePercentage: toNum(s.sharePercentage, 0),
+    }));
+  });
+  const listSearch = String(req.query?.search || "").trim().toLowerCase();
+  if (listSearch && !["true", "false"].includes(listSearch)) {
+    items = items.filter((u) => String(u.username || "").toLowerCase().includes(listSearch));
+  }
   if (typeFilter) items = items.filter((u) => String(u.role || "").toLowerCase() === typeFilter);
   if (statusFilter !== null) {
     items = items.filter((u) => {
@@ -7839,7 +8241,7 @@ app.get("/api/get-user-list", async (req, res) => {
     });
   }
 
-  const payload = buildPaginatedItems(items, page, limit);
+  const payload = { ...buildPaginatedItems(items, page, limit), breadcrumb };
   userListResponseCache.set(userListCacheKey, payload);
   res.json(env("", payload));
 });
@@ -8392,6 +8794,7 @@ app.post("/api/settle-bet", (req, res) => {
   try {
     const result = settleBet({ db, betId, result: req.body?.result, now: nowIso() });
     const affected = [result.userId, ...result.partnerBalances.map((item) => item.partnerId)];
+    if (result.commission) affected.push(result.commission.parentId);
     for (const userId of [...new Set(affected)]) {
       const wallet = ensureWallet(userId);
       syncWalletToMysql({
@@ -10373,8 +10776,11 @@ const sendHtml = (res, file) => {
   }
   if (!html.includes("/css/king777-clean.css")) {
     html = html.includes("</head>")
-      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-clean.css?v=1" />\n  </head>')
+      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-clean.css?v=4" />\n  </head>')
       : html;
+  }
+  if (!html.includes("king777-admin-topbar.js") && html.includes("</head>")) {
+    html = html.replace("</head>", '  <script src="/js/king777-admin-topbar.js?v=1" defer></script>\n  </head>');
   }
   html = html.replace(/\/static\/js\/bundle\.js(?:\?[^"']*)?/g, "/static/js/bundle.js?v=king777-2");
   const marker = '<script src="/url-rewrite.js"></script>';
@@ -10481,9 +10887,12 @@ app.use((req, res, next) => {
 });
 app.get("/", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get("/dash", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
+app.get(["/admin", "/admin/"], (_req, res) => res.redirect(302, "/admin/dashboard"));
 app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login.html")));
 app.get("/admin/client-onboarding", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
 app.get("/admin/add-user", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
+app.get("/admin/tokens", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "tokens.html")));
+app.get("/admin/dashboard", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "dashboard.html")));
 app.get("/signup", (_req, res) => res.redirect(302, "/admin/add-user"));
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/add-admin", (_req, res) => res.redirect(302, "/admin/list-clients"));

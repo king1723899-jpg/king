@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>King777 | Dashboard</title>
+  <link rel="stylesheet" href="/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="/css/admin-style.css?v=32" />
+  <style>
+    :root {
+      --brand-green: #0b120d;
+      --brand-yellow: #ffd447;
+      --page-green: #eef6e9;
+      --line: #25492b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page-green);
+      font-family: Arial, sans-serif;
+      color: #111;
+      min-height: 100vh;
+    }
+
+    .standalone-menu-toggle {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1400;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--brand-yellow);
+      border-radius: 4px;
+      background: #18351f;
+      color: var(--brand-yellow);
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .standalone-sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 1300;
+      width: 250px;
+      overflow-y: auto;
+      background: #0b120d;
+      border-right: 1px solid #315d35;
+      transform: translateX(0);
+      transition: transform .2s ease;
+    }
+    .standalone-sidebar.is-closed { transform: translateX(-105%); }
+    .standalone-sidebar-brand {
+      padding: 22px 18px;
+      color: var(--brand-yellow);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      border-bottom: 1px solid #315d35;
+    }
+    .standalone-nav a,
+    .standalone-nav summary {
+      display: block;
+      padding: 13px 18px;
+      color: #f5ffe9;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border-bottom: 1px solid #25492b;
+      list-style: none;
+    }
+    .standalone-nav a:hover,
+    .standalone-nav summary:hover,
+    .standalone-nav details[open] > summary {
+      color: var(--brand-yellow);
+      background: #18351f;
+    }
+    .standalone-nav details a { padding-left: 34px; font-weight: 400; background: #0f1b11; }
+    .standalone-content { margin-left: 250px; min-width: 0; }
+
+    .topbar {
+      min-height: 62px;
+      background: var(--brand-green);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      border-bottom: 3px solid var(--brand-yellow);
+      margin-left: 250px;
+    }
+    .brand { font-size: 24px; font-weight: 900; letter-spacing: 1.5px; color: var(--brand-yellow); }
+    .topbar a { color: #fff; text-decoration: none; font-size: 14px; }
+    .topbar a:hover { color: var(--brand-yellow); }
+    .page-title {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 16px 6px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .page-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 28px; }
+    .panel-card {
+      border: 0;
+      border-radius: 0;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+      padding: 14px 12px !important;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 14px;
+      color: #111;
+    }
+    fieldset.account-section {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      margin: 0 0 12px;
+      padding: 12px 12px 16px;
+    }
+    fieldset.account-section legend {
+      float: none;
+      width: auto;
+      margin: 0;
+      padding: 0 5px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .field-label {
+      font-weight: 400;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #111;
+    }
+    .form-control, .form-select { border: 1px solid #b8b8b8; border-radius: 3px; min-height: 42px; }
+    .form-control:focus, .form-select:focus { border-color: #79bdf2; box-shadow: 0 0 0 3px rgba(75, 166, 239, .28); }
+    .primary-action { background: #2f7d32; border-color: #2f7d32; color: #fff; min-width: 120px; }
+    .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
+    .secondary-action { min-width: 100px; }
+    .commission-grid { display: grid; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
+    .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
+    .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
+    .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
+    .commission-remaining { margin-top: 10px; font-weight: 700; color: #166534; }
+    .commission-remaining.over { color: #991b1b; }
+    .status-box {
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: none;
+      margin-top: 10px;
+    }
+    .status-success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .status-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .status-info {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+    }
+    .table thead th {
+      white-space: nowrap;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #475569;
+    }
+    .table tbody td {
+      font-size: 13px;
+      vertical-align: middle;
+    }
+    @media (max-width: 576px) {
+      .topbar { padding: 0 14px; }
+      .brand { font-size: 20px; }
+      .page-title { font-size: 18px; padding-top: 14px; }
+      .page-wrap { padding: 0 8px 20px; }
+      fieldset.account-section { padding: 10px 8px 12px; }
+    }
+    @media (max-width: 768px) {
+      .topbar { margin-left: 0; padding-left: 68px; }
+      .standalone-content { margin-left: 0; }
+      html body #standaloneSidebar.standalone-sidebar { width: 280px !important; max-width: 86vw !important; }
+    }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat { background: #0b120d; color: #f5ffe9; border-left: 4px solid var(--brand-yellow); padding: 10px 12px; border-radius: 3px; }
+    .stat small { display: block; color: #b9d3b4; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+    .stat strong { font-size: 18px; }
+    .pos { color: #166534; font-weight: 700; } .neg { color: #991b1b; font-weight: 700; }
+    .badge-status { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .badge-active { background: #dcfce7; color: #166534; } .badge-used { background: #dbeafe; color: #1d4ed8; } .badge-void { background: #e5e7eb; color: #4b5563; }
+    .table-scroll { overflow-x: auto; }
+    html body #standaloneSidebar.standalone-sidebar { max-width: 86vw !important; }
+    @media (max-width: 768px) { html body #standaloneSidebar.standalone-sidebar { width: 280px !important; } }
+  
+    html body { background: #0d0d0d !important; color: #f2f2f2 !important; }
+    .dash-wrap { max-width: 1100px; margin: 0 auto; padding: 0 12px 28px; }
+    .dash-title { max-width: 1100px; margin: 0 auto; padding: 16px 12px 8px; font-size: 22px; font-weight: 700; color: #f2f2f2; }
+    .dash-card { background: #15171c; border: 1px solid #2a2d35; margin-bottom: 14px; color: #f2f2f2; }
+    .dash-card > h3 { margin: 0; background: #000; color: #fff; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 10px 14px; border-bottom: 2px solid #b7ff5a; display: flex; justify-content: space-between; align-items: center; }
+    .dash-card > h3 a { color: #b7ff5a; font-size: 13px; text-transform: none; text-decoration: underline; cursor: pointer; }
+    .dash-value { font-size: 26px; font-weight: 700; padding: 14px; color: #f2f2f2; }
+    .dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    @media (min-width: 900px) { .dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .dash-grid .dash-card { margin-bottom: 0; }
+    .dash-filter { padding: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .dash-filter label { display: block; font-size: 14px; margin-bottom: 4px; color: #d7d9de; }
+    .dash-filter input { min-width: 200px; }
+    .dash-btn { border: 0; padding: 10px 18px; color: #101114; font-size: 15px; font-weight: 700; border-radius: 3px; }
+    .dash-btn.submit { background: #b7ff5a; } .dash-btn.reset { background: #ff6b6b; }
+    .dash-table { width: 100%; border-collapse: collapse; }
+    .dash-table th { background: #1d2027; color: #f2f2f2; font-weight: 700; padding: 8px 12px; border-bottom: 1px solid #2a2d35; font-size: 14px; }
+    .dash-table td { padding: 8px 12px; font-size: 14px; border-bottom: 1px solid #2a2d35; color: #f2f2f2; }
+    .dash-table tbody tr:nth-child(odd) td { background: #1a1d23; }
+    .dash-table .num { text-align: right; }
+    .dash-pos { color: #7ee787; } .dash-neg { color: #ff6b6b; }
+    .dash-sel { margin: 8px 12px; min-height: 40px; max-width: 220px; }
+    .dash-empty { color: #8b909a !important; text-align: center; padding: 10px; }
+    @media (max-width: 768px) { .topbar { margin-left: 0; } }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">KING777</div>
+    <span></span>
+  </header>
+  <button id="standaloneMenuToggle" class="standalone-menu-toggle" type="button" aria-label="Open menu">&#9776;</button>
+  <aside id="standaloneSidebar" class="standalone-sidebar">
+    <div class="standalone-sidebar-brand">KING777</div>
+    <nav class="standalone-nav">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/list-clients">Users</a>
+      <a href="/admin/add-user">Add User</a>
+      <a href="/admin/tokens">Deposit Tokens</a>
+      <a href="/admin/market-analysis">Market Analysis</a>
+      <a href="/admin/payment-method">Payment Details</a>
+      <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
+      <details><summary>Transactions</summary><a href="/admin/depositstatement">Deposits</a><a href="/admin/withdrawstatement">Withdrawals</a></details>
+      <details><summary>Settings</summary><a href="/admin/messages">Messages</a><a href="/admin/casino-list">Casino List</a></details>
+      <a href="/admin/rules">Rules</a>
+      <a href="/admin/terms">T&amp;C</a>
+      <a href="/admin/change-password">Change Password</a>
+    </nav>
+  </aside>
+  <div class="standalone-content">
+    <h1 class="dash-title">Dashboard</h1>
+    <div class="dash-wrap">
+      <div class="dash-card dash-filter">
+        <div><label for="fromDate">From Date:</label><input class="form-control" id="fromDate" type="datetime-local" /></div>
+        <div><label for="toDate">To Date:</label><input class="form-control" id="toDate" type="datetime-local" /></div>
+        <div><button class="dash-btn submit" id="submitBtn" type="button">Submit</button> <button class="dash-btn reset" id="resetBtn" type="button">Reset</button></div>
+      </div>
+      <div id="dashStatus" class="status-box"></div>
+      <div class="dash-grid mb-3">
+        <div class="dash-card"><h3>P&amp;L</h3><div class="dash-value" id="vPnl">0</div></div>
+        <div class="dash-card"><h3>Commission</h3><div class="dash-value" id="vCommission">0</div></div>
+        <div class="dash-card"><h3>Deposit</h3><div class="dash-value" id="vDeposit">0</div></div>
+        <div class="dash-card"><h3>Withdrawal</h3><div class="dash-value" id="vWithdrawal">0</div></div>
+        <div class="dash-card"><h3>Total Bets</h3><div class="dash-value" id="vBets">0</div></div>
+        <div class="dash-card"><h3>Sportsbook P&amp;L</h3><div class="dash-value" id="vSportsbook">0</div></div>
+      </div>
+      <div class="dash-card"><h3>Top 5 Winning Player</h3><table class="dash-table"><thead><tr><th>Player</th><th class="num">Amount</th></tr></thead><tbody id="tWinPlayers"></tbody></table></div>
+      <div class="dash-card"><h3>Top 5 Losing Player</h3><table class="dash-table"><thead><tr><th>Player</th><th class="num">Amount</th></tr></thead><tbody id="tLosePlayers"></tbody></table></div>
+      <div class="dash-card"><h3>Top 5 Winning Markets</h3><table class="dash-table"><thead><tr><th>Sport</th><th>Market</th><th class="num">Amount</th></tr></thead><tbody id="tWinMarkets"></tbody></table></div>
+      <div class="dash-card"><h3>Top 5 Losing Markets</h3><table class="dash-table"><thead><tr><th>Sport</th><th>Market</th><th class="num">Amount</th></tr></thead><tbody id="tLoseMarkets"></tbody></table></div>
+      <div class="dash-card"><h3>User Count <a href="/admin/list-clients">Overall Count</a></h3><table class="dash-table"><thead><tr><th>Role</th><th class="num">Count</th></tr></thead><tbody id="tUsers"></tbody></table></div>
+      <div class="dash-card"><h3>Sports Gameplay Details</h3><select class="form-select dash-sel" id="selSports"><option value="">Select Sports</option></select><table class="dash-table"><tbody id="tSports"></tbody></table></div>
+      <div class="dash-card"><h3>Others Gameplay Details</h3><select class="form-select dash-sel" id="selOthers"><option value="">Select Other</option></select><table class="dash-table"><tbody id="tOthers"></tbody></table></div>
+      <div class="dash-card"><h3>Casino Gameplay Details</h3><table class="dash-table"><tbody id="tCasino"></tbody></table></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var sidebar = document.getElementById("standaloneSidebar");
+      var toggle = document.getElementById("standaloneMenuToggle");
+      var mq = window.matchMedia("(max-width: 768px)");
+      function syncMenu() { sidebar.classList.toggle("is-closed", mq.matches); }
+      syncMenu();
+      mq.addEventListener("change", syncMenu);
+      toggle.addEventListener("click", function () { sidebar.classList.toggle("is-closed"); });
+      sidebar.addEventListener("click", function (e) { if (mq.matches && e.target.closest("a")) sidebar.classList.add("is-closed"); });
+      document.addEventListener("click", function (e) {
+        if (!mq.matches || sidebar.classList.contains("is-closed")) return;
+        if (e.target.closest("#standaloneSidebar, #standaloneMenuToggle")) return;
+        sidebar.classList.add("is-closed");
+      });
+
+      function getToken() {
+        var keys = ["token-admin", "token", "adminToken", "authToken", "accessToken", "jwt"];
+        for (var i = 0; i < keys.length; i++) {
+          var v = localStorage.getItem(keys[i]) || sessionStorage.getItem(keys[i]);
+          if (!v) continue;
+          try { var p = JSON.parse(v); if (p && typeof p === "object") { if (p.token) return String(p.token); if (p.accessToken) return String(p.accessToken); } } catch (_) {}
+          return String(v);
+        }
+        return "";
+      }
+      function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+      function money(n) { n = Number(n) || 0; return '<span class="' + (n < 0 ? "dash-neg" : n > 0 ? "dash-pos" : "") + '">' + n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "</span>"; }
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function local(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+      var fromEl = document.getElementById("fromDate"), toEl = document.getElementById("toDate");
+      function resetDates() {
+        var to = new Date(); var from = new Date(to.getTime() - 7 * 86400000); from.setHours(0, 0, 0, 0);
+        fromEl.value = local(from); toEl.value = local(to);
+      }
+      function rows(id, list, cols, emptyCols) {
+        var el = document.getElementById(id);
+        el.innerHTML = list.length ? list.map(cols).join("") : '<tr><td colspan="' + emptyCols + '" class="dash-empty">No data</td></tr>';
+      }
+      var state = { sports: [], others: [] };
+      function gameplay(id, list, name) {
+        var g = list.filter(function (x) { return x.name === name; })[0] || { bets: 0, amount: 0, pnl: 0 };
+        document.getElementById(id).innerHTML =
+          "<tr><td>Total Bets</td><td class=\"num\">" + g.bets + "</td></tr>" +
+          "<tr><td>Total Bet Amount</td><td class=\"num\">" + g.amount + "</td></tr>" +
+          "<tr><td>Total P&amp;L</td><td class=\"num\">" + money(g.pnl) + "</td></tr>";
+      }
+      function fillSelect(id, list) {
+        var sel = document.getElementById(id), first = sel.options[0].outerHTML;
+        sel.innerHTML = first + list.map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.name) + "</option>"; }).join("");
+      }
+      function setStatus(msg) {
+        var box = document.getElementById("dashStatus");
+        box.className = "status-box status-error"; box.textContent = msg; box.style.display = msg ? "block" : "none";
+      }
+      var ROLE_LABELS = { super_admin: "Super Admin", admin: "Admin", sub_admin: "Sub Admin", super_master: "Super Master", sub_super_master: "Sub Super Master", master: "Master", user: "User" };
+      function render(d) {
+        document.getElementById("vPnl").innerHTML = money(d.pnl);
+        document.getElementById("vCommission").textContent = d.commission;
+        document.getElementById("vDeposit").textContent = d.deposit;
+        document.getElementById("vWithdrawal").textContent = d.withdrawal;
+        document.getElementById("vBets").textContent = d.totalBets;
+        document.getElementById("vSportsbook").innerHTML = money(d.sportsbookPnl);
+        var pr = function (x) { return "<tr><td>" + esc(x.player) + '</td><td class="num">' + money(x.amount) + "</td></tr>"; };
+        var mr = function (x) { return "<tr><td>" + esc(x.sport) + "</td><td>" + esc(x.market) + '</td><td class="num">' + money(x.amount) + "</td></tr>"; };
+        rows("tWinPlayers", d.topPlayers.winners, pr, 2); rows("tLosePlayers", d.topPlayers.losers, pr, 2);
+        rows("tWinMarkets", d.topMarkets.winners, mr, 3); rows("tLoseMarkets", d.topMarkets.losers, mr, 3);
+        var roles = Object.keys(d.userCount || {});
+        rows("tUsers", roles, function (r) { return "<tr><td>" + esc(ROLE_LABELS[r] || r) + '</td><td class="num">' + d.userCount[r] + "</td></tr>"; }, 2);
+        state.sports = d.sportsGameplay; state.others = d.othersGameplay;
+        fillSelect("selSports", state.sports); fillSelect("selOthers", state.others);
+        var total = state.sports.reduce(function (a, x) { return { bets: a.bets + x.bets, amount: a.amount + x.amount, pnl: a.pnl + x.pnl }; }, { bets: 0, amount: 0, pnl: 0 });
+        gameplay("tSports", [{ name: "", bets: total.bets, amount: total.amount, pnl: total.pnl }], "");
+        var totalO = state.others.reduce(function (a, x) { return { bets: a.bets + x.bets, amount: a.amount + x.amount, pnl: a.pnl + x.pnl }; }, { bets: 0, amount: 0, pnl: 0 });
+        gameplay("tOthers", [{ name: "", bets: totalO.bets, amount: totalO.amount, pnl: totalO.pnl }], "");
+        document.getElementById("tCasino").innerHTML = d.casino.map(function (c) { return "<tr><td>" + esc(c.name) + '</td><td class="num">' + money(c.pnl) + "</td></tr>"; }).join("") +
+          "<tr><td><strong>Total P&amp;L</strong></td><td class=\"num\"><strong>" + money(d.totalPnl) + "</strong></td></tr>";
+      }
+      document.getElementById("selSports").addEventListener("change", function () { gameplay("tSports", state.sports, this.value); });
+      document.getElementById("selOthers").addEventListener("change", function () { gameplay("tOthers", state.others, this.value); });
+      async function load() {
+        setStatus("");
+        var q = "?from=" + encodeURIComponent(new Date(fromEl.value).toISOString()) + "&to=" + encodeURIComponent(new Date(toEl.value).toISOString());
+        var headers = {}; var t = getToken(); if (t) headers.Authorization = "Bearer " + t;
+        try {
+          var res = await fetch("/api/admin/dashboard" + q, { headers: headers });
+          if (res.status === 401) { location.replace("/admin/login?return=" + encodeURIComponent(location.pathname)); return; }
+          var json = await res.json();
+          if (!res.ok || json.error) throw new Error(json.message || "Unable to load dashboard");
+          render(json.data || json);
+        } catch (e) { setStatus(e.message || "Unable to load dashboard"); }
+      }
+      document.getElementById("submitBtn").addEventListener("click", load);
+      document.getElementById("resetBtn").addEventListener("click", function () { resetDates(); load(); });
+      resetDates(); load();
+    })();
+  </script>
+</body>
+</html>
