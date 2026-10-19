@@ -91,6 +91,8 @@
     .page-head .page-title { padding: 0; margin: 0; max-width: none; }
     .my-balance { font-size: 14px; color: #25492b; }
     .my-balance strong { color: #0b120d; font-variant-numeric: tabular-nums; }
+    .share-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 42px; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .share-row .btn { min-height: 42px; }
     .share-split { min-height: 42px; display: flex; align-items: center; padding: 0 12px; border-radius: 3px; background: #f1f8ec; border: 1px dashed #8fbf8a; font-weight: 700; color: #166534; font-size: 14px; }
     .share-split.over { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
     .role-badge { display: inline-block; min-width: 24px; padding: 1px 5px; margin-right: 6px; border-radius: 3px; font-size: 11px; font-weight: 700; text-align: center; color: #fff; background: #64748b; }
@@ -228,22 +230,12 @@
 
             <fieldset class="account-section" id="shareSection" data-user-only>
               <legend>Master Commission Share</legend>
-              <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-6">
-                  <label class="field-label" for="shareMaster">Master</label>
-                  <select class="form-select" id="shareMaster">
-                    <option value="">No Master share</option>
-                  </select>
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="field-label" for="sharePercent">Master Share %</label>
-                  <input class="form-control" id="sharePercent" type="number" min="0" max="100" step="0.01" placeholder="0" disabled />
-                </div>
-                <div class="col-12 col-md-3">
-                  <div class="share-split" id="shareSplit">You keep 100%</div>
-                </div>
+              <div id="shareRows" class="share-rows"></div>
+              <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="addShareRow">+ Add Master</button>
+                <div class="share-split" id="shareSplit">You keep 100%</div>
               </div>
-              <div class="field-help mt-2" id="shareHelp">Optional. The selected Master receives this percentage of the user's profit &amp; loss; the rest stays with you.</div>
+              <div class="field-help mt-2" id="shareHelp">Optional. Each Master receives their % of this user's profit &amp; loss; the rest stays with you. Masters together can have up to 100%.</div>
             </fieldset>
 
             <fieldset class="account-section">
@@ -314,15 +306,16 @@
       const recordsBody = document.getElementById("recordsBody");
       const refreshBtn = document.getElementById("refreshBtn");
       const searchInput = document.getElementById("searchInput");
-      const shareMaster = document.getElementById("shareMaster");
-      const sharePercent = document.getElementById("sharePercent");
+      const shareRows = document.getElementById("shareRows");
+      const addShareRowBtn = document.getElementById("addShareRow");
+      const MAX_SHARE_ROWS = 10;
       const shareSplit = document.getElementById("shareSplit");
       const shareHelp = document.getElementById("shareHelp");
       const roleHelp = document.getElementById("roleHelp");
       const myBalance = document.getElementById("myBalance");
       const userOnlyFields = Array.from(document.querySelectorAll("[data-user-only]"));
       const ROLE_NAMES = { super_admin: "Super Admin", admin: "Admin", master: "Master", user: "User" };
-      const CREATABLE = { super_admin: ["admin", "master", "user"], admin: ["master", "user"], master: ["user"], user: [] };
+      const CREATABLE = { super_admin: ["admin", "master", "user"], admin: ["admin", "master", "user"], master: ["user"], user: [] };
       let searchDebounce = null;
       let masters = [];
 
@@ -423,11 +416,12 @@
             if (!isUser) {
               input.value = "";
               input.disabled = true;
-            } else if (input !== sharePercent) {
+            } else {
               input.disabled = false;
             }
           });
         });
+        if (!isUser) resetShareRows();
         syncShare();
       }
       form.partnershipType.addEventListener("change", syncRoleFields);
@@ -435,33 +429,77 @@
         setTimeout(function () {
           applyRoleOptions();
           syncRoleFields();
+          resetShareRows();
         }, 0);
       });
 
-      // ---- Master share ----
+      // ---- Master shares (several Masters, together up to 100%) ----
+      function masterOptionsHtml(selected) {
+        return '<option value="">Select Master</option>' + masters.map(function (m) {
+          const id = String(m.id);
+          return '<option value="' + escapeHtml(id) + '"' + (id === selected ? " selected" : "") + ">" + escapeHtml(m.username) + "</option>";
+        }).join("");
+      }
+      function shareRowEls() {
+        return Array.from(shareRows.querySelectorAll(".share-row"));
+      }
+      function addShareRow(selected, pct) {
+        if (shareRowEls().length >= MAX_SHARE_ROWS) return;
+        const row = document.createElement("div");
+        row.className = "share-row";
+        row.innerHTML =
+          '<select class="form-select share-master" aria-label="Master">' + masterOptionsHtml(selected || "") + "</select>" +
+          '<input class="form-control share-pct" type="number" min="0" max="100" step="0.01" placeholder="Share %" aria-label="Master share %" />' +
+          '<button type="button" class="btn btn-outline-danger share-remove" aria-label="Remove Master">&times;</button>';
+        if (pct) row.querySelector(".share-pct").value = pct;
+        row.querySelector(".share-master").addEventListener("change", syncShare);
+        row.querySelector(".share-pct").addEventListener("input", syncShare);
+        row.querySelector(".share-remove").addEventListener("click", function () {
+          row.remove();
+          if (!shareRowEls().length) addShareRow();
+          syncShare();
+        });
+        shareRows.appendChild(row);
+        syncShare();
+      }
+      function resetShareRows() {
+        shareRows.innerHTML = "";
+        addShareRow();
+      }
+      function readShares() {
+        return shareRowEls()
+          .map(function (row) {
+            return { partnerId: row.querySelector(".share-master").value, sharePercentage: row.querySelector(".share-pct").value };
+          })
+          .filter(function (entry) { return entry.partnerId; });
+      }
       function renderMasters() {
-        shareMaster.innerHTML =
-          '<option value="">No Master share</option>' +
-          masters.map(function (m) {
-            return '<option value="' + escapeHtml(m.id) + '">' + escapeHtml(m.username) + "</option>";
-          }).join("");
+        shareRowEls().forEach(function (row) {
+          const select = row.querySelector(".share-master");
+          select.innerHTML = masterOptionsHtml(select.value);
+        });
+        addShareRowBtn.hidden = !masters.length;
         if (!masters.length) {
-          shareHelp.textContent = actorRole() === "master"
-            ? "Optional. You can give yourself a commission share on this user."
-            : "No Master accounts yet. Create a Master first to share commission.";
+          shareHelp.textContent = "No Master accounts yet. Create a Master first to share commission.";
         }
       }
       function syncShare() {
-        const hasMaster = !!shareMaster.value;
-        sharePercent.disabled = !hasMaster || shareMaster.disabled;
-        if (!hasMaster) sharePercent.value = "";
-        const pct = Math.min(100, Math.max(0, Number(sharePercent.value) || 0));
-        const keep = Math.round((100 - pct) * 100) / 100;
-        shareSplit.textContent = hasMaster ? "Master " + pct + "% · You " + keep + "%" : "You keep 100%";
-        shareSplit.classList.toggle("over", Number(sharePercent.value) > 100);
+        const shares = readShares();
+        const total = Math.round(shares.reduce(function (sum, e) { return sum + Math.max(0, Number(e.sharePercentage) || 0); }, 0) * 100) / 100;
+        const keep = Math.round((100 - total) * 100) / 100;
+        shareSplit.textContent = shares.length ? "Masters " + total + "% · You " + keep + "%" : "You keep 100%";
+        shareSplit.classList.toggle("over", total > 100);
+        // A Master can be chosen only once.
+        const chosen = shares.map(function (e) { return e.partnerId; });
+        shareRowEls().forEach(function (row) {
+          const own = row.querySelector(".share-master").value;
+          Array.from(row.querySelectorAll(".share-master option")).forEach(function (opt) {
+            opt.disabled = !!opt.value && opt.value !== own && chosen.indexOf(opt.value) !== -1;
+          });
+        });
+        addShareRowBtn.disabled = shareRowEls().length >= MAX_SHARE_ROWS;
       }
-      shareMaster.addEventListener("change", syncShare);
-      sharePercent.addEventListener("input", syncShare);
+      addShareRowBtn.addEventListener("click", function () { addShareRow(); });
       async function loadMasters() {
         try {
           const rows = await api("/api/admin/masters");
@@ -545,9 +583,14 @@
         if (form.password.value !== form.confirmPassword.value) return "Passwords do not match.";
         const coins = form.creditAmount.value;
         if (coins && (!(Number(coins) >= 0) || !/^\d+(\.\d{1,2})?$/.test(coins))) return "Opening coins must be a positive amount with up to 2 decimals.";
-        if (shareMaster.value) {
-          const pct = Number(sharePercent.value);
-          if (!(pct > 0 && pct <= 100)) return "Master share must be between 0 and 100%.";
+        if (form.partnershipType.value === "client") {
+          const shares = readShares();
+          for (let i = 0; i < shares.length; i += 1) {
+            const pct = Number(shares[i].sharePercentage);
+            if (!(pct > 0 && pct <= 100)) return "Each Master share must be between 0 and 100%.";
+          }
+          const total = shares.reduce(function (sum, e) { return sum + Number(e.sharePercentage); }, 0);
+          if (total > 100) return "Master shares together cannot exceed 100%.";
         }
         if (!form.transactionCode.value.trim()) return "Enter your transaction password.";
         return "";
@@ -576,7 +619,7 @@
           partnershipType: form.partnershipType.value,
           remark: form.remark.value.trim(),
           transactionCode: form.transactionCode.value,
-          partnerships: isUser && shareMaster.value ? [{ partnerId: shareMaster.value, sharePercentage: sharePercent.value }] : [],
+          partnerships: isUser ? readShares() : [],
         };
         submitBtn.disabled = true;
         submitBtn.textContent = "Creating...";
@@ -599,6 +642,7 @@
         }
       });
 
+      resetShareRows();
       applyRoleOptions();
       syncRoleFields();
       loadMasters();

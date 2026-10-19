@@ -34,10 +34,17 @@ assert.equal(partnership.totalShare, 30);
 assert.equal(partnership.remainingShare, 70);
 // Zero-share rows are ignored (blank form rows)
 assert.equal(validatePartnershipEntries({ input: [{ partnerId: "master2", sharePercentage: 0 }], getPartner, canAccessPartner: () => true }).entries.length, 0);
-// Only one Master may receive a share
+// Several Masters may share; together at most 100%, each Master once
+const two = validatePartnershipEntries({ input: [{ partnerId: "master1", sharePercentage: 25 }, { partnerId: "master2", sharePercentage: 35 }], getPartner, canAccessPartner: () => true });
+assert.equal(two.entries.length, 2);
+assert.equal(two.remainingShare, 40);
 assert.throws(
-  () => validatePartnershipEntries({ input: [{ partnerId: "master1", sharePercentage: 10 }, { partnerId: "master2", sharePercentage: 10 }], getPartner, canAccessPartner: () => true }),
-  /Only one Master/
+  () => validatePartnershipEntries({ input: [{ partnerId: "master1", sharePercentage: 60 }, { partnerId: "master2", sharePercentage: 50 }], getPartner, canAccessPartner: () => true }),
+  /together cannot exceed 100/
+);
+assert.throws(
+  () => validatePartnershipEntries({ input: [{ partnerId: "master1", sharePercentage: 10 }, { partnerId: "master1", sharePercentage: 10 }], getPartner, canAccessPartner: () => true }),
+  /only once/
 );
 // Admins and users cannot receive a share
 assert.throws(() => validatePartnershipEntries({ input: [{ partnerId: "admin", sharePercentage: 10 }], getPartner, canAccessPartner: () => true }), /Master account/);

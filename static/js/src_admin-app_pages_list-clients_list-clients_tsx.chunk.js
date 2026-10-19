@@ -651,9 +651,9 @@
             overlay.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px");
             overlay.innerHTML =
               `<div role="dialog" aria-modal="true" style="background:#fff;color:#111;border-radius:6px;max-width:460px;width:100%;max-height:90vh;overflow:auto;padding:16px">` +
-              `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Master Share - ${esc(user && user.username)}</strong><button type="button" data-close style="border:0;background:none;font-size:22px;line-height:1;cursor:pointer" aria-label="Close">&times;</button></div>` +
+              `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Master Shares - ${esc(user && user.username)}</strong><button type="button" data-close style="border:0;background:none;font-size:22px;line-height:1;cursor:pointer" aria-label="Close">&times;</button></div>` +
               (list.length
-                ? `<table class="table table-bordered table-sm"><thead><tr><th>Master</th><th>Role</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Master share</th><th style="text-align:right">${esc(Number(total.toFixed(2)))}%</th></tr></tfoot></table>` +
+                ? `<table class="table table-bordered table-sm"><thead><tr><th>Master</th><th>Role</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Masters total</th><th style="text-align:right">${esc(Number(total.toFixed(2)))}%</th></tr></tfoot></table>` +
                   `<div style="display:flex;height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden">${segments}</div>` +
                   `<div style="font-size:12px;margin-top:6px">${esc(Number(total.toFixed(2)))}% to Master &middot; ${esc(Number(remaining.toFixed(2)))}% to parent</div>`
                 : `<p style="margin:0">No Master share. 100% stays with the parent account.</p>`) +
@@ -665,7 +665,9 @@
           };
           const k7Cols = (arr, pend) => [arr[0], arr[1], pend, arr[2], arr[5], arr[3], arr[4]].concat(arr.slice(6));
           const renderShareholdersCell = (user) => {
-            const first = Array.isArray(user && user.shareholders) && user.shareholders.length ? user.shareholders[0] : null;
+            const list = Array.isArray(user && user.shareholders) ? user.shareholders : [];
+            const first = list.length ? list[0] : null;
+            const sharedPct = Math.round(list.reduce((s, p) => s + (Number(p.sharePercentage) || 0), 0) * 100) / 100;
             return react__WEBPACK_IMPORTED_MODULE_0___default().createElement(
               "a",
               {
@@ -677,7 +679,7 @@
                   showShareholders(user);
                 },
               },
-              first ? `${Number(first.sharePercentage) || 0}% ${first.username}` : "No Share"
+              list.length > 1 ? `${list.length} Masters · ${sharedPct}%` : first ? `${Number(first.sharePercentage) || 0}% ${first.username}` : "No Share"
             );
           };
           const ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], master: ["M", "Master"], user: ["U", "User"] };
@@ -2539,6 +2541,8 @@ renderBreadcrumb(),
                                                                               _pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_10__.CustomLink,
                                                                               {
                                                                                 to: `/list-clients/${user.username}`,
+                                                                                title: `Open ${user.username}'s downline`,
+                                                                                style: { color: "#0d6efd", textDecoration: "underline", fontWeight: 600, cursor: "pointer" },
                                                                                 children:
                                                                                   user.username,
                                                                               },
@@ -8226,7 +8230,7 @@ children: renderShareholdersCell(user),
                                                   react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxDEV)(
                                                     "span",
                                                     {
-                                                      children: "Bet Active ",
+                                                      children: "Bet Lock",
                                                     },
                                                     void 0,
                                                     false,

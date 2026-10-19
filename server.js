@@ -183,7 +183,7 @@ const PANEL_ROLE_DEPTH = {
 // Which account types each role may create.
 const CREATABLE_ROLES = {
   super_admin: ["admin", "master", "user"],
-  admin: ["master", "user"],
+  admin: ["admin", "master", "user"],
   master: ["user"],
   user: [],
 };
@@ -912,15 +912,7 @@ CREATE INDEX IF NOT EXISTS idx_user_partnerships_partner_id ON user_partnerships
   const nonMaster = db
     .prepare("DELETE FROM user_partnerships WHERE partner_id NOT IN (SELECT id FROM users WHERE role='master') OR user_id NOT IN (SELECT id FROM users WHERE role='user') OR share_percentage<=0")
     .run().changes;
-  const extra = db
-    .prepare(
-      `DELETE FROM user_partnerships WHERE id IN (
-         SELECT id FROM (
-           SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY share_percentage DESC, created_at ASC) AS rn FROM user_partnerships
-         ) WHERE rn > 1
-       )`
-    )
-    .run().changes;
+  const extra = 0;
   db.prepare(
     "UPDATE users SET partnership_remaining=round(100-COALESCE((SELECT SUM(share_percentage) FROM user_partnerships up WHERE up.user_id=users.id),0),2)"
   ).run();
@@ -5458,7 +5450,19 @@ const validateAuthToken = (token) => {
   if (tokenSessionId && currentSessionId && tokenSessionId !== currentSessionId) {
     return { ok: false, reason: "session_expired", user, payload };
   }
+  if (!isAccountChainActive(user)) return { ok: false, reason: "inactive", user: null, payload };
   return { ok: true, reason: "ok", user, payload };
+};
+// An account is usable only if it and every account above it are active.
+// Super Admin can never be locked out.
+const isAccountChainActive = (user) => {
+  let cursor = user;
+  for (let guard = 0; cursor && guard < 12; guard += 1) {
+    if (isOwnerPanelRole(cursor.role)) return true;
+    if (!readUserRuntimeStatusFlags(cursor.id).isActive) return false;
+    cursor = cursor.parent_id ? getUserById(String(cursor.parent_id)) : null;
+  }
+  return true;
 };
 const getReqAuthState = (req) => {
   if (req && req.__authState) return req.__authState;
@@ -6954,6 +6958,17 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   if (hasPartnershipInput && requestedRole !== "user") {
     return res.status(400).json(env("A Master commission share can only be set on User accounts", {}, true, 400));
   }
+  if (hasPartnershipInput) {
+    try {
+      validatePartnershipEntries({
+        input: partnershipInput,
+        getPartner: (partnerId) => getUserById(partnerId),
+        canAccessPartner: (partner) => String(partner.id) === String(authUser.id) || canActorAccessTargetUser(authUser, authRole, partner),
+      });
+    } catch (e) {
+      return res.status(400).json(env(e.message, {}, true, 400));
+    }
+  }
 
   if (!username) return res.status(400).json(env("User name is required", {}, true, 400));
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -7341,6 +7356,7 @@ const login = (admin = false) => (req, res) => {
   const u = getUserByUsername(username) || getUserByUsernameCaseInsensitiveStmt.get(username);
   if (!u) return res.status(401).json({ message: "Invalid credentials" });
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
+  if (!isAccountChainActive(u)) return res.status(403).json({ message: "This account is deactivated. Contact your upline." });
 
   const normalizedRole = String(u.role || "").trim().toLowerCase();
   const allowedAdminRoles = new Set(["super_admin", "admin", "master", "1", "2", "3"]);
@@ -7447,11 +7463,14 @@ const handleUpdatePassword = (req, res) => {
   const u = getUserByUsername(username);
   if (!u) return res.status(404).json({ message: "User not found" });
   const authUser = reqAuthUser(req);
-  if (authUser) {
-    const authRole = reqAuthRole(req, authUser.role);
-    if (!canActorAccessTargetUser(authUser, authRole, u)) {
-      return res.status(403).json({ message: "Access denied" });
-    }
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  if (!canActorAccessTargetUser(authUser, authRole, u)) return res.status(403).json(env("Access denied", {}, true, 403));
+  if (pass.length < 4) return res.status(400).json(env("Password must be at least 4 characters", {}, true, 400));
+  const confirm = req.body?.confirmPassword;
+  if (confirm !== undefined && String(confirm).trim() !== pass) return res.status(400).json(env("Confirm password does not match", {}, true, 400));
+  if (String(authUser.id) !== String(u.id) && !verifyActorTransactionPassword(authUser, req.body?.transactionPassword)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
   }
   const now = nowIso();
   const passwordHash = hashPass(pass);
@@ -7612,8 +7631,10 @@ app.post("/api/save-general-setting", (req, res) => {
   const target = getUserById(String(req.body?.userId || req.body?.id || "").trim());
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
   if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
-  const transactionPassword = String(req.body?.transactionPassword || "").trim();
-  if (!transactionPassword) return res.status(400).json(env("transactionPassword is required", {}, true, 400));
+  if (String(target.id) === String(authUser.id)) return res.status(403).json(env("You can only change accounts in your downline", {}, true, 403));
+  if (!verifyActorTransactionPassword(authUser, req.body?.transactionPassword)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
+  }
   const userSetting = req.body?.userSetting;
   if (!userSetting || typeof userSetting !== "object" || Array.isArray(userSetting)) {
     return res.status(400).json(env("userSetting is required", {}, true, 400));
@@ -7622,6 +7643,16 @@ app.post("/api/save-general-setting", (req, res) => {
   const profile = row ? safeParse(row.data_json, {}) || {} : {};
   const now = nowIso();
   profile.userSetting = userSetting;
+  // Bet placement enforces users.min_bet / max_bet, so apply the sport limits there.
+  let limits;
+  try {
+    limits = readUserLimitsWithLegacyPayload({ userSetting, creditLimit: toNum(target.credit_limit, 0) });
+  } catch (e) {
+    return res.status(400).json(env(e.message, {}, true, 400));
+  }
+  db.prepare("UPDATE users SET min_bet=?,max_bet=?,updated_at=? WHERE id=?").run(limits.minBet, limits.maxBet, nowIso(), target.id);
+  profile.minBet = limits.minBet;
+  profile.maxBet = limits.maxBet;
   const dataJson = JSON.stringify(profile);
   db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
     target.id,
@@ -7641,8 +7672,13 @@ app.post("/api/update-user-status", (req, res) => {
   const targetUsername = String(req.body?.username || "").trim();
   const target = (targetUserId && getUserById(targetUserId)) || (targetUsername && getUserByUsername(targetUsername));
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
-  if (!canActorAccessTargetUser(authUser, authRole, target)) {
-    return res.status(403).json(env("Access denied", {}, true, 403));
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  if (String(target.id) === String(authUser.id) || !canActorAccessTargetUser(authUser, authRole, target)) {
+    return res.status(403).json(env("You can only change accounts in your downline", {}, true, 403));
+  }
+  // The Status dialog confirms with the transaction password; inline lock toggles do not send one.
+  if (req.body?.transactionPassword !== undefined && !verifyActorTransactionPassword(authUser, req.body.transactionPassword)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
   }
 
   const row = db.prepare("SELECT data_json FROM user_profiles WHERE user_id=?").get(target.id);
@@ -8104,7 +8140,7 @@ app.post("/api/user-account-balance", (req, res) => {
   const target = getUserById(userId);
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
   if (!canActorOperateCoins(authUser, authRole, target)) {
-    return res.status(403).json(env("Only the parent account can deposit to or withdraw from this account", {}, true, 403));
+    return res.status(403).json(env("Coins move only between an account and its direct parent. Ask " + (getUserById(String(target.parent_id || ""))?.username || "the parent") + " to do this.", {}, true, 403));
   }
   const updateType = String(req.body?.balanceUpdateType || "D").trim().toUpperCase();
   if (!["D", "W"].includes(updateType)) return res.status(400).json(env("Invalid balance update type", {}, true, 400));
@@ -8221,8 +8257,8 @@ app.post("/api/update-user-wallet", (req, res) => {
   const target = (requestedUserId && getUserById(requestedUserId)) ||
     (requestedUsername && getUserByUsername(requestedUsername));
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
-  if (!canActorOperateCoins(authUser, authRole, target)) {
-    return res.status(403).json(env("Only the parent account can change these limits", {}, true, 403));
+  if (String(target.id) === String(authUser.id) || !canActorAccessTargetUser(authUser, authRole, target)) {
+    return res.status(403).json(env("You can only change accounts in your downline", {}, true, 403));
   }
   const walletUpdateType = String(req.body?.walletUpdateType || req.body?.type || "").trim().toUpperCase();
   if (!["CRD", "EXP"].includes(walletUpdateType)) return res.status(400).json(env("walletUpdateType must be CRD or EXP", {}, true, 400));
@@ -9487,7 +9523,7 @@ app.post("/api/users-lock", (req, res) => {
   for (const userId of userIds) {
     const target = getUserById(userId);
     if (!target) continue;
-    if (!canActorAccessTargetUser(auth.authUser, auth.authRole, target)) continue;
+    if (String(target.id) === String(auth.authUser.id) || !canActorAccessTargetUser(auth.authUser, auth.authRole, target)) continue;
     const out = updateSingleUserStatusFlags(userId, { isActive, betLock });
     if (out) updated.push(out);
   }

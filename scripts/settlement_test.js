@@ -34,6 +34,7 @@ db.prepare("INSERT INTO user_partnerships (id,user_id,partner_id,share_percentag
 
 const bal = (id) => db.prepare("SELECT balance FROM wallets WHERE user_id=?").get(id).balance;
 const exp = (id) => db.prepare("SELECT exposer FROM wallets WHERE user_id=?").get(id).exposer;
+const r2 = (n) => Math.round(n * 100) / 100 + 0;
 const total = () => Math.round(db.prepare("SELECT SUM(balance) s FROM wallets").get().s * 100) / 100 + 0;
 const T0 = total();
 let n = 0;
@@ -138,5 +139,20 @@ const id8 = place("p1", 1, 2, 10, true, "S1");
 settle.settleSingleBet({ betId: id8, result: "win" });
 assert.deepEqual(diff(s, snap()), { adm: -5.94, mst: -3.96, p1: 9.9, p2: 0 });
 assert.throws(() => settle.settleSingleBet({ betId: id8, result: "loss" }), /already settled/);
+
+// 9. Several Masters: 30% + 20% to two Masters, 50% to the parent
+addUser("mst2", "master", "adm", 5000);
+addUser("p3", "user", "adm", 1000);
+db.prepare("INSERT INTO user_partnerships (id,user_id,partner_id,share_percentage) VALUES ('up3a','p3','mst',30),('up3b','p3','mst2',20)").run();
+const s9 = { adm: bal("adm"), mst: bal("mst"), mst2: bal("mst2"), p3: bal("p3") };
+const t9 = total();
+place("p3", 7, 3, 100, true, "MM1"); // win: +200 -1 = +199
+settle.declareMarketResult({ matchId: 1, marketId: "MM1", winnerSelectionId: 7 });
+assert.deepEqual(
+  { adm: r2(bal("adm") - s9.adm), mst: r2(bal("mst") - s9.mst), mst2: r2(bal("mst2") - s9.mst2), p3: r2(bal("p3") - s9.p3) },
+  { adm: -99.5, mst: -59.7, mst2: -39.8, p3: 199 }
+);
+assert.equal(total(), t9);
+assert.equal(db.prepare("SELECT ROUND(SUM(amount),2) s FROM commission_records WHERE bet_id IN (SELECT id FROM bets WHERE market_id='MM1')").get().s, 1);
 
 console.log(JSON.stringify({ ok: true, ledgerEntries: db.prepare("SELECT COUNT(*) c FROM coin_ledger").get().c }));

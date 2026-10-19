@@ -119,8 +119,15 @@ const total = () => Math.round(ro.prepare("SELECT SUM(balance) AS s FROM wallets
   assert.equal(total(), 0);
 
   const adm1 = await loginAdmin("adm1", "pass@123");
-  r = await create(adm1, { userName: "adm1_admin", partnershipType: "admin" });
-  assert.equal(r.status, 403, "admin cannot create admin");
+  // Admin may create Admin; its opening coins come from the creating Admin (nothing minted)
+  r = await create(adm1, { userName: "adm1_admin", partnershipType: "admin", creditAmount: 100 });
+  assert.equal(r.status, 200, "admin creates admin: " + JSON.stringify(r.json));
+  assert.equal(bal("adm1_admin"), 100);
+  assert.equal(bal("adm1"), 9900);
+  r = await call("POST", "/api/user-account-balance", adm1, { userId: r.data.userId, balanceUpdateType: "W", amount: 100, transactionPassword: "pass@123" });
+  assert.equal(r.status, 200);
+  assert.equal(bal("adm1"), 10000);
+  assert.equal(total(), 0);
   r = await create(adm1, { userName: "mst1", partnershipType: "master", creditAmount: 1000 });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   const mst1Id = r.data.userId;
