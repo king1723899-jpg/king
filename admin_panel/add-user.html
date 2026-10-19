@@ -24,60 +24,6 @@
       min-height: 100vh;
     }
 
-    .standalone-menu-toggle {
-      position: fixed;
-      top: 12px;
-      left: 12px;
-      z-index: 1400;
-      width: 42px;
-      height: 42px;
-      border: 1px solid var(--brand-yellow);
-      border-radius: 4px;
-      background: #18351f;
-      color: var(--brand-yellow);
-      font-size: 24px;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .standalone-sidebar {
-      position: fixed;
-      inset: 0 auto 0 0;
-      z-index: 1300;
-      width: 250px;
-      overflow-y: auto;
-      background: #0b120d;
-      border-right: 1px solid #315d35;
-      transform: translateX(0);
-      transition: transform .2s ease;
-    }
-    .standalone-sidebar.is-closed { transform: translateX(-105%); }
-    .standalone-sidebar-brand {
-      padding: 22px 18px;
-      color: var(--brand-yellow);
-      font-size: 24px;
-      font-weight: 900;
-      letter-spacing: 1.5px;
-      border-bottom: 1px solid #315d35;
-    }
-    .standalone-nav a,
-    .standalone-nav summary {
-      display: block;
-      padding: 13px 18px;
-      color: #f5ffe9;
-      font-size: 14px;
-      font-weight: 700;
-      text-decoration: none;
-      cursor: pointer;
-      border-bottom: 1px solid #25492b;
-      list-style: none;
-    }
-    .standalone-nav a:hover,
-    .standalone-nav summary:hover,
-    .standalone-nav details[open] > summary {
-      color: var(--brand-yellow);
-      background: #18351f;
-    }
-    .standalone-nav details a { padding-left: 34px; font-weight: 400; background: #0f1b11; }
     .standalone-content { margin-left: 250px; min-width: 0; }
 
     .topbar {
@@ -196,34 +142,12 @@
     @media (max-width: 768px) {
       .topbar { margin-left: 0; padding-left: 68px; }
       .standalone-content { margin-left: 0; }
-      html body #standaloneSidebar.standalone-sidebar { width: 280px !important; max-width: 86vw !important; }
     }
   </style>
+  <base target="_top" />
+  <style>.standalone-content{margin-left:0!important}.topbar{display:none!important}body{min-height:0}</style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">KING777</div>
-    <a href="/admin/list-clients">Users</a>
-  </header>
-  <button id="standaloneMenuToggle" class="standalone-menu-toggle" type="button" aria-label="Open menu">☰</button>
-  <aside id="standaloneSidebar" class="standalone-sidebar">
-    <div class="standalone-sidebar-brand">KING777</div>
-    <nav class="standalone-nav">
-      <a href="/admin/dashboard">Dashboard</a>
-      <a href="/admin/list-clients">Users</a>
-      <a href="/admin/add-user">Add User</a>
-      <a href="/admin/tokens">Deposit Tokens</a>
-      <a href="/admin/coin-ledger">Coin Ledger</a>
-      <a href="/admin/market-analysis">Market Analysis</a>
-      <a href="/admin/payment-method">Payment Details</a>
-      <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
-      <details><summary>Transactions</summary><a href="/admin/depositstatement">Deposits</a><a href="/admin/withdrawstatement">Withdrawals</a></details>
-      <details><summary>Settings</summary><a href="/admin/messages">Messages</a><a href="/admin/casino-list">Casino List</a></details>
-      <a href="/admin/rules">Rules</a>
-      <a href="/admin/terms">T&amp;C</a>
-      <a href="/admin/change-password">Change Password</a>
-    </nav>
-  </aside>
   <div class="standalone-content">
     <div class="page-head">
       <h1 class="page-title">Create Account</h1>
@@ -387,8 +311,6 @@
 
   <script>
     (function () {
-      const standaloneSidebar = document.getElementById("standaloneSidebar");
-      const standaloneMenuToggle = document.getElementById("standaloneMenuToggle");
       const API_PATH = "/api/admin/client-onboarding";
       const form = document.getElementById("clientForm");
       const formStatus = document.getElementById("formStatus");
@@ -467,7 +389,7 @@
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);
         });
-        window.location.replace("/admin/login?return=" + encodeURIComponent(window.location.pathname));
+        window.top.location.replace("/admin/login?return=" + encodeURIComponent(window.top.location.pathname));
       }
       async function api(url, options) {
         options = options || {};
@@ -481,22 +403,6 @@
         if (!response.ok || payload.error) throw new Error(payload.message || "Request failed");
         return payload.data;
       }
-
-      // ---- Sidebar ----
-      function syncStandaloneMenu() {
-        standaloneSidebar.classList.toggle("is-closed", window.matchMedia("(max-width: 768px)").matches);
-      }
-      standaloneMenuToggle.addEventListener("click", function () {
-        standaloneSidebar.classList.toggle("is-closed");
-      });
-      document.addEventListener("click", function (event) {
-        if (!window.matchMedia("(max-width: 768px)").matches || standaloneSidebar.classList.contains("is-closed")) return;
-        if (event.target.closest("#standaloneMenuToggle")) return;
-        if (event.target.closest("#standaloneSidebar") && !event.target.closest("a")) return;
-        standaloneSidebar.classList.add("is-closed");
-      });
-      window.addEventListener("resize", syncStandaloneMenu);
-      syncStandaloneMenu();
 
       // ---- Account type ----
       function applyRoleOptions() {

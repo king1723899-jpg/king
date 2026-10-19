@@ -914,7 +914,6 @@ const Sidebar = ({
     }, undefined),
     text: 'Dashboard',
     link: '/dashboard',
-    external: '/admin/dashboard',
     color: '#55efc4'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
@@ -926,6 +925,17 @@ const Sidebar = ({
     }, undefined),
     text: 'Users',
     link: '/list-clients',
+    color: '#74b9ff'
+  }, {
+    icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
+      icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faUserCog
+    }, void 0, false, {
+      fileName: _jsxFileName,
+      lineNumber: 274,
+      columnNumber: 13
+    }, undefined),
+    text: 'Add User',
+    link: '/add-user',
     color: '#74b9ff'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
@@ -959,7 +969,6 @@ const Sidebar = ({
     }, undefined),
     text: 'Deposit Tokens',
     link: '/tokens',
-    external: '/admin/tokens',
     color: '#fdcb6e'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
@@ -971,7 +980,6 @@ const Sidebar = ({
     }, undefined),
     text: 'Coin Ledger',
     link: '/coin-ledger',
-    external: '/admin/coin-ledger',
     color: '#fdcb6e'
   }, {
     icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {

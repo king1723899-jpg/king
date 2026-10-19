@@ -167,7 +167,10 @@
   }
 
   var loaded = false;
+  // Pages embedded in the main admin panel already sit under its header.
+  var embedded = window.top !== window.self;
   function sync() {
+    if (embedded) return;
     if (/^\/admin\/?$/i.test(location.pathname || "")) {
       location.replace("/admin/dashboard");
       return;

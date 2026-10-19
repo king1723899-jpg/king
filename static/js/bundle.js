@@ -1132,6 +1132,36 @@ const AddAdminEmbedded = () => /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___d
     border: '0'
   }
 }));
+// Pages served from /admin/embed/<page>, shown inside the main admin layout so
+// every admin page shares this one sidebar.
+const EmbeddedAdminPage = ({
+  page,
+  title
+}) => /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
+  style: {
+    width: '100%',
+    height: 'calc(100dvh - 96px)',
+    minHeight: '620px',
+    overflow: 'hidden'
+  }
+}, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("iframe", {
+  key: page,
+  title: title,
+  src: `/admin/embed/${page}`,
+  style: {
+    width: '100%',
+    height: '100%',
+    border: '0',
+    display: 'block'
+  }
+}));
+const embeddedRoute = (path, page, title) => ({
+  path,
+  element: /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(EmbeddedAdminPage, {
+    page,
+    title
+  })
+});
 const AdminRoutes = () => {
   _s();
   const userState = (0,_redux_hooks__WEBPACK_IMPORTED_MODULE_1__.useAppSelector)(_redux_actions_login_loginSlice__WEBPACK_IMPORTED_MODULE_3__.selectUserData);
@@ -1192,7 +1222,7 @@ const AdminRoutes = () => {
           lineNumber: 68,
           columnNumber: 24
         }, undefined)
-      })), ...['add-user', 'add-user/:username'].map(path => ({
+      })), embeddedRoute('dashboard', 'dashboard', 'Dashboard'), embeddedRoute('add-user', 'add-user', 'Add User'), embeddedRoute('tokens', 'tokens', 'Deposit Tokens'), embeddedRoute('coin-ledger', 'coin-ledger', 'Coin Ledger'), ...['add-user/:username'].map(path => ({
         key: 'add-user',
         path: path,
         element: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_4__.jsxDEV)(AddUser, {}, void 0, false, {

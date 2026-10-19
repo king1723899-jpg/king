@@ -11532,11 +11532,21 @@ app.get("/", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get("/dash", (_req, res) => sendHtml(res, path.join(ROOT, "dash.html")));
 app.get(["/admin", "/admin/"], (_req, res) => res.redirect(302, "/admin/dashboard"));
 app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login.html")));
-app.get("/admin/client-onboarding", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
-app.get("/admin/add-user", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
-app.get("/admin/tokens", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "tokens.html")));
-app.get("/admin/coin-ledger", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "coin-ledger.html")));
-app.get("/admin/dashboard", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "dashboard.html")));
+// These pages have no navigation of their own: the main admin panel shows them
+// (inside its one sidebar layout) from /admin/embed/<page>. /admin/dashboard,
+// /admin/add-user, /admin/tokens and /admin/coin-ledger are main-panel routes.
+const EMBEDDED_ADMIN_PAGES = {
+  dashboard: "dashboard.html",
+  "add-user": "add-user.html",
+  tokens: "tokens.html",
+  "coin-ledger": "coin-ledger.html",
+};
+app.get("/admin/embed/:page", (req, res) => {
+  const file = EMBEDDED_ADMIN_PAGES[String(req.params.page || "")];
+  if (!file) return res.status(404).type("text/plain").send("Not found");
+  return sendHtml(res, path.join(ADMIN_DIR, file));
+});
+app.get("/admin/client-onboarding", (_req, res) => res.redirect(302, "/admin/add-user"));
 app.get("/signup", (_req, res) => res.redirect(302, "/admin/add-user"));
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/add-admin", (_req, res) => res.redirect(302, "/admin/list-clients"));
