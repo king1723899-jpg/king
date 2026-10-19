@@ -651,12 +651,12 @@
             overlay.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px");
             overlay.innerHTML =
               `<div role="dialog" aria-modal="true" style="background:#fff;color:#111;border-radius:6px;max-width:460px;width:100%;max-height:90vh;overflow:auto;padding:16px">` +
-              `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Shareholders - ${esc(user && user.username)}</strong><button type="button" data-close style="border:0;background:none;font-size:22px;line-height:1;cursor:pointer" aria-label="Close">&times;</button></div>` +
+              `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Master Share - ${esc(user && user.username)}</strong><button type="button" data-close style="border:0;background:none;font-size:22px;line-height:1;cursor:pointer" aria-label="Close">&times;</button></div>` +
               (list.length
-                ? `<table class="table table-bordered table-sm"><thead><tr><th>Partner</th><th>Role</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total allocated</th><th style="text-align:right">${esc(Number(total.toFixed(2)))}%</th></tr></tfoot></table>` +
+                ? `<table class="table table-bordered table-sm"><thead><tr><th>Master</th><th>Role</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Master share</th><th style="text-align:right">${esc(Number(total.toFixed(2)))}%</th></tr></tfoot></table>` +
                   `<div style="display:flex;height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden">${segments}</div>` +
-                  `<div style="font-size:12px;margin-top:6px">${esc(Number(total.toFixed(2)))}% allocated of 100% &middot; ${esc(Number(remaining.toFixed(2)))}% unassigned</div>`
-                : `<p style="margin:0">No shareholders assigned (0% of 100% allocated).</p>`) +
+                  `<div style="font-size:12px;margin-top:6px">${esc(Number(total.toFixed(2)))}% to Master &middot; ${esc(Number(remaining.toFixed(2)))}% to parent</div>`
+                : `<p style="margin:0">No Master share. 100% stays with the parent account.</p>`) +
               `</div>`;
             overlay.addEventListener("click", (e) => {
               if (e.target === overlay || (e.target.closest && e.target.closest("[data-close]"))) closeShareholderModal();
@@ -665,7 +665,7 @@
           };
           const k7Cols = (arr, pend) => [arr[0], arr[1], pend, arr[2], arr[5], arr[3], arr[4]].concat(arr.slice(6));
           const renderShareholdersCell = (user) => {
-            const count = Array.isArray(user && user.shareholders) ? user.shareholders.length : 0;
+            const first = Array.isArray(user && user.shareholders) && user.shareholders.length ? user.shareholders[0] : null;
             return react__WEBPACK_IMPORTED_MODULE_0___default().createElement(
               "a",
               {
@@ -677,10 +677,10 @@
                   showShareholders(user);
                 },
               },
-              count ? `${count} Partner${count > 1 ? "s" : ""}` : "View Shareholders"
+              first ? `${Number(first.sharePercentage) || 0}% ${first.username}` : "No Share"
             );
           };
-          const ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], sub_admin: ["SB", "Sub Admin"], super_master: ["SM", "Super Master"], sub_super_master: ["SSM", "Sub Super Master"], master: ["M", "Master"], user: ["U", "User"] };
+          const ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], master: ["M", "Master"], user: ["U", "User"] };
           const renderRoleBadge = (role) => {
             const key = String(role || "user").toLowerCase();
             const [short, title] = ROLE_BADGES[key] || [key.slice(0, 3).toUpperCase(), key];
@@ -737,21 +737,9 @@
               },
               [userState]
             );
-          const mainBalance = (row) => {
-            var _row$balance2, _ref;
-            const creditRef =
-              (row === null || row === void 0 ? void 0 : row.creditRefrences) ||
-              0;
-            const clientpl =
-              ((_row$balance2 = row.balance) === null ||
-              _row$balance2 === void 0
-                ? void 0
-                : _row$balance2.profitLoss) || 0;
-            return (_ref = parseFloat(creditRef) + +parseFloat(clientpl)) ===
-              null || _ref === void 0
-              ? void 0
-              : _ref.toFixed(2);
-          };
+          // Balance column = the account's real wallet balance.
+          const mainBalance = (row) =>
+            (Number(row && row.balance ? row.balance.balance : 0) || 0).toFixed(2);
           /* Checkbox functionality */
           const handleSelectItem = (user) => {
             if (users && users.items.length > 0) {
@@ -2209,7 +2197,7 @@ renderBreadcrumb(),
                                                           "th",
                                                           {
                                                             children:
-                                                              "My %",
+                                                              "Master Share",
                                                           },
                                                           void 0,
                                                           false,

@@ -241,6 +241,7 @@
       <a href="/admin/list-clients">Users</a>
       <a href="/admin/add-user">Add User</a>
       <a href="/admin/tokens">Deposit Tokens</a>
+      <a href="/admin/coin-ledger">Coin Ledger</a>
       <a href="/admin/market-analysis">Market Analysis</a>
       <a href="/admin/payment-method">Payment Details</a>
       <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
@@ -334,7 +335,7 @@
         var box = document.getElementById("dashStatus");
         box.className = "status-box status-error"; box.textContent = msg; box.style.display = msg ? "block" : "none";
       }
-      var ROLE_LABELS = { super_admin: "Super Admin", admin: "Admin", sub_admin: "Sub Admin", super_master: "Super Master", sub_super_master: "Sub Super Master", master: "Master", user: "User" };
+      var ROLE_LABELS = { super_admin: "Super Admin", admin: "Admin", master: "Master", user: "User" };
       function render(d) {
         document.getElementById("vPnl").innerHTML = money(d.pnl);
         document.getElementById("vCommission").textContent = d.commission;

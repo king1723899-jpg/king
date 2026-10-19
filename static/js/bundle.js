@@ -2400,14 +2400,14 @@ __webpack_require__.$Refresh$.runtime = __webpack_require__(/*! ./node_modules/r
 let RoleType = /*#__PURE__*/function (RoleType) {
   RoleType["super_admin"] = "super_admin";
   RoleType["admin"] = "admin";
-  RoleType["sub_admin"] = "sub_admin";
+  RoleType["master"] = "master";
   RoleType["user"] = "user";
   return RoleType;
 }({});
 const RoleName = {
   super_admin: 'SUPER ADMIN',
   admin: 'ADMIN',
-  sub_admin: 'SUB ADMIN',
+  master: 'MASTER',
   user: 'USER'
 };
 

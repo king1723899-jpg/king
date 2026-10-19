@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>King777 | Add User</title>
+  <title>King777 | Create Account</title>
   <link rel="stylesheet" href="/css/bootstrap.min.css" />
   <link rel="stylesheet" href="/css/admin-style.css?v=32" />
   <style>
@@ -140,12 +140,19 @@
     .primary-action { background: #2f7d32; border-color: #2f7d32; color: #fff; min-width: 120px; }
     .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
     .secondary-action { min-width: 100px; }
-    .commission-grid { display: grid; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
-    .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
-    .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
-    .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
-    .commission-remaining { margin-top: 10px; font-weight: 700; color: #166534; }
-    .commission-remaining.over { color: #991b1b; }
+    .field-help { color: #5b6b5e; font-size: 12px; margin-top: 5px; }
+    .page-head { max-width: 980px; margin: 0 auto; padding: 18px 16px 6px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .page-head .page-title { padding: 0; margin: 0; max-width: none; }
+    .my-balance { font-size: 14px; color: #25492b; }
+    .my-balance strong { color: #0b120d; font-variant-numeric: tabular-nums; }
+    .share-split { min-height: 42px; display: flex; align-items: center; padding: 0 12px; border-radius: 3px; background: #f1f8ec; border: 1px dashed #8fbf8a; font-weight: 700; color: #166534; font-size: 14px; }
+    .share-split.over { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    .role-badge { display: inline-block; min-width: 24px; padding: 1px 5px; margin-right: 6px; border-radius: 3px; font-size: 11px; font-weight: 700; text-align: center; color: #fff; background: #64748b; }
+    .role-badge.role-super_admin { background: #7c2d12; }
+    .role-badge.role-admin { background: #1d4ed8; }
+    .role-badge.role-master { background: #15803d; }
+    .role-badge.role-user { background: #475569; }
+    .primary-action:disabled { opacity: .6; }
     .status-box {
       border-radius: 8px;
       padding: 10px 12px;
@@ -196,7 +203,7 @@
 <body>
   <header class="topbar">
     <div class="brand">KING777</div>
-    <a href="/admin/list-clients">Clients</a>
+    <a href="/admin/list-clients">Users</a>
   </header>
   <button id="standaloneMenuToggle" class="standalone-menu-toggle" type="button" aria-label="Open menu">☰</button>
   <aside id="standaloneSidebar" class="standalone-sidebar">
@@ -206,6 +213,7 @@
       <a href="/admin/list-clients">Users</a>
       <a href="/admin/add-user">Add User</a>
       <a href="/admin/tokens">Deposit Tokens</a>
+      <a href="/admin/coin-ledger">Coin Ledger</a>
       <a href="/admin/market-analysis">Market Analysis</a>
       <a href="/admin/payment-method">Payment Details</a>
       <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
@@ -217,112 +225,134 @@
     </nav>
   </aside>
   <div class="standalone-content">
-    <h1 class="page-title">Add/Edit Client Account</h1>
+    <div class="page-head">
+      <h1 class="page-title">Create Account</h1>
+      <div class="my-balance">Your available coins: <strong id="myBalance">—</strong></div>
+    </div>
   <div class="page-wrap">
     <div class="row justify-content-center">
       <div class="col-12">
 
         <div class="panel-card p-3 p-md-4">
-          <form id="clientForm" novalidate>
+          <form id="clientForm" novalidate autocomplete="off">
             <fieldset class="account-section">
               <legend>Account Details</legend>
             <div class="row g-3">
               <div class="col-12 col-md-6">
-                <label class="field-label" for="partnershipType">Account Type:</label>
+                <label class="field-label" for="partnershipType">Account Type *</label>
                 <select class="form-select" id="partnershipType" name="partnershipType" required>
-                  <option value="">Select User Type</option>
+                  <option value="">Select Account Type</option>
                   <option value="admin" data-role-option="admin">Admin</option>
-                  <option value="super_master" data-role-option="super_master">Super Master</option>
-                  <option value="sub_super_master" data-role-option="sub_super_master">Sub Super Master</option>
-                  <option value="master" data-role-option="master">Master Account</option>
+                  <option value="master" data-role-option="master">Master</option>
                   <option value="client" data-role-option="user">User</option>
                 </select>
+                <div class="field-help" id="roleHelp"></div>
               </div>
               <div class="col-12 col-md-6">
-                <label class="field-label" for="userName">User Name:</label>
-                <input class="form-control" id="userName" name="userName" placeholder="User Name" required />
+                <label class="field-label" for="userName">User Name *</label>
+                <input class="form-control" id="userName" name="userName" placeholder="3-32 letters, numbers, . _ -" required autocomplete="off" />
               </div>
               <div class="col-12 col-md-6">
                 <label class="field-label" for="fullName">Full Name *</label>
                 <input class="form-control" id="fullName" name="fullName" placeholder="Full Name" required />
               </div>
               <div class="col-12 col-md-6">
+                <label class="field-label" for="mobileNumber">Mobile</label>
+                <input class="form-control" id="mobileNumber" name="mobileNumber" inputmode="tel" placeholder="Mobile number" />
+              </div>
+              <div class="col-12 col-md-6">
                 <label class="field-label" for="password">Password *</label>
-                <input class="form-control" id="password" name="password" type="password" placeholder="Password" required />
+                <input class="form-control" id="password" name="password" type="password" placeholder="Password" required autocomplete="new-password" />
               </div>
               <div class="col-12 col-md-6">
                 <label class="field-label" for="confirmPassword">Confirm Password *</label>
-                <input class="form-control" id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm Password" required />
+                <input class="form-control" id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm Password" required autocomplete="new-password" />
               </div>
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-6">
                 <label class="field-label" for="referenceName">Reference Name</label>
                 <input class="form-control" id="referenceName" name="referenceName" placeholder="Reference Name" />
               </div>
-              <div class="col-md-4">
-                <label class="field-label" for="creditAmount">Opening Credit</label>
-                <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="Opening Credit" />
-              </div>
-              <div class="col-md-4">
-                <label class="field-label" for="depositToken">Deposit Token</label>
-                <input class="form-control" id="depositToken" name="depositToken" placeholder="KT-XXXXX-XXXXX (optional)" autocomplete="off" style="text-transform: uppercase;" />
-                <div class="commission-help mb-0">Token value is added to the new account balance. <a href="/admin/tokens">My tokens</a></div>
-              </div>
-              <div class="col-md-4">
-                <label class="field-label" for="creditLimit">Credit Reference</label>
-                <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="Credit Reference" />
-              </div>
-              <div class="col-md-4" data-user-only>
-                <label class="field-label" for="minBet">Minimum Bet</label>
-                <input class="form-control" id="minBet" name="minBet" type="number" min="0" step="0.01" placeholder="Minimum Bet" />
-              </div>
-              <div class="col-md-4" data-user-only>
-                <label class="field-label" for="maxBet">Maximum Bet</label>
-                <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="Maximum Bet" />
+              <div class="col-12 col-md-6">
+                <label class="field-label" for="city">City</label>
+                <input class="form-control" id="city" name="city" placeholder="City" />
               </div>
             </div>
             </fieldset>
 
             <fieldset class="account-section">
-              <legend>Partnership Information</legend>
+              <legend>Coins &amp; Limits</legend>
               <div class="row g-3">
-              <div class="col-md-4">
-                <label class="field-label" for="transactionCode">Transaction Code *</label>
-                <input class="form-control" id="transactionCode" name="transactionCode" placeholder="Transaction Code" required />
+              <div class="col-12 col-md-4">
+                <label class="field-label" for="creditAmount">Opening Coins</label>
+                <input class="form-control" id="creditAmount" name="creditAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+                <div class="field-help">Transferred from your balance to the new account.</div>
               </div>
-              <div class="col-md-4">
-                <label class="field-label" for="remark">Remark</label>
-                <input class="form-control" id="remark" name="remark" placeholder="Remark" />
+              <div class="col-12 col-md-4">
+                <label class="field-label" for="depositToken">Deposit Token</label>
+                <input class="form-control" id="depositToken" name="depositToken" placeholder="KT-XXXXX-XXXXX (optional)" autocomplete="off" style="text-transform: uppercase;" />
+                <div class="field-help">Token value is added on top. <a href="/admin/tokens">My tokens</a></div>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="field-label" for="creditLimit">Credit Reference</label>
+                <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+              <div class="col-12 col-md-4" data-user-only>
+                <label class="field-label" for="minBet">Minimum Bet</label>
+                <input class="form-control" id="minBet" name="minBet" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+              <div class="col-12 col-md-4" data-user-only>
+                <label class="field-label" for="maxBet">Maximum Bet</label>
+                <input class="form-control" id="maxBet" name="maxBet" type="number" min="0" step="0.01" placeholder="0.00" />
               </div>
             </div>
             </fieldset>
 
-            <div class="row g-3 mt-1">
-              <div class="col-12" id="subAdminPartnerships">
-                <label class="field-label">Commission Partners (up to 5)</label>
-                <div class="commission-help">Choose up to five existing Admins or Master Accounts. Commission shares cannot exceed 100%.</div>
-                <div id="commissionRemaining" class="commission-remaining">Remaining commission: 100%</div>
-                <input id="partnerSearch" class="form-control mt-2" type="search" placeholder="Search partner by username or ID" aria-label="Search partners" style="max-width: 520px;" />
-                <div id="commissionRows" class="commission-grid mt-2"></div>
-                <div class="input-group mt-3" style="max-width: 520px;">
-                  <input id="newSubAdminUsername" class="form-control" placeholder="New Master Account username" />
-                  <input id="newSubAdminPassword" class="form-control" type="password" placeholder="Password" />
-                  <button id="createSubAdminBtn" class="btn btn-outline-primary" type="button">Create Master</button>
+            <fieldset class="account-section" id="shareSection" data-user-only>
+              <legend>Master Commission Share</legend>
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-6">
+                  <label class="field-label" for="shareMaster">Master</label>
+                  <select class="form-select" id="shareMaster">
+                    <option value="">No Master share</option>
+                  </select>
                 </div>
-                <div id="subAdminStatus" class="status-box"></div>
+                <div class="col-12 col-md-3">
+                  <label class="field-label" for="sharePercent">Master Share %</label>
+                  <input class="form-control" id="sharePercent" type="number" min="0" max="100" step="0.01" placeholder="0" disabled />
+                </div>
+                <div class="col-12 col-md-3">
+                  <div class="share-split" id="shareSplit">You keep 100%</div>
+                </div>
+              </div>
+              <div class="field-help mt-2" id="shareHelp">Optional. The selected Master receives this percentage of the user's profit &amp; loss; the rest stays with you.</div>
+            </fieldset>
+
+            <fieldset class="account-section">
+              <legend>Confirm</legend>
+              <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="field-label" for="transactionCode">Your Transaction Password *</label>
+                <input class="form-control" id="transactionCode" name="transactionCode" type="password" placeholder="Transaction Password" required autocomplete="off" />
+                <div class="field-help">If you have not set one, use your login password.</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="field-label" for="remark">Remark</label>
+                <input class="form-control" id="remark" name="remark" placeholder="Remark" maxlength="300" />
               </div>
             </div>
+            </fieldset>
 
-            <div class="d-flex flex-wrap gap-2 mt-4">
-              <button id="submitBtn" type="submit" class="btn primary-action">Submit</button>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button id="submitBtn" type="submit" class="btn primary-action">Create Account</button>
               <button type="reset" class="btn btn-outline-secondary secondary-action">Reset</button>
             </div>
-            <div id="formStatus" class="status-box"></div>
+            <div id="formStatus" class="status-box" role="status" aria-live="polite"></div>
           </form>
         </div>
 
         <div class="panel-card p-3 p-md-4 mt-4">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h2 class="section-title mb-0">Saved Records</h2>
+            <h2 class="section-title mb-0">Created Accounts</h2>
             <button class="btn btn-outline-primary btn-sm" id="refreshBtn" type="button">Refresh</button>
           </div>
           <div class="row g-2 mb-3">
@@ -337,16 +367,15 @@
                 <tr>
                   <th>User Name</th>
                   <th>Full Name</th>
-                  <th>Reference Name</th>
-                  <th>Credit</th>
-                  <th>Partnership</th>
+                  <th>Type</th>
+                  <th>Reference</th>
+                  <th class="text-end">Opening Coins</th>
                   <th>Remark</th>
-                  <th>Txn Code</th>
                   <th>Created At</th>
                 </tr>
               </thead>
               <tbody id="recordsBody">
-                <tr><td colspan="8" class="text-center text-muted py-4">No records</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No records</td></tr>
               </tbody>
             </table>
           </div>
@@ -368,70 +397,30 @@
       const recordsBody = document.getElementById("recordsBody");
       const refreshBtn = document.getElementById("refreshBtn");
       const searchInput = document.getElementById("searchInput");
-      const subAdminPartnerships = document.getElementById("subAdminPartnerships");
-      const commissionRows = document.getElementById("commissionRows");
-      const commissionRemaining = document.getElementById("commissionRemaining");
-      const subAdminStatus = document.getElementById("subAdminStatus");
-      const createSubAdminBtn = document.getElementById("createSubAdminBtn");
-      const partnerSearch = document.getElementById("partnerSearch");
+      const shareMaster = document.getElementById("shareMaster");
+      const sharePercent = document.getElementById("sharePercent");
+      const shareSplit = document.getElementById("shareSplit");
+      const shareHelp = document.getElementById("shareHelp");
+      const roleHelp = document.getElementById("roleHelp");
+      const myBalance = document.getElementById("myBalance");
       const userOnlyFields = Array.from(document.querySelectorAll("[data-user-only]"));
+      const ROLE_NAMES = { super_admin: "Super Admin", admin: "Admin", master: "Master", user: "User" };
+      const CREATABLE = { super_admin: ["admin", "master", "user"], admin: ["master", "user"], master: ["user"], user: [] };
       let searchDebounce = null;
+      let masters = [];
 
-      function syncRoleFields() {
-        const isUser = form.partnershipType.value === "client";
-        userOnlyFields.forEach(function (box) {
-          box.hidden = !isUser;
-          box.querySelectorAll("input").forEach(function (input) {
-            input.disabled = !isUser;
-            if (!isUser) input.value = "";
-          });
-        });
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       }
-      form.partnershipType.addEventListener("change", syncRoleFields);
-      form.addEventListener("reset", function () { setTimeout(syncRoleFields, 0); });
-      partnerSearch.addEventListener("input", filterPartners);
-
-      function applyRoleOptions() {
-        const role = String(currentUser().actualRole || currentUser().role || "user").toLowerCase();
-        const depth = { super_admin: 0, admin: 1, super_master: 2, sub_super_master: 3, master: 4, user: 5 };
-        const actorDepth = depth[role] === undefined ? depth.user : depth[role];
-        Array.from(form.partnershipType.options).forEach(function (option) {
-          const optionRole = option.getAttribute("data-role-option");
-          const allowed = option.value === "" || role === "super_admin" || (role === "admin" && optionRole === "admin") || (optionRole && depth[optionRole] > actorDepth);
-          option.hidden = !allowed;
-          option.disabled = !allowed;
-        });
-        if (form.partnershipType.options[form.partnershipType.selectedIndex]?.disabled) {
-          form.partnershipType.value = "";
-        }
-        const canCreateMaster = role === "super_admin" || ["admin", "super_master", "sub_super_master"].includes(role);
-        createSubAdminBtn.hidden = !canCreateMaster;
-        document.getElementById("newSubAdminUsername").hidden = !canCreateMaster;
-        document.getElementById("newSubAdminPassword").hidden = !canCreateMaster;
+      function money(value) {
+        const n = Number(value) || 0;
+        return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
-
-      function syncStandaloneMenu() {
-        const mobile = window.matchMedia("(max-width: 768px)").matches;
-        standaloneSidebar.classList.toggle("is-closed", mobile);
-      }
-      standaloneMenuToggle.addEventListener("click", function () {
-        standaloneSidebar.classList.toggle("is-closed");
-      });
-      standaloneSidebar.addEventListener("click", function (event) {
-        if (window.matchMedia("(max-width: 768px)").matches && event.target.closest("a")) {
-          standaloneSidebar.classList.add("is-closed");
-        }
-      });
-      document.addEventListener("click", function (event) {
-        if (!window.matchMedia("(max-width: 768px)").matches || standaloneSidebar.classList.contains("is-closed")) return;
-        if (event.target.closest("#standaloneSidebar, #standaloneMenuToggle")) return;
-        standaloneSidebar.classList.add("is-closed");
-      });
-      window.addEventListener("resize", syncStandaloneMenu);
-      syncStandaloneMenu();
-      applyRoleOptions();
-      syncRoleFields();
-
       function showStatus(target, text, type) {
         target.className = "status-box";
         if (!text) {
@@ -447,8 +436,7 @@
       function getToken() {
         const keys = ["token-admin", "adminToken", "token", "authToken", "accessToken", "jwt"];
         for (let i = 0; i < keys.length; i += 1) {
-          const key = keys[i];
-          const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+          const value = localStorage.getItem(keys[i]) || sessionStorage.getItem(keys[i]);
           if (!value) continue;
           try {
             const parsed = JSON.parse(value);
@@ -461,15 +449,19 @@
         }
         return "";
       }
-
-      function buildHeaders(isJson) {
-        const headers = {};
-        if (isJson) headers["Content-Type"] = "application/json";
-        const token = getToken();
-        if (token) headers.Authorization = "Bearer " + token;
-        return headers;
+      function currentUser() {
+        try {
+          return JSON.parse(atob(getToken().split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        } catch (_) {
+          return {};
+        }
       }
-
+      function actorRole() {
+        const raw = String(currentUser().role || "user").toLowerCase();
+        if (["super_admin", "admin", "master", "user"].includes(raw)) return raw;
+        if (["sub_admin", "super_master", "sub_super_master"].includes(raw)) return "master";
+        return "user";
+      }
       function handleUnauthorized() {
         ["token-admin", "refreshToken-admin", "userType-admin", "token", "refreshToken", "userType"].forEach(function (key) {
           localStorage.removeItem(key);
@@ -477,244 +469,240 @@
         });
         window.location.replace("/admin/login?return=" + encodeURIComponent(window.location.pathname));
       }
-
-      function currentUserId() {
-        const token = getToken();
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-          return payload.userId || payload._id || "";
-        } catch (_) {
-          return "";
+      async function api(url, options) {
+        options = options || {};
+        const headers = Object.assign({ Authorization: "Bearer " + getToken() }, options.body ? { "Content-Type": "application/json" } : {});
+        const response = await fetch(url, Object.assign({}, options, { headers: headers }));
+        const payload = await response.json().catch(function () { return {}; });
+        if (response.status === 401) {
+          handleUnauthorized();
+          throw new Error("Session expired");
         }
+        if (!response.ok || payload.error) throw new Error(payload.message || "Request failed");
+        return payload.data;
       }
 
-      function currentUser() {
-        const token = getToken();
-        try {
-          return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        } catch (_) {
-          return {};
-        }
+      // ---- Sidebar ----
+      function syncStandaloneMenu() {
+        standaloneSidebar.classList.toggle("is-closed", window.matchMedia("(max-width: 768px)").matches);
       }
+      standaloneMenuToggle.addEventListener("click", function () {
+        standaloneSidebar.classList.toggle("is-closed");
+      });
+      document.addEventListener("click", function (event) {
+        if (!window.matchMedia("(max-width: 768px)").matches || standaloneSidebar.classList.contains("is-closed")) return;
+        if (event.target.closest("#standaloneMenuToggle")) return;
+        if (event.target.closest("#standaloneSidebar") && !event.target.closest("a")) return;
+        standaloneSidebar.classList.add("is-closed");
+      });
+      window.addEventListener("resize", syncStandaloneMenu);
+      syncStandaloneMenu();
 
-      function renderSubAdmins(items) {
-        const actor = currentUser();
-        const partners = [{ id: actor.userId || actor._id, username: actor.username || "Current admin" }]
-          .concat(Array.isArray(items) ? items : [])
-          .filter(function (item, index, list) {
-            return item.id && list.findIndex(function (candidate) { return String(candidate.id) === String(item.id); }) === index;
-          });
-        const options = '<option value="">Select partner</option>' + partners.map(function (item) {
-          return '<option value="' + escapeHtml(item.id) + '" data-search="' + escapeHtml((item.username + " " + item.id).toLowerCase()) + '">' + escapeHtml(item.username) + '</option>';
-        }).join("");
-        commissionRows.innerHTML = Array.from({ length: 5 }, function (_, index) {
-          return '<div class="commission-row"><select class="form-select commission-partner" aria-label="Commission partner ' + (index + 1) + '">' + options + '</select><input class="form-control commission-share" type="number" min="0" max="100" step="0.01" value="0" aria-label="Commission percentage ' + (index + 1) + '" /></div>';
-        }).join("");
-        commissionRows.querySelectorAll(".commission-share").forEach(function (input) {
-          input.addEventListener("input", updateCommissionRemaining);
+      // ---- Account type ----
+      function applyRoleOptions() {
+        const role = actorRole();
+        const allowed = CREATABLE[role] || [];
+        Array.from(form.partnershipType.options).forEach(function (option) {
+          const optionRole = option.getAttribute("data-role-option");
+          const ok = !optionRole || allowed.includes(optionRole);
+          option.hidden = !ok;
+          option.disabled = !ok;
         });
-        updateCommissionRemaining();
-        filterPartners();
+        if (allowed.length === 1) form.partnershipType.value = allowed[0] === "user" ? "client" : allowed[0];
+        roleHelp.textContent = allowed.length
+          ? "As " + (ROLE_NAMES[role] || role) + " you can create: " + allowed.map(function (r) { return ROLE_NAMES[r]; }).join(", ") + "."
+          : "Your account cannot create other accounts.";
+        submitBtn.disabled = !allowed.length;
       }
-
-      function filterPartners() {
-        const term = (partnerSearch.value || "").trim().toLowerCase();
-        commissionRows.querySelectorAll(".commission-partner").forEach(function (select) {
-          Array.from(select.options).forEach(function (option) {
-            const match = !term || !option.value || option.selected || (option.getAttribute("data-search") || "").indexOf(term) !== -1;
-            option.hidden = !match;
-            option.disabled = !match;
+      function syncRoleFields() {
+        const isUser = form.partnershipType.value === "client";
+        userOnlyFields.forEach(function (box) {
+          box.hidden = !isUser;
+          box.querySelectorAll("input,select").forEach(function (input) {
+            if (!isUser) {
+              input.value = "";
+              input.disabled = true;
+            } else if (input !== sharePercent) {
+              input.disabled = false;
+            }
           });
         });
+        syncShare();
       }
-
-      function updateCommissionRemaining() {
-        const total = Array.from(document.querySelectorAll(".commission-share")).reduce(function (sum, input) {
-          return sum + Math.max(0, Number(input.value) || 0);
+      form.partnershipType.addEventListener("change", syncRoleFields);
+      form.addEventListener("reset", function () {
+        setTimeout(function () {
+          applyRoleOptions();
+          syncRoleFields();
         }, 0);
-        const remaining = 100 - total;
-        commissionRemaining.textContent = "Remaining commission: " + remaining.toFixed(2).replace(/\.00$/, "") + "%";
-        commissionRemaining.classList.toggle("over", remaining < 0);
-      }
+      });
 
-      async function loadSubAdmins() {
+      // ---- Master share ----
+      function renderMasters() {
+        shareMaster.innerHTML =
+          '<option value="">No Master share</option>' +
+          masters.map(function (m) {
+            return '<option value="' + escapeHtml(m.id) + '">' + escapeHtml(m.username) + "</option>";
+          }).join("");
+        if (!masters.length) {
+          shareHelp.textContent = actorRole() === "master"
+            ? "Optional. You can give yourself a commission share on this user."
+            : "No Master accounts yet. Create a Master first to share commission.";
+        }
+      }
+      function syncShare() {
+        const hasMaster = !!shareMaster.value;
+        sharePercent.disabled = !hasMaster || shareMaster.disabled;
+        if (!hasMaster) sharePercent.value = "";
+        const pct = Math.min(100, Math.max(0, Number(sharePercent.value) || 0));
+        const keep = Math.round((100 - pct) * 100) / 100;
+        shareSplit.textContent = hasMaster ? "Master " + pct + "% · You " + keep + "%" : "You keep 100%";
+        shareSplit.classList.toggle("over", Number(sharePercent.value) > 100);
+      }
+      shareMaster.addEventListener("change", syncShare);
+      sharePercent.addEventListener("input", syncShare);
+      async function loadMasters() {
         try {
-          const response = await fetch("/api/admin/masters", { headers: buildHeaders(false) });
-          const payload = await response.json().catch(function () { return {}; });
-          if (response.status === 401) {
-            handleUnauthorized();
-            return;
+          const rows = await api("/api/admin/masters");
+          masters = Array.isArray(rows) ? rows : [];
+          const me = currentUser();
+          if (actorRole() === "master" && !masters.some(function (m) { return String(m.id) === String(me.userId); })) {
+            masters.unshift({ id: me.userId, username: me.username + " (me)" });
           }
-          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to load Master Accounts");
-          renderSubAdmins(payload.data || []);
-        } catch (error) {
-          subAdminStatus.textContent = error.message || "Unable to load Master Accounts";
+        } catch (_) {
+          masters = [];
+        }
+        renderMasters();
+        syncShare();
+      }
+      async function loadBalance() {
+        try {
+          const data = await api("/api/get-user-balance");
+          const available = (Number(data.balance) || 0) - (Number(data.exposer) || 0);
+          myBalance.textContent = actorRole() === "super_admin" ? "Unlimited" : money(available);
+        } catch (_) {
+          myBalance.textContent = "—";
         }
       }
 
-      function escapeHtml(value) {
-        return String(value || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\"/g, "&quot;")
-          .replace(/'/g, "&#39;");
-      }
-
-      var ROLE_BADGES = { super_admin: ["SA", "Super Admin"], admin: ["A", "Admin"], sub_admin: ["SB", "Sub Admin"], super_master: ["SM", "Super Master"], sub_super_master: ["SSM", "Sub Super Master"], master: ["M", "Master"], user: ["U", "User"] };
+      // ---- Records ----
       function roleBadge(role) {
-        var key = String(role || "user").toLowerCase();
-        var info = ROLE_BADGES[key] || [key.slice(0, 3).toUpperCase(), key];
-        return '<span class="role-badge role-' + escapeHtml(key) + '" title="' + escapeHtml(info[1]) + '">' + escapeHtml(info[0]) + "</span>";
+        const key = String(role || "user").toLowerCase();
+        const short = { super_admin: "SA", admin: "A", master: "M", user: "U" }[key] || key.slice(0, 2).toUpperCase();
+        return '<span class="role-badge role-' + escapeHtml(key) + '" title="' + escapeHtml(ROLE_NAMES[key] || key) + '">' + escapeHtml(short) + "</span>";
       }
-
       function formatDate(value) {
         if (!value) return "-";
         const dt = new Date(value);
-        if (Number.isNaN(dt.getTime())) return String(value);
-        return dt.toLocaleString();
+        return Number.isNaN(dt.getTime()) ? String(value) : dt.toLocaleString();
       }
-
       function renderRows(items) {
         if (!Array.isArray(items) || !items.length) {
-          recordsBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records</td></tr>';
+          recordsBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No records</td></tr>';
           return;
         }
-        recordsBody.innerHTML = items
-          .map(function (item) {
-            return (
-              "<tr>" +
-              "<td>" + roleBadge(item.role) + escapeHtml(item.username) + "</td>" +
-              "<td>" + escapeHtml(item.fullName) + "</td>" +
-              "<td>" + escapeHtml(item.referenceName) + "</td>" +
-              "<td>" + escapeHtml(item.creditAmount) + "</td>" +
-              "<td>" + escapeHtml(item.partnership && item.partnership.type) + "</td>" +
-              "<td>" + escapeHtml(item.partnership && item.partnership.remark) + "</td>" +
-              "<td>" + escapeHtml(item.partnership && item.partnership.transactionCodeMasked) + "</td>" +
-              "<td>" + escapeHtml(formatDate(item.createdAt)) + "</td>" +
-              "</tr>"
-            );
-          })
-          .join("");
+        recordsBody.innerHTML = items.map(function (item) {
+          const role = String(item.role || "user").toLowerCase();
+          return (
+            "<tr>" +
+            "<td>" + roleBadge(role) + escapeHtml(item.username) + "</td>" +
+            "<td>" + escapeHtml(item.fullName) + "</td>" +
+            "<td>" + escapeHtml(ROLE_NAMES[role] || role) + "</td>" +
+            "<td>" + escapeHtml(item.referenceName) + "</td>" +
+            '<td class="text-end">' + escapeHtml(money(item.creditAmount)) + "</td>" +
+            "<td>" + escapeHtml(item.partnership && item.partnership.remark) + "</td>" +
+            "<td>" + escapeHtml(formatDate(item.createdAt)) + "</td>" +
+            "</tr>"
+          );
+        }).join("");
       }
-
       async function loadRecords() {
         const search = (searchInput.value || "").trim();
-        const url = API_PATH + "?limit=100&page=1&search=" + encodeURIComponent(search);
-        showStatus(listStatus, "Loading records...", "info");
+        showStatus(listStatus, "Loading...", "info");
         try {
-          const response = await fetch(url, { headers: buildHeaders(false) });
-          const payload = await response.json().catch(function () { return {}; });
-          if (!response.ok || payload.error) {
-            throw new Error(payload.message || "Unable to fetch records");
-          }
-          const data = payload.data || {};
+          const data = await api(API_PATH + "?limit=100&page=1&search=" + encodeURIComponent(search)) || {};
           const docs = Array.isArray(data.docs) ? data.docs : [];
           renderRows(docs);
-          showStatus(listStatus, "Total records: " + (data.totalDocs || docs.length || 0), "success");
+          showStatus(listStatus, "", "info");
         } catch (error) {
           renderRows([]);
           showStatus(listStatus, error.message || "Unable to fetch records", "error");
         }
       }
-
-      form.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        showStatus(formStatus, "", "info");
-
-        const payload = {
-          userName: form.userName.value,
-          fullName: form.fullName.value,
-          password: form.password.value,
-          confirmPassword: form.confirmPassword.value,
-          referenceName: form.referenceName.value,
-          creditAmount: form.creditAmount.value,
-          depositToken: form.depositToken.value.trim(),
-          creditLimit: form.creditLimit.value,
-          minBet: form.partnershipType.value === "client" ? form.minBet.value : "",
-          maxBet: form.partnershipType.value === "client" ? form.maxBet.value : "",
-          partnershipType: form.partnershipType.value,
-          remark: form.remark.value,
-          transactionCode: form.transactionCode.value,
-          partnerships: Array.from(document.querySelectorAll(".commission-row")).map(function (row) {
-            return {
-              partnerId: row.querySelector(".commission-partner").value,
-              sharePercentage: row.querySelector(".commission-share").value || 0,
-            };
-          })
-            .filter(function (entry) { return Number(entry.sharePercentage) > 0; })
-        };
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Saving...";
-        try {
-          const response = await fetch(API_PATH, {
-            method: "POST",
-            headers: buildHeaders(true),
-            body: JSON.stringify(payload),
-          });
-          const result = await response.json().catch(function () { return {}; });
-          if (response.status === 401) {
-            handleUnauthorized();
-            return;
-          }
-          if (!response.ok || result.error) {
-            throw new Error(result.message || "Unable to save");
-          }
-          showStatus(formStatus, result.message || "Saved successfully", "success");
-          form.reset();
-          form.partnershipType.value = "client";
-          syncRoleFields();
-          loadSubAdmins();
-          await loadRecords();
-        } catch (error) {
-          showStatus(formStatus, error.message || "Unable to save", "error");
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Submit";
-        }
-      });
-
-      loadSubAdmins();
-      createSubAdminBtn.addEventListener("click", async function () {
-        const username = document.getElementById("newSubAdminUsername").value.trim();
-        const password = document.getElementById("newSubAdminPassword").value;
-        try {
-          const response = await fetch("/api/admin/masters", { method: "POST", headers: buildHeaders(true), body: JSON.stringify({ username, password }) });
-          const payload = await response.json().catch(function () { return {}; });
-          if (response.status === 401) {
-            handleUnauthorized();
-            return;
-          }
-          if (!response.ok || payload.error) throw new Error(payload.message || "Unable to create Master Account. Please log in as an Admin or Super Admin.");
-          showStatus(subAdminStatus, "Master Account created", "success");
-          document.getElementById("newSubAdminUsername").value = "";
-          document.getElementById("newSubAdminPassword").value = "";
-          loadSubAdmins();
-        } catch (error) {
-          showStatus(subAdminStatus, error.message || "Unable to create Master Account", "error");
-        }
-      });
-
-      form.addEventListener("submit", function (event) {
-        const total = Array.from(document.querySelectorAll(".commission-share")).reduce(function (sum, input) {
-          return sum + Math.max(0, Number(input.value) || 0);
-        }, 0);
-        if (total > 100) {
-          event.preventDefault();
-          showStatus(formStatus, "Commission shares cannot exceed 100%.", "error");
-        }
-      }, true);
-
-      refreshBtn.addEventListener("click", function () {
-        loadRecords();
-      });
-
+      refreshBtn.addEventListener("click", loadRecords);
       searchInput.addEventListener("input", function () {
         if (searchDebounce) clearTimeout(searchDebounce);
         searchDebounce = setTimeout(loadRecords, 300);
       });
 
+      // ---- Submit ----
+      function validate() {
+        if (!form.partnershipType.value) return "Select an account type.";
+        if (!/^[a-z0-9._-]{3,32}$/i.test(form.userName.value.trim())) return "User name must be 3-32 letters, numbers, . _ or -.";
+        if (!form.fullName.value.trim()) return "Full name is required.";
+        if (form.password.value.length < 4) return "Password must be at least 4 characters.";
+        if (form.password.value !== form.confirmPassword.value) return "Passwords do not match.";
+        const coins = form.creditAmount.value;
+        if (coins && (!(Number(coins) >= 0) || !/^\d+(\.\d{1,2})?$/.test(coins))) return "Opening coins must be a positive amount with up to 2 decimals.";
+        if (shareMaster.value) {
+          const pct = Number(sharePercent.value);
+          if (!(pct > 0 && pct <= 100)) return "Master share must be between 0 and 100%.";
+        }
+        if (!form.transactionCode.value.trim()) return "Enter your transaction password.";
+        return "";
+      }
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const problem = validate();
+        if (problem) {
+          showStatus(formStatus, problem, "error");
+          return;
+        }
+        showStatus(formStatus, "", "info");
+        const isUser = form.partnershipType.value === "client";
+        const payload = {
+          userName: form.userName.value.trim(),
+          fullName: form.fullName.value.trim(),
+          mobileNumber: form.mobileNumber.value.trim(),
+          city: form.city.value.trim(),
+          password: form.password.value,
+          confirmPassword: form.confirmPassword.value,
+          referenceName: form.referenceName.value.trim(),
+          creditAmount: form.creditAmount.value,
+          depositToken: form.depositToken.value.trim(),
+          creditLimit: form.creditLimit.value,
+          minBet: isUser ? form.minBet.value : "",
+          maxBet: isUser ? form.maxBet.value : "",
+          partnershipType: form.partnershipType.value,
+          remark: form.remark.value.trim(),
+          transactionCode: form.transactionCode.value,
+          partnerships: isUser && shareMaster.value ? [{ partnerId: shareMaster.value, sharePercentage: sharePercent.value }] : [],
+        };
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating...";
+        try {
+          await api(API_PATH, { method: "POST", body: JSON.stringify(payload) });
+          showStatus(formStatus, (ROLE_NAMES[isUser ? "user" : payload.partnershipType] || "Account") + " " + payload.userName + " created.", "success");
+          form.reset();
+          setTimeout(function () {
+            applyRoleOptions();
+            syncRoleFields();
+          }, 0);
+          loadMasters();
+          loadBalance();
+          loadRecords();
+        } catch (error) {
+          showStatus(formStatus, error.message || "Unable to create account", "error");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Create Account";
+        }
+      });
+
+      applyRoleOptions();
+      syncRoleFields();
+      loadMasters();
+      loadBalance();
       loadRecords();
     })();
   </script>

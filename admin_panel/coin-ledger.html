@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>King777 | Coin Ledger</title>
+  <link rel="stylesheet" href="/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="/css/admin-style.css?v=32" />
+  <style>
+    :root {
+      --brand-green: #0b120d;
+      --brand-yellow: #ffd447;
+      --page-green: #eef6e9;
+      --line: #25492b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page-green);
+      font-family: Arial, sans-serif;
+      color: #111;
+      min-height: 100vh;
+    }
+
+    .standalone-menu-toggle {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1400;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--brand-yellow);
+      border-radius: 4px;
+      background: #18351f;
+      color: var(--brand-yellow);
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .standalone-sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 1300;
+      width: 250px;
+      overflow-y: auto;
+      background: #0b120d;
+      border-right: 1px solid #315d35;
+      transform: translateX(0);
+      transition: transform .2s ease;
+    }
+    .standalone-sidebar.is-closed { transform: translateX(-105%); }
+    .standalone-sidebar-brand {
+      padding: 22px 18px;
+      color: var(--brand-yellow);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      border-bottom: 1px solid #315d35;
+    }
+    .standalone-nav a,
+    .standalone-nav summary {
+      display: block;
+      padding: 13px 18px;
+      color: #f5ffe9;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border-bottom: 1px solid #25492b;
+      list-style: none;
+    }
+    .standalone-nav a:hover,
+    .standalone-nav summary:hover,
+    .standalone-nav details[open] > summary {
+      color: var(--brand-yellow);
+      background: #18351f;
+    }
+    .standalone-nav details a { padding-left: 34px; font-weight: 400; background: #0f1b11; }
+    .standalone-content { margin-left: 250px; min-width: 0; }
+
+    .topbar {
+      min-height: 62px;
+      background: var(--brand-green);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      border-bottom: 3px solid var(--brand-yellow);
+      margin-left: 250px;
+    }
+    .brand { font-size: 24px; font-weight: 900; letter-spacing: 1.5px; color: var(--brand-yellow); }
+    .topbar a { color: #fff; text-decoration: none; font-size: 14px; }
+    .topbar a:hover { color: var(--brand-yellow); }
+    .page-title {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 16px 6px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .page-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 28px; }
+    .panel-card {
+      border: 0;
+      border-radius: 0;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+      padding: 14px 12px !important;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 14px;
+      color: #111;
+    }
+    fieldset.account-section {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      margin: 0 0 12px;
+      padding: 12px 12px 16px;
+    }
+    fieldset.account-section legend {
+      float: none;
+      width: auto;
+      margin: 0;
+      padding: 0 5px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .field-label {
+      font-weight: 400;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #111;
+    }
+    .form-control, .form-select { border: 1px solid #b8b8b8; border-radius: 3px; min-height: 42px; }
+    .form-control:focus, .form-select:focus { border-color: #79bdf2; box-shadow: 0 0 0 3px rgba(75, 166, 239, .28); }
+    .primary-action { background: #2f7d32; border-color: #2f7d32; color: #fff; min-width: 120px; }
+    .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
+    .secondary-action { min-width: 100px; }
+    .commission-grid { display: grid; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
+    .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
+    .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
+    .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
+    .commission-remaining { margin-top: 10px; font-weight: 700; color: #166534; }
+    .commission-remaining.over { color: #991b1b; }
+    .status-box {
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: none;
+      margin-top: 10px;
+    }
+    .status-success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .status-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .status-info {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+    }
+    .table thead th {
+      white-space: nowrap;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #475569;
+    }
+    .table tbody td {
+      font-size: 13px;
+      vertical-align: middle;
+    }
+    @media (max-width: 576px) {
+      .topbar { padding: 0 14px; }
+      .brand { font-size: 20px; }
+      .page-title { font-size: 18px; padding-top: 14px; }
+      .page-wrap { padding: 0 8px 20px; }
+      fieldset.account-section { padding: 10px 8px 12px; }
+    }
+    @media (max-width: 768px) {
+      .topbar { margin-left: 0; padding-left: 68px; }
+      .standalone-content { margin-left: 0; }
+      html body #standaloneSidebar.standalone-sidebar { width: 280px !important; max-width: 86vw !important; }
+    }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat { background: #0b120d; color: #f5ffe9; border-left: 4px solid var(--brand-yellow); padding: 10px 12px; border-radius: 3px; }
+    .stat small { display: block; color: #b9d3b4; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+    .stat strong { font-size: 18px; }
+    .pos { color: #166534; font-weight: 700; } .neg { color: #991b1b; font-weight: 700; }
+    .badge-status { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .badge-active { background: #dcfce7; color: #166534; } .badge-used { background: #dbeafe; color: #1d4ed8; } .badge-void { background: #e5e7eb; color: #4b5563; }
+    .table-scroll { overflow-x: auto; }
+    html body #standaloneSidebar.standalone-sidebar { max-width: 86vw !important; }
+    @media (max-width: 768px) { html body #standaloneSidebar.standalone-sidebar { width: 280px !important; } }
+    .role-badge { display: inline-block; min-width: 22px; padding: 0 4px; margin-right: 5px; border-radius: 3px; font-size: 10px; font-weight: 700; text-align: center; color: #fff; background: #64748b; }
+    .role-badge.role-super_admin { background: #7c2d12; } .role-badge.role-admin { background: #1d4ed8; } .role-badge.role-master { background: #15803d; } .role-badge.role-user { background: #475569; }
+    .table td, .table th { white-space: nowrap; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">KING777</div>
+    <a href="/admin/list-clients">Users</a>
+  </header>
+  <button id="standaloneMenuToggle" class="standalone-menu-toggle" type="button" aria-label="Open menu">☰</button>
+  <aside id="standaloneSidebar" class="standalone-sidebar">
+    <div class="standalone-sidebar-brand">KING777</div>
+    <nav class="standalone-nav">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/list-clients">Users</a>
+      <a href="/admin/add-user">Add User</a>
+      <a href="/admin/tokens">Deposit Tokens</a>
+      <a href="/admin/coin-ledger">Coin Ledger</a>
+      <a href="/admin/market-analysis">Market Analysis</a>
+      <a href="/admin/payment-method">Payment Details</a>
+      <details><summary>Reports</summary><a href="/admin/accountstatement">Account Statement</a><a href="/admin/game-reports">Game Reports</a></details>
+      <details><summary>Transactions</summary><a href="/admin/depositstatement">Deposits</a><a href="/admin/withdrawstatement">Withdrawals</a></details>
+      <details><summary>Settings</summary><a href="/admin/messages">Messages</a><a href="/admin/casino-list">Casino List</a></details>
+      <a href="/admin/rules">Rules</a>
+      <a href="/admin/terms">T&amp;C</a>
+      <a href="/admin/change-password">Change Password</a>
+    </nav>
+  </aside>
+  <div class="standalone-content">
+    <h1 class="page-title">Coin Ledger</h1>
+    <div class="page-wrap">
+      <div class="panel-card p-3 p-md-4 mb-3">
+        <form id="filterForm" class="row g-2 align-items-end">
+          <div class="col-12 col-md-3"><label class="field-label" for="fUser">Account</label><input class="form-control" id="fUser" placeholder="Username (optional)" autocomplete="off" /></div>
+          <div class="col-6 col-md-2"><label class="field-label" for="fFrom">From</label><input class="form-control" id="fFrom" type="date" /></div>
+          <div class="col-6 col-md-2"><label class="field-label" for="fTo">To</label><input class="form-control" id="fTo" type="date" /></div>
+          <div class="col-6 col-md-2"><label class="field-label" for="fDir">Type</label><select class="form-select" id="fDir"><option value="">All</option><option value="deposit">Deposit</option><option value="withdraw">Withdraw</option><option value="settlement">Bet Settlement</option></select></div>
+          <div class="col-6 col-md-3 d-flex gap-2"><button class="btn primary-action flex-fill" type="submit">Load</button><button class="btn btn-outline-secondary" type="reset">Reset</button></div>
+        </form>
+      </div>
+
+      <div class="panel-card p-3 p-md-4">
+        <div id="stats" class="stat-grid"></div>
+        <div id="listStatus" class="status-box"></div>
+        <div class="table-scroll"><table class="table table-sm table-bordered align-middle mb-2">
+          <thead><tr><th>Date</th><th>Type</th><th>From</th><th>To</th><th class="text-end">Amount</th><th class="text-end">From Bal. After</th><th class="text-end">To Bal. After</th><th>By</th><th>Remark</th></tr></thead>
+          <tbody id="ledgerBody"><tr><td colspan="9" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+        </table></div>
+        <div class="d-flex justify-content-between align-items-center">
+          <small id="pageInfo" class="text-muted"></small>
+          <div class="d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" id="prevBtn" type="button">Prev</button><button class="btn btn-sm btn-outline-secondary" id="nextBtn" type="button">Next</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const sidebar = document.getElementById("standaloneSidebar");
+      const toggle = document.getElementById("standaloneMenuToggle");
+      const mobile = function () { return window.matchMedia("(max-width: 768px)").matches; };
+      function syncMenu() { sidebar.classList.toggle("is-closed", mobile()); }
+      toggle.addEventListener("click", function () { sidebar.classList.toggle("is-closed"); });
+      document.addEventListener("click", function (e) {
+        if (!mobile() || sidebar.classList.contains("is-closed") || e.target.closest("#standaloneMenuToggle")) return;
+        if (e.target.closest("#standaloneSidebar") && !e.target.closest("a")) return;
+        sidebar.classList.add("is-closed");
+      });
+      window.addEventListener("resize", syncMenu);
+      syncMenu();
+
+      function getToken() {
+        const keys = ["token-admin", "adminToken", "token", "authToken", "accessToken", "jwt"];
+        for (let i = 0; i < keys.length; i += 1) {
+          const v = localStorage.getItem(keys[i]) || sessionStorage.getItem(keys[i]);
+          if (v) return v;
+        }
+        return "";
+      }
+      async function api(url) {
+        const res = await fetch(url, { headers: { Authorization: "Bearer " + getToken() } });
+        const data = await res.json().catch(function () { return {}; });
+        if (res.status === 401) { window.location.replace("/admin/login?return=" + encodeURIComponent(window.location.pathname)); throw new Error("Unauthorized"); }
+        if (!res.ok || data.error) throw new Error(data.message || "Request failed");
+        return data.data || {};
+      }
+      function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+      function money(v) { return Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+      const KIND = { deposit: "Deposit", withdraw: "Withdraw", opening_credit: "Opening Coins", token_redeem: "Token", deposit_request: "Deposit Request", withdraw_request: "Withdraw Request", bet_win: "Bet Won", bet_loss: "Bet Lost", bet_rollback: "Result Rollback" };
+      const ROLE = { super_admin: "SA", admin: "A", master: "M", user: "U" };
+
+      const form = document.getElementById("filterForm");
+      const body = document.getElementById("ledgerBody");
+      const statsEl = document.getElementById("stats");
+      const listStatus = document.getElementById("listStatus");
+      const pageInfo = document.getElementById("pageInfo");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const LIMIT = 100;
+      let page = 1;
+
+      function who(name, role) { return '<span class="role-badge role-' + esc(role) + '">' + esc(ROLE[role] || "") + "</span>" + esc(name); }
+      function render(data) {
+        const items = data.items || [];
+        let dep = 0;
+        let wd = 0;
+        items.forEach(function (i) { if (i.direction === "withdraw") wd += i.amount; else if (i.direction === "deposit") dep += i.amount; });
+        statsEl.innerHTML = [["Entries", String(data.total || 0)], ["Deposits (page)", money(dep)], ["Withdrawals (page)", money(wd)], ["Net (page)", money(dep - wd)]]
+          .map(function (c) { return '<div class="stat"><small>' + c[0] + "</small><strong>" + c[1] + "</strong></div>"; }).join("");
+        body.innerHTML = items.length ? items.map(function (i) {
+          const cls = i.direction === "withdraw" ? "neg" : "pos";
+          return "<tr><td>" + esc(new Date(i.createdAt).toLocaleString()) + '</td><td><span class="' + cls + '">' + esc(KIND[i.kind] || i.kind) + "</span></td><td>" + who(i.fromUsername, i.fromRole) + "</td><td>" + who(i.toUsername, i.toRole) +
+            '</td><td class="text-end ' + cls + '">' + money(i.amount) + '</td><td class="text-end">' + money(i.fromBalanceAfter) + '</td><td class="text-end">' + money(i.toBalanceAfter) + "</td><td>" + esc(i.actorUsername) + "</td><td>" + esc(i.remark) + "</td></tr>";
+        }).join("") : '<tr><td colspan="9" class="text-center text-muted py-3">No transactions</td></tr>';
+        const pages = Math.max(1, Math.ceil((data.total || 0) / LIMIT));
+        pageInfo.textContent = "Page " + page + " of " + pages;
+        prevBtn.disabled = page <= 1;
+        nextBtn.disabled = page >= pages;
+      }
+      async function load() {
+        const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+        const user = document.getElementById("fUser").value.trim();
+        const from = document.getElementById("fFrom").value;
+        const to = document.getElementById("fTo").value;
+        const dir = document.getElementById("fDir").value;
+        if (user) q.set("username", user);
+        if (from) q.set("from", from);
+        if (to) q.set("to", to);
+        if (dir) q.set("direction", dir);
+        listStatus.style.display = "none";
+        try {
+          render(await api("/api/admin/coin-ledger?" + q.toString()));
+        } catch (e) {
+          listStatus.className = "status-box status-error";
+          listStatus.style.display = "block";
+          listStatus.textContent = e.message;
+          body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">-</td></tr>';
+        }
+      }
+      form.addEventListener("submit", function (e) { e.preventDefault(); page = 1; load(); });
+      form.addEventListener("reset", function () { setTimeout(function () { page = 1; load(); }, 0); });
+      prevBtn.addEventListener("click", function () { if (page > 1) { page -= 1; load(); } });
+      nextBtn.addEventListener("click", function () { page += 1; load(); });
+      const initialUser = new URLSearchParams(window.location.search).get("username");
+      if (initialUser) document.getElementById("fUser").value = initialUser;
+      load();
+    })();
+  </script>
+</body>
+</html>
