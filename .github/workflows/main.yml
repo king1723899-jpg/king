@@ -28,3 +28,6 @@ jobs:
           node --check scripts/admin_qa_check.js
           node --check ecosystem.config.cjs
 
+
+      - name: Run money-flow tests
+        run: npm test

@@ -6,7 +6,9 @@ const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const Database = require("better-sqlite3");
 const CryptoJS = require("crypto-js");
-const { validatePartnershipEntries, validateBetAmount, settleBet } = require("./lib/sprint2");
+const { validatePartnershipEntries, validateBetAmount } = require("./lib/sprint2");
+const { createSettlementEngine } = require("./lib/settlement");
+const { createCoinEngine, CoinError } = require("./lib/coins");
 
 const app = express();
 const upload = multer({
@@ -34,7 +36,7 @@ const DB_DIR = pickExistingPath(
   [path.join(ROOT, "data_store"), path.join(ROOT, "database")],
   path.join(ROOT, "data_store")
 );
-const DB_PATH = path.join(DB_DIR, "site.db");
+const DB_PATH = process.env.SQLITE_DB_PATH ? path.resolve(process.env.SQLITE_DB_PATH) : path.join(DB_DIR, "site.db");
 const SCHEMA_PATH = path.join(DB_DIR, "schema.sql");
 const CASINO_PLAY_MAP_PATH = path.join(DB_DIR, "casino_play_urls.json");
 const GAME_API_SETTINGS_PATH = path.join(DB_DIR, "game_api_settings.json");
@@ -139,10 +141,16 @@ const SERVER_HEADERS_TIMEOUT_MS = Math.max(
   envNum(process.env.SERVER_HEADERS_TIMEOUT_MS, SERVER_KEEP_ALIVE_TIMEOUT_MS + 5000)
 );
 const SERVER_MAX_REQUESTS_PER_SOCKET = Math.max(50, envNum(process.env.SERVER_MAX_REQUESTS_PER_SOCKET, 200));
-const CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP =
-  process.env.CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP === undefined
-    ? true
-    : envBool(process.env.CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP);
+// Provider wallet callbacks move real money, so they must authenticate.
+// Unauthenticated /call.php is only accepted from PROVIDER_CALLBACK_IPS, or
+// everywhere if CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP=true (unsafe, testing only).
+const CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP = envBool(process.env.CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP);
+const PROVIDER_CALLBACK_IPS = new Set(
+  String(process.env.PROVIDER_CALLBACK_IPS || "")
+    .split(",")
+    .map((ip) => ip.trim())
+    .filter(Boolean)
+);
 
 const DEMO_USERS_COUNT = Math.max(0, envNum(process.env.DEMO_USERS_COUNT, 0));
 const DEMO_INITIAL_BALANCE = Math.max(0, envNum(process.env.DEMO_INITIAL_BALANCE, 500000));
@@ -158,59 +166,33 @@ const OWNER_UNLIMITED_COINS =
     ? true
     : envBool(process.env.OWNER_UNLIMITED_COINS);
 
-const HIERARCHY_ROLE = {
-  SUPER_ADMIN: "super_admin",
-  ADMIN: "admin",
-  SUPER_MASTER: "super_master",
-  SUB_SUPER_MASTER: "sub_super_master",
-  MASTER: "master",
-  USER: "user",
-};
-const HIERARCHY_CHILD_ROLE = {
-  [HIERARCHY_ROLE.SUPER_ADMIN]: HIERARCHY_ROLE.ADMIN,
-  [HIERARCHY_ROLE.ADMIN]: HIERARCHY_ROLE.SUPER_MASTER,
-  [HIERARCHY_ROLE.SUPER_MASTER]: HIERARCHY_ROLE.SUB_SUPER_MASTER,
-  [HIERARCHY_ROLE.SUB_SUPER_MASTER]: HIERARCHY_ROLE.MASTER,
-  [HIERARCHY_ROLE.MASTER]: HIERARCHY_ROLE.USER,
-};
-const HIERARCHY_LEVEL = {
-  [HIERARCHY_ROLE.SUPER_ADMIN]: 1,
-  [HIERARCHY_ROLE.ADMIN]: 2,
-  [HIERARCHY_ROLE.SUPER_MASTER]: 3,
-  [HIERARCHY_ROLE.SUB_SUPER_MASTER]: 4,
-  [HIERARCHY_ROLE.MASTER]: 5,
-  [HIERARCHY_ROLE.USER]: 6,
-};
-const normalizeHierarchyRole = (value) => {
-  const raw = String(value || "").trim().toLowerCase();
-  if (["owner", "super_admin", "superadmin", "sadmin", "smdl"].includes(raw)) return HIERARCHY_ROLE.SUPER_ADMIN;
-  if (["admin", "master_agent", "masteragent", "mdl"].includes(raw)) return HIERARCHY_ROLE.ADMIN;
-  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return HIERARCHY_ROLE.SUPER_MASTER;
-  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return HIERARCHY_ROLE.SUB_SUPER_MASTER;
-  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return HIERARCHY_ROLE.MASTER;
-  return HIERARCHY_ROLE.USER;
-};
-const getExpectedChildRole = (parentRole) => HIERARCHY_CHILD_ROLE[normalizeHierarchyRole(parentRole)] || null;
-const canCreateHierarchyChild = (parentRole, childRole) =>
-  normalizeHierarchyRole(childRole) === getExpectedChildRole(parentRole);
-
+// Account hierarchy: Super Admin -> Admin -> Master -> User.
+// Legacy roles (super_master, sub_super_master, sub_admin, agent...) are Masters.
+const LEGACY_MASTER_ROLE_NAMES = [
+  "master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl",
+  "super master", "super-master", "super_master", "supermaster",
+  "sub super master", "sub-super-master", "sub_super_master", "subsupermaster",
+];
 const OWNER_ROLE_SET = new Set(["super_admin"]);
 const PANEL_ROLE_DEPTH = {
   super_admin: 0,
   admin: 1,
-  super_master: 2,
-  sub_super_master: 3,
-  master: 4,
-  user: 5,
+  master: 2,
+  user: 3,
+};
+// Which account types each role may create.
+const CREATABLE_ROLES = {
+  super_admin: ["admin", "master", "user"],
+  admin: ["master", "user"],
+  master: ["user"],
+  user: [],
 };
 const normalizePanelRole = (value, fallback = "user") => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return fallback;
   if (["owner", "super_admin", "superadmin", "sadmin", "smdl"].includes(raw)) return "super_admin";
   if (["admin", "mdl", "master_agent", "masteragent"].includes(raw)) return "admin";
-  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_master";
-  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return "sub_super_master";
-  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
+  if (LEGACY_MASTER_ROLE_NAMES.includes(raw)) return "master";
   if (["user", "client", "player"].includes(raw)) return "user";
   return fallback;
 };
@@ -219,10 +201,7 @@ const panelRoleDepth = (value) => PANEL_ROLE_DEPTH[normalizePanelRole(value, "us
 const canRoleCreateRole = (actorRole, childRole) => {
   const actor = normalizePanelRole(actorRole, "user");
   const child = normalizePanelRole(childRole, "user");
-  if (actor === "user") return false;
-  if (actor === "super_admin") return true;
-  if (actor === "admin" && child === "admin") return true;
-  return panelRoleDepth(actor) < panelRoleDepth(child);
+  return (CREATABLE_ROLES[actor] || []).includes(child);
 };
 const roleForAdminPanelUi = (value) => {
   const normalized = normalizePanelRole(value, "user");
@@ -906,7 +885,9 @@ ensureTableColumn("users", "partnership_remaining", "REAL NOT NULL DEFAULT 100")
 ensureTableColumn("bets", "settlement_result", "TEXT");
 ensureTableColumn("bets", "settlement_net", "REAL");
 ensureTableColumn("bets", "settled_at", "TEXT");
-db.prepare("UPDATE users SET role='master' WHERE lower(role)='sub_admin'").run();
+// Written only by a live odds feed. Snapshot imports leave it untouched, so
+// stale scraped prices can never be bet on.
+ensureTableColumn("matches", "odds_updated_at", "TEXT");
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_partnerships (
   id TEXT PRIMARY KEY,
@@ -920,6 +901,45 @@ CREATE TABLE IF NOT EXISTS user_partnerships (
 CREATE INDEX IF NOT EXISTS idx_user_partnerships_user_id ON user_partnerships(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_partnerships_partner_id ON user_partnerships(partner_id);
 `);
+// One-time, idempotent migration to the 4-role model and single Master share.
+(() => {
+  const legacy = db
+    .prepare("UPDATE users SET role='master' WHERE lower(role) IN ('sub_admin','super_master','sub_super_master','subadmin','agent')")
+    .run().changes;
+  db.prepare(
+    "UPDATE users SET level=CASE lower(role) WHEN 'super_admin' THEN 1 WHEN 'admin' THEN 2 WHEN 'master' THEN 3 ELSE 4 END WHERE level IS NOT CASE lower(role) WHEN 'super_admin' THEN 1 WHEN 'admin' THEN 2 WHEN 'master' THEN 3 ELSE 4 END"
+  ).run();
+  const nonMaster = db
+    .prepare("DELETE FROM user_partnerships WHERE partner_id NOT IN (SELECT id FROM users WHERE role='master') OR user_id NOT IN (SELECT id FROM users WHERE role='user') OR share_percentage<=0")
+    .run().changes;
+  const extra = db
+    .prepare(
+      `DELETE FROM user_partnerships WHERE id IN (
+         SELECT id FROM (
+           SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY share_percentage DESC, created_at ASC) AS rn FROM user_partnerships
+         ) WHERE rn > 1
+       )`
+    )
+    .run().changes;
+  db.prepare(
+    "UPDATE users SET partnership_remaining=round(100-COALESCE((SELECT SUM(share_percentage) FROM user_partnerships up WHERE up.user_id=users.id),0),2)"
+  ).run();
+  if (legacy || nonMaster || extra) {
+    console.log(`[role-migrate] legacy roles->master: ${legacy}, partnerships removed: ${nonMaster + extra}`);
+  }
+})();
+// All coin movements between accounts go through this engine (see lib/coins.js).
+// Super Admin is the coin source: with OWNER_UNLIMITED_COINS its wallet may go
+// negative, and that negative balance equals the coins issued to the network.
+const coinEngine = createCoinEngine({
+  db,
+  makeId: id,
+  isUnlimitedSource: (user) => OWNER_UNLIMITED_COINS && isOwnerPanelRole(user?.role),
+});
+// Sports settlement (lib/settlement.js). Commission is a % of stake, shared
+// between the player's Master (by Master share %) and parent.
+const SPORTS_COMMISSION_PERCENT = Math.min(100, Math.max(0, envNum(process.env.SPORTS_COMMISSION_PERCENT, 1)));
+const settlementEngine = createSettlementEngine({ db, coinEngine, makeId: id, commissionPercent: SPORTS_COMMISSION_PERCENT });
 
 const setSetting = (key, value) => {
   const result = db
@@ -3582,8 +3602,10 @@ const seedUsers = () => {
   const created = nowIso();
   const sessionId = Date.now();
   const passwordHash = hashPass(DEFAULT_LOGIN_PASSWORD);
+  // The env password only seeds a fresh install; set RESET_SUPER_ADMIN_PASSWORD=true to force it.
+  const resetPassword = envBool(process.env.RESET_SUPER_ADMIN_PASSWORD);
   const upsertByUsername = db.prepare(
-    "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password=excluded.password,role=excluded.role,level=excluded.level,parent_id=excluded.parent_id,session_id=excluded.session_id,updated_at=excluded.updated_at"
+    `INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET ${resetPassword ? "password=excluded.password,session_id=excluded.session_id," : ""}role=excluded.role,level=excluded.level,parent_id=excluded.parent_id,updated_at=excluded.updated_at`
   );
   upsertByUsername.run(
     `admin_${DEFAULT_LOGIN_USERNAME}`,
@@ -3598,10 +3620,11 @@ const seedUsers = () => {
   );
   const account = db.prepare("SELECT id FROM users WHERE username=?").get(DEFAULT_LOGIN_USERNAME);
   if (account?.id) {
+    const seededAccount = db.prepare("SELECT password FROM users WHERE id=?").get(account.id);
     syncUserToMysql({
       id: account.id,
       username: DEFAULT_LOGIN_USERNAME,
-      password: passwordHash,
+      password: seededAccount?.password || passwordHash,
       role: "super_admin",
       level: 1,
       parentId: null,
@@ -3621,7 +3644,7 @@ const seedUsers = () => {
     }
     syncWalletToMysql({
       userId: account.id,
-      balance: ADMIN_INITIAL_BALANCE,
+      balance: toNum(db.prepare("SELECT balance FROM wallets WHERE user_id=?").get(account.id)?.balance, 0),
       exposer: 0,
       casinoExposer: 0,
       updatedAt: created,
@@ -3683,9 +3706,7 @@ const seedTestAccounts = () => {
   const passwordHash = hashPass(TEST_ACCOUNT_PASSWORD);
   const accounts = [
     { id: "test_admin_001", username: "testadmin001", role: "admin", level: 2, parentId: `admin_${DEFAULT_LOGIN_USERNAME}`, balance: 0 },
-    { id: "test_super_master_001", username: "testsupermaster001", role: "super_master", level: 3, parentId: "test_admin_001", balance: 0 },
-    { id: "test_sub_super_master_001", username: "testsubsupermaster001", role: "sub_super_master", level: 4, parentId: "test_super_master_001", balance: 0 },
-    { id: "test_master_001", username: "testmaster001", role: "master", level: 5, parentId: "test_sub_super_master_001", balance: 0 },
+    { id: "test_master_001", username: "testmaster001", role: "master", level: 3, parentId: "test_admin_001", balance: 0 },
   ];
   const insertUser = db.prepare(
     "INSERT INTO users (id,username,password,role,level,parent_id,session_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password=excluded.password,role=excluded.role,level=excluded.level,parent_id=excluded.parent_id,updated_at=excluded.updated_at"
@@ -4873,6 +4894,9 @@ const mapCasinoProviderTxRow = (row) => ({
   createdAt: row?.created_at || null,
   updatedAt: row?.updated_at || null,
 });
+const providerRollbackOfStmt = db.prepare(
+  "SELECT 1 FROM casino_provider_transactions WHERE lower(action)='rollback' AND lower(status)='success' AND related_txn_key=? LIMIT 1"
+);
 const applyProviderWalletOperationTx = db.transaction((input) => {
   const now = nowIso();
   const userId = String(input?.user?.id || "").trim();
@@ -4914,7 +4938,8 @@ const applyProviderWalletOperationTx = db.transaction((input) => {
       status = "failed";
       code = 6;
       msg = "Invalid amount";
-    } else if (beforeBalance < amount) {
+    } else if (normalizeMoneyAmount(beforeBalance - toNum(walletBefore?.exposer, 0)) < amount) {
+      // Coins locked in open sports bets cannot be spent in the casino.
       status = "failed";
       code = 9;
       msg = "Insufficient balance";
@@ -4940,8 +4965,26 @@ const applyProviderWalletOperationTx = db.transaction((input) => {
       msg = "Reference transaction not found";
     } else {
       relatedTxnKey = String(ref?.txn_key || relatedTxnKey || "").trim();
-      const rollbackAmount = amount > 0 ? amount : normalizeMoneyAmount(ref?.amount);
-      if (rollbackAmount <= 0) {
+      const refAmount = normalizeMoneyAmount(ref?.amount);
+      const rollbackAmount = amount > 0 ? amount : refAmount;
+      if (String(ref?.user_id || "") !== userId) {
+        status = "failed";
+        code = 7;
+        msg = "Reference transaction belongs to another player";
+      } else if (String(ref?.status || "").toLowerCase() !== "success") {
+        // A failed debit never took coins, so there is nothing to refund.
+        status = "failed";
+        code = 7;
+        msg = "Reference transaction did not succeed";
+      } else if (providerRollbackOfStmt.get(relatedTxnKey)) {
+        status = "failed";
+        code = 7;
+        msg = "Transaction already rolled back";
+      } else if (rollbackAmount > refAmount + 1e-9) {
+        status = "failed";
+        code = 6;
+        msg = "Rollback amount exceeds the original transaction";
+      } else if (rollbackAmount <= 0) {
         status = "failed";
         code = 6;
         msg = "Invalid rollback amount";
@@ -4992,7 +5035,8 @@ const applyProviderWalletOperationTx = db.transaction((input) => {
       String(input?.externalUserId || "").trim(),
       String(input?.user?.username || "").trim(),
       action,
-      amount,
+      // Store what actually moved (a rollback may omit its amount).
+      action === "rollback" && status === "success" ? normalizeMoneyAmount(Math.abs(afterBalance - beforeBalance)) : amount,
       status,
       beforeBalance,
       afterBalance,
@@ -5042,40 +5086,25 @@ const normalizeMobileNumber = (value) => String(value || "").trim().replace(/[^\
 const normalizeAdminPartnershipType = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "master";
-  if (["super_admin", "superadmin"].includes(raw)) return "super_admin";
-  if (["admin", "master agent", "master-agent", "master_agent", "mdl"].includes(raw)) return "admin";
-  if (["super master", "super-master", "super_master", "supermaster"].includes(raw)) return "super_master";
-  if (["sub super master", "sub-super-master", "sub_super_master", "subsupermaster"].includes(raw)) return "sub_super_master";
-  if (["master", "master_account", "master account", "sub_admin", "subadmin", "agent", "dl"].includes(raw)) return "master";
-  if (["client", "user", "player"].includes(raw)) return "client";
-  return "other";
+  const role = normalizePanelRole(raw, "");
+  if (role === "user") return "client";
+  return role || "other";
 };
 const panelRoleToPartnershipType = (role) => {
   const normalizedRole = normalizePanelRole(role, "user");
-  if (normalizedRole === "super_admin") return "super_admin";
-  if (normalizedRole === "admin") return "admin";
-  if (normalizedRole === "super_master") return "super_master";
-  if (normalizedRole === "sub_super_master") return "sub_super_master";
-  if (normalizedRole === "master") return "master";
-  return "client";
+  return normalizedRole === "user" ? "client" : normalizedRole;
 };
 const partnershipTypeToPanelRole = (partnershipType) => {
   const normalizedType = normalizeAdminPartnershipType(partnershipType);
-  if (normalizedType === "super_admin") return "super_admin";
-  if (normalizedType === "admin") return "admin";
-  if (normalizedType === "super_master") return "super_master";
-  if (normalizedType === "sub_super_master") return "sub_super_master";
-  if (normalizedType === "master") return "master";
+  if (["super_admin", "admin", "master"].includes(normalizedType)) return normalizedType;
   return "user";
 };
 const resolveAccountRoleFromInput = (body = {}, actorRole = "user") => {
   const explicitRoleValue = body.role ?? body.accountType ?? body.account_type ?? body.userType ?? body.user_type ?? "";
   const explicitRoleText = String(explicitRoleValue || "").trim();
-  let requestedRole = explicitRoleText
+  const requestedRole = explicitRoleText
     ? normalizePanelRole(explicitRoleText, "user")
     : partnershipTypeToPanelRole(body.partnershipType || body.partnership);
-  const normalizedActorRole = normalizePanelRole(actorRole, "user");
-  if (normalizedActorRole === "master" && requestedRole === "master") requestedRole = "user";
   return normalizePanelRole(requestedRole, "user");
 };
 const maskTransactionCode = (value) => {
@@ -5138,6 +5167,105 @@ const buildAdminClientListItem = (row) => ({
   createdAt: row?.created_at || null,
   updatedAt: row?.updated_at || null,
 });
+// ---- Report helpers ---------------------------------------------------
+// Realised P/L = coins won/lost on settled sports bets (ledger) + casino net.
+const REPORT_BET_KINDS = ["bet_win", "bet_loss", "bet_rollback"];
+const DEPOSIT_KINDS = ["deposit", "deposit_request", "opening_credit", "token_redeem"];
+const WITHDRAW_KINDS = ["withdraw", "withdraw_request"];
+const sqlList = (items) => items.map((k) => `'${k}'`).join(",");
+const CASINO_SIGNED_SQL = `
+  SELECT t.id, t.user_id AS uid, t.created_at AS ts, t.game_code, t.provider_name, t.vendor_code, t.provider_round_id, t.action,
+    CASE lower(t.action)
+      WHEN 'credit' THEN t.amount
+      WHEN 'debit' THEN -t.amount
+      WHEN 'rollback' THEN CASE lower(r.action) WHEN 'credit' THEN -t.amount ELSE t.amount END
+      ELSE 0 END AS v
+  FROM casino_provider_transactions t
+  LEFT JOIN casino_provider_transactions r ON r.txn_key=t.related_txn_key
+  WHERE lower(t.status)='success'`;
+const realizedPnlMap = ({ fromIso = null, toIso = null } = {}) => {
+  const range = (col) => `${fromIso ? ` AND ${col}>=@from` : ""}${toIso ? ` AND ${col}<=@to` : ""}`;
+  const rows = db
+    .prepare(
+      `SELECT uid, ROUND(SUM(v),2) AS pnl FROM (
+         SELECT to_user_id AS uid, amount AS v FROM coin_ledger WHERE kind IN (${sqlList(REPORT_BET_KINDS)})${range("created_at")}
+         UNION ALL SELECT from_user_id, -amount FROM coin_ledger WHERE kind IN (${sqlList(REPORT_BET_KINDS)})${range("created_at")}
+         UNION ALL SELECT uid, v FROM (${CASINO_SIGNED_SQL}) c WHERE 1=1${range("ts")}
+       ) GROUP BY uid`
+    )
+    .all({ ...(fromIso ? { from: fromIso } : {}), ...(toIso ? { to: toIso } : {}) });
+  return new Map(rows.map((r) => [String(r.uid), toNum(r.pnl, 0)]));
+};
+const realizedPnlForUserStmt = db.prepare(
+  `SELECT ROUND(COALESCE(SUM(v),0),2) AS pnl FROM (
+     SELECT amount AS v FROM coin_ledger WHERE kind IN (${sqlList(REPORT_BET_KINDS)}) AND to_user_id=@u
+     UNION ALL SELECT -amount FROM coin_ledger WHERE kind IN (${sqlList(REPORT_BET_KINDS)}) AND from_user_id=@u
+     UNION ALL SELECT v FROM (${CASINO_SIGNED_SQL}) c WHERE uid=@u
+   )`
+);
+const realizedPnlForUser = (userId) => toNum(realizedPnlForUserStmt.get({ u: String(userId) })?.pnl, 0);
+const ledgerSumsByUser = ({ kinds, side, fromIso = null, toIso = null }) => {
+  const col = side === "to" ? "to_user_id" : "from_user_id";
+  const rows = db
+    .prepare(
+      `SELECT ${col} AS uid, ROUND(SUM(amount),2) AS total FROM coin_ledger WHERE kind IN (${sqlList(kinds)})${fromIso ? " AND created_at>=@from" : ""}${toIso ? " AND created_at<=@to" : ""} GROUP BY ${col}`
+    )
+    .all({ ...(fromIso ? { from: fromIso } : {}), ...(toIso ? { to: toIso } : {}) });
+  return new Map(rows.map((r) => [String(r.uid), toNum(r.total, 0)]));
+};
+const parseReportDate = (value, endOfDay = false) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const ms = Date.parse(raw.length <= 10 ? raw + (endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z") : raw);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
+// The account a report is about: a userId/username in the actor's downline, else the actor.
+const resolveReportSubject = (req, res, src) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) {
+    res.status(401).json(env("Unauthorized", {}, true, 401));
+    return null;
+  }
+  const authRole = reqAuthRole(req, authUser.role);
+  const wantedId = String(src?.userId || src?.user_id || "").trim();
+  const wantedName = String(src?.username || "").trim();
+  const subject = (wantedId && getUserById(wantedId)) || (wantedName && getUserByUsername(wantedName)) || (wantedId || wantedName ? null : authUser);
+  if (!subject) {
+    res.status(404).json(env("User not found", {}, true, 404));
+    return null;
+  }
+  if (!canActorAccessTargetUser(authUser, authRole, subject)) {
+    res.status(403).json(env("Access denied", {}, true, 403));
+    return null;
+  }
+  return { authUser, authRole, subject };
+};
+const sportOfMatchStmt = db.prepare("SELECT m.sport_id, m.name FROM matches m WHERE m.match_id=?");
+// "If this runner wins" net for players, keyed marketId_selectionId.
+const buildOpenBook = (betRows) => {
+  const book = {};
+  const runnersByMarket = new Map();
+  for (const bet of betRows) {
+    const key = String(bet.market_id);
+    if (!runnersByMarket.has(key)) runnersByMarket.set(key, new Set());
+    runnersByMarket.get(key).add(String(bet.selection_id));
+    const ext = safeParse(bet.external_json, {}) || {};
+    const section = Array.isArray(ext.section) ? ext.section : safeParse(bet.section_json, []) || [];
+    section.forEach((r) => r?.sid && runnersByMarket.get(key).add(String(r.sid)));
+  }
+  for (const bet of betRows) {
+    const stake = toNum(bet.stack, 0);
+    const profit = Math.round(stake * (toNum(bet.odds, 0) - 1) * 100) / 100;
+    const isBack = toNum(bet.is_back, 1) === 1;
+    for (const sel of runnersByMarket.get(String(bet.market_id))) {
+      const onWinner = sel === String(bet.selection_id);
+      const v = isBack ? (onWinner ? profit : -stake) : (onWinner ? -profit : stake);
+      const k = `${bet.market_id}_${sel}`;
+      book[k] = Math.round((toNum(book[k], 0) + v) * 100) / 100;
+    }
+  }
+  return book;
+};
 const buildUserListItem = (row) => {
   const profile = parseProfileJson(row?.profile_json || row?.data_json || "{}");
   const status = profile?.status && typeof profile.status === "object" ? profile.status : {};
@@ -5155,12 +5283,13 @@ const buildUserListItem = (row) => {
     profile?.partnership && typeof profile.partnership === "object" && !Array.isArray(profile.partnership)
       ? profile.partnership
       : {};
+  // Credit reference is only what the parent set; it is never the balance.
   const creditRefrencesRaw =
     profile?.creditRefrences !== undefined
       ? profile.creditRefrences
       : profile?.creditReferences !== undefined
         ? profile.creditReferences
-        : walletBalance;
+        : toNum(row?.credit_limit, 0);
   const exposerLimitRaw =
     profile?.exposerLimit !== undefined
       ? profile.exposerLimit
@@ -5181,7 +5310,7 @@ const buildUserListItem = (row) => {
     sessionId: toNum(row?.session_id, Date.now()),
     isLogin,
     betLock,
-    creditRefrences: toNum(creditRefrencesRaw, walletBalance),
+    creditRefrences: toNum(creditRefrencesRaw, 0),
     exposerLimit: toNum(exposerLimitRaw, 0),
     partnership,
     service:
@@ -5192,7 +5321,7 @@ const buildUserListItem = (row) => {
       balance: walletBalance,
       exposer: walletExposer,
       casinoexposer: walletCasinoExposer,
-      profitLoss: toNum(profile?.profitLoss, 0),
+      profitLoss: toNum(row?.profit_loss ?? (row?.id ? realizedPnlForUser(row.id) : 0), 0),
     },
     profile,
     createdAt: row?.created_at || row?.createdAt || null,
@@ -5338,16 +5467,10 @@ const getReqAuthState = (req) => {
   if (req) req.__authState = result;
   return result;
 };
+// Identity comes only from a valid login token; never from the request body.
 const reqUser = (req) => {
   const authState = getReqAuthState(req);
-  if (authState.ok && authState.user) return authState.user;
-  if (tokenFromReq(req)) {
-    return null;
-  }
-  if (req.body?.userId) return getUserById(String(req.body.userId));
-  if (req.query?.userId) return getUserById(String(req.query.userId));
-  if (req.body?.username) return getUserByUsername(String(req.body.username));
-  return db.prepare("SELECT * FROM users WHERE role='user' ORDER BY created_at LIMIT 1").get();
+  return authState.ok && authState.user ? authState.user : null;
 };
 const reqAuthUser = (req) => {
   const authState = getReqAuthState(req);
@@ -5409,7 +5532,7 @@ const listManagedAdminStmt = db.prepare(
   FROM users u
   LEFT JOIN user_profiles p ON p.user_id = u.id
   LEFT JOIN admin_feature_permissions af ON af.user_id = u.id
-  WHERE lower(u.role) IN ('super_admin','admin','super_master','sub_super_master','master','sub_admin')
+  WHERE lower(u.role) IN ('super_admin','admin','master')
   ORDER BY datetime(u.created_at) DESC, u.created_at DESC`
 );
 const getAdminFeaturePermissionsForUser = (user, role) => {
@@ -5606,8 +5729,12 @@ const mapMatch = (r) => {
   };
 };
 
+// Saved snapshots may only stand in for public content (sports, casino lists,
+// banners). Never for balances, bets, statements, payments or user lists.
+const SNAPSHOT_BLOCKED = /^(account-statement|alluserbetlist|bets|get-bank-and-upi|get-deposit-withdraw|get-payment|payment|get-user-balance|profit-loss|user-info|admin\/(dashboard|userlist|activeuserlist|agentlist|bankuserlist|acccasinolist|acccreateload|favmasterlist|fraud\/|report\/|user\/|treedata|h_p\/bal|h_p\/casino\/book|m_p\/|casino\/gettoken))/i;
 const trySnapshot = (req, res, next) => {
   const p = req.path.replace(/^\/api\/?/, "");
+  if (SNAPSHOT_BLOCKED.test(p)) return res.status(404).json(env("Not available", {}, true, 404));
   const snap = loadSnapshot(p);
   if (snap === null || snap === undefined) return next();
   if (typeof snap === "string") {
@@ -6439,6 +6566,7 @@ const handleRegister = async (req, res) => {
     });
   }
   if (parentId) directChildUserIdsCache.delete(String(parentId));
+  descendantUserIdsCache.clear(); // every ancestor must see the new account at once
   userListResponseCache.clear();
   userListSuggestionCache.clear();
   if (regValidation.code) consumeRegistrationCode(regValidation.code, uid);
@@ -6515,7 +6643,7 @@ app.get("/api/admin/masters", (req, res) => {
   const authRole = reqAuthRole(req, authUser.role);
   if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE role IN ('admin','super_master','sub_super_master','master','sub_admin') ORDER BY role,username").all();
+  const rows = db.prepare("SELECT id,username,role,parent_id FROM users WHERE lower(role)='master' ORDER BY username").all();
   const visibleRows = rows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
   return res.json(env("", visibleRows));
 });
@@ -6561,6 +6689,7 @@ app.post("/api/admin/masters", (req, res) => {
       );
     })();
     directChildUserIdsCache.delete(String(authUser.id));
+    descendantUserIdsCache.clear();
     userListResponseCache.clear();
     return res.status(201).json(env("Master Account created", { userId, username, role: "master", parentId: authUser.id }));
   } catch (e) {
@@ -6684,7 +6813,7 @@ app.get("/api/admin/dashboard", (req, res) => {
     .prepare(
       `SELECT b.user_id, b.stack, b.settlement_net, b.market_name, b.gtype, b.type, s.name AS sport_name
        FROM bets b LEFT JOIN matches m ON m.match_id=b.match_id LEFT JOIN sports s ON s.sport_id=m.sport_id
-       WHERE b.created_at>=? AND b.created_at<=?`
+       WHERE COALESCE(b.settled_at,b.created_at)>=? AND COALESCE(b.settled_at,b.created_at)<=?`
     )
     .all(fromIso, toIso)
     .filter((b) => playerIds.has(String(b.user_id)));
@@ -6715,15 +6844,13 @@ app.get("/api/admin/dashboard", (req, res) => {
     else bump(sportsMap, sportName, { amount: stack, pnl: net });
   });
   const casinoRows = db
-    .prepare("SELECT user_id,action,amount,provider_name,vendor_code FROM casino_provider_transactions WHERE created_at>=? AND created_at<=? AND status='success'")
+    .prepare(`SELECT uid AS user_id, v, provider_name, vendor_code FROM (${CASINO_SIGNED_SQL}) WHERE ts>=? AND ts<=?`)
     .all(fromIso, toIso)
     .filter((r) => playerIds.has(String(r.user_id)));
   const casinoNet = new Map(DASH_CASINO_PROVIDERS.map(([label]) => [label, 0]));
   let casinoTotal = 0;
   casinoRows.forEach((r) => {
-    const action = String(r.action || "").toLowerCase();
-    const amount = toNum(r.amount, 0);
-    const signed = action === "credit" || action === "rollback" ? amount : action === "debit" ? -amount : 0;
+    const signed = toNum(r.v, 0);
     if (!signed) return;
     const text = String(r.provider_name || "") + " " + String(r.vendor_code || "");
     const hit = DASH_CASINO_PROVIDERS.find(([, re]) => re.test(text));
@@ -6745,11 +6872,15 @@ app.get("/api/admin/dashboard", (req, res) => {
     const [sport, market] = k.split("\u0001");
     return { sport, market, amount: round(v) };
   });
-  const cashRows = db
-    .prepare("SELECT user_id,type,amount FROM deposits WHERE status='approved' AND updated_at>=? AND updated_at<=?")
-    .all(fromIso, toIso)
-    .filter((r) => playerIds.has(String(r.user_id)));
-  const sumType = (t) => round(cashRows.filter((r) => r.type === t).reduce((a, r) => a + toNum(r.amount, 0), 0));
+  // Coins moved into / out of my downline (parent transfers, approved requests, opening coins, tokens).
+  const downlineIds = new Set(users.map((u) => String(u.id)));
+  const sumLedger = (kinds, side) => {
+    const map = ledgerSumsByUser({ kinds, side, fromIso, toIso });
+    let total = 0;
+    for (const [uid, amount] of map) if (downlineIds.has(uid)) total += amount;
+    return round(total);
+  };
+  const sumType = (t) => (t === "deposit" ? sumLedger(DEPOSIT_KINDS, "to") : sumLedger(WITHDRAW_KINDS, "from"));
   const commissionRows = db
     .prepare("SELECT user_id,amount FROM commission_records WHERE created_at>=? AND created_at<=?")
     .all(fromIso, toIso)
@@ -6929,7 +7060,15 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const city = String(body.city || "").trim();
   const mobileNumber = normalizeMobileNumber(body.mobileNumber || body.mobile || body.phone);
   const referenceName = String(body.referenceName || body.reference_name || "").trim();
-  const creditAmount = Math.max(0, toNum(body.creditAmount ?? body.credit ?? body.amount, 0));
+  const creditInput = body.creditAmount ?? body.credit ?? body.amount;
+  let creditAmount = 0;
+  if (creditInput !== undefined && creditInput !== null && String(creditInput).trim() !== "" && toNum(creditInput, 0) !== 0) {
+    try {
+      creditAmount = coinEngine.normalizeAmount(creditInput);
+    } catch (e) {
+      return sendCoinError(res, e);
+    }
+  }
   let userLimits;
   const requestedRole = resolveAccountRoleFromInput(body, authRole);
   try {
@@ -6947,6 +7086,10 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const remark = String(body.remark || "").trim();
   const transactionCode = String(body.transactionCode || body.transaction_code || "").trim();
   const partnershipInput = body.partnerships ?? body.partnerShares ?? body.partnership_share_pool ?? [];
+  const hasPartnershipInput = Array.isArray(partnershipInput) && partnershipInput.some((p) => toNum(p?.sharePercentage ?? p?.share_percentage ?? p?.share, 0) > 0);
+  if (hasPartnershipInput && requestedRole !== "user") {
+    return res.status(400).json(env("A Master commission share can only be set on User accounts", {}, true, 400));
+  }
 
   if (!username) return res.status(400).json(env("User name is required", {}, true, 400));
   if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
@@ -6956,7 +7099,10 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   if (!password) return res.status(400).json(env("Password is required", {}, true, 400));
   if (password.length < 4) return res.status(400).json(env("Password must be at least 4 characters", {}, true, 400));
   if (password !== confirmPassword) return res.status(400).json(env("Confirm password does not match", {}, true, 400));
-  if (!transactionCode) return res.status(400).json(env("Transaction code is required", {}, true, 400));
+  if (!transactionCode) return res.status(400).json(env("Transaction password is required", {}, true, 400));
+  if (!verifyActorTransactionPassword(authUser, transactionCode)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
+  }
 
   if (getUserByUsername(username)) return res.status(409).json(env("User name already exists", {}, true, 409));
   const localDup = db.prepare("SELECT 1 FROM admin_client_general WHERE username=? LIMIT 1").get(username);
@@ -6970,10 +7116,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const sessionId = Date.now();
   const parentId = getCreationParentId(authUser, authRole);
   const accountLevel = Math.max(1, panelRoleDepth(requestedRole) + 1);
-  const parentWallet = parentId ? ensureWallet(parentId) : null;
-  if (parentWallet && creditAmount > toNum(parentWallet.balance, 0)) {
-    return res.status(400).json(env("Opening credit exceeds the parent available balance", {}, true, 400));
-  }
+  if (!parentId) return res.status(400).json(env("Unable to resolve the parent account", {}, true, 400));
   const depositTokenCode = String(body.depositToken || body.deposit_token || "").trim().toUpperCase();
   let depositToken = null;
   if (depositTokenCode) {
@@ -7031,19 +7174,41 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       }
       db.prepare("INSERT INTO wallets (user_id,balance,exposer,casino_exposer,updated_at) VALUES (?,?,?,?,?)").run(
         userId,
-        openingBalance,
+        0,
         0,
         0,
         now
       );
-      if (parentWallet && creditAmount > 0) {
-        db.prepare("UPDATE wallets SET balance=balance-?,updated_at=? WHERE user_id=?").run(creditAmount, now, parentId);
+      // Opening credit comes out of the parent's wallet.
+      if (creditAmount > 0) {
+        coinEngine.transfer({
+          childId: userId,
+          direction: "deposit",
+          amount: creditAmount,
+          actorId: authUser.id,
+          kind: "opening_credit",
+          remark: "Opening credit for " + username,
+        });
       }
+      // A deposit token is issued by Super Admin; its value comes out of the issuer's wallet.
       if (depositToken) {
         const redeemed = db
           .prepare("UPDATE deposit_tokens SET status='used',used_by=?,used_for=?,used_at=?,updated_at=? WHERE id=? AND status='active'")
           .run(authUser.id, userId, now, now, depositToken.id);
-        if (!redeemed.changes) throw new Error("Deposit token is no longer available");
+        if (!redeemed.changes) throw new CoinError("Deposit token is no longer available");
+        if (tokenValue > 0) {
+          coinEngine.move({
+            fromId: depositToken.created_by,
+            toId: userId,
+            amount: tokenValue,
+            kind: "token_redeem",
+            direction: "deposit",
+            actorId: authUser.id,
+            refId: depositToken.id,
+            remark: "Deposit token " + depositToken.code,
+            insufficientMessage: "Token issuer has insufficient balance",
+          });
+        }
       }
       db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
         userId,
@@ -7051,7 +7216,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
         now,
         now
       );
-      if (Array.isArray(partnershipInput)) {
+      if (requestedRole === "user" && Array.isArray(partnershipInput)) {
         const partnership = saveUserPartnerships(userId, partnershipInput, authUser, authRole, now);
         db.prepare("UPDATE user_profiles SET data_json=?,updated_at=? WHERE user_id=?").run(
           JSON.stringify({ ...profile, partnership: { ...profile.partnership, partners: partnership.entries.map((entry) => ({ partnerId: entry.partnerId, sharePercentage: entry.sharePercentage })), remainingPercentage: partnership.remainingShare } }),
@@ -7076,7 +7241,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       );
       db.prepare(
         "INSERT INTO admin_client_partnership (id,general_id,partnership_type,remark,transaction_code,created_at,updated_at) VALUES (?,?,?,?,?,?,?)"
-      ).run(partnershipId, generalId, partnershipType, remark || null, encryptTransactionCode(transactionCode), now, now);
+      ).run(partnershipId, generalId, partnershipType, remark || null, encryptTransactionCode("verified"), now, now);
       if (requestedRole !== "user") {
         saveAdminFeaturePermissionsForUser({
           userId,
@@ -7086,11 +7251,13 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       }
     })();
   } catch (e) {
+    if (e instanceof CoinError) return sendCoinError(res, e);
     const message = String(e?.message || "Unable to save user");
-    const duplicate = /unique|constraint/i.test(message);
+    const duplicate = /unique constraint failed: (users|admin_client_general)/i.test(message);
     return res.status(duplicate ? 409 : 500).json(env(duplicate ? "User already exists" : message, {}, true, duplicate ? 409 : 500));
   }
   if (parentId) directChildUserIdsCache.delete(String(parentId));
+  descendantUserIdsCache.clear(); // every ancestor must see the new account at once
   userListResponseCache.clear();
   userListSuggestionCache.clear();
 
@@ -7112,7 +7279,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
     }),
     syncWalletToMysql({
       userId,
-      balance: openingBalance,
+      balance: toNum(getWallet(userId)?.balance, 0),
       exposer: 0,
       casinoExposer: 0,
       updatedAt: now,
@@ -7128,6 +7295,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(userId),
     }),
   ]).catch(() => {});
+  syncWalletsAfterCoinMove([parentId, depositToken?.created_by]);
   addNotification(parentId, "New account created", username + " (" + requestedRole + ") was created with opening balance " + openingBalance, "account", username);
 
   return res.json(
@@ -7236,7 +7404,8 @@ app.get("/api/admin/my-permissions", (req, res) => {
 app.get("/api/admin/managed-admins", (_req, res) => sendAddAdminFeatureRemoved(res));
 app.post("/api/admin/create-admin-account", (_req, res) => sendAddAdminFeatureRemoved(res));
 app.post("/api/admin/update-admin-permissions", (_req, res) => sendAddAdminFeatureRemoved(res));
-app.get("/api/get-registration-code", (_req, res) => {
+app.get("/api/get-registration-code", (req, res) => {
+  if (!getOwnerAuthContext(req, res)) return;
   const rows = db
     .prepare(
       "SELECT code,description,is_active,max_uses,used_count,last_used_by,created_by,created_at,updated_at FROM registration_codes WHERE is_active=1 ORDER BY created_at ASC"
@@ -7256,6 +7425,8 @@ app.get("/api/get-registration-code", (_req, res) => {
   res.json(env("", rows));
 });
 app.post("/api/create-registration-code", (req, res) => {
+  const ownerCtx = getOwnerAuthContext(req, res);
+  if (!ownerCtx) return;
   const code = normalizeCode(req.body?.code);
   if (!code) return res.status(400).json(env("Code is required", {}, true, 400));
   const maxUses = req.body?.maxUses === undefined || req.body?.maxUses === null ? null : toNum(req.body.maxUses, 0);
@@ -7268,7 +7439,7 @@ app.post("/api/create-registration-code", (req, res) => {
     maxUses,
     0,
     null,
-    String(req.body?.createdBy || DEFAULT_LOGIN_USERNAME),
+    String(ownerCtx.authUser.username || DEFAULT_LOGIN_USERNAME),
     nowIso(),
     nowIso()
   );
@@ -7287,7 +7458,7 @@ app.post("/api/create-registration-code", (req, res) => {
       maxUses,
       0,
       null,
-      String(req.body?.createdBy || DEFAULT_LOGIN_USERNAME),
+      String(ownerCtx.authUser.username || DEFAULT_LOGIN_USERNAME),
       nowIso(),
       nowIso(),
     ]
@@ -7340,7 +7511,7 @@ const login = (admin = false) => (req, res) => {
   if (!verifyPass(password, u.password)) return res.status(401).json({ message: "Invalid credentials" });
 
   const normalizedRole = String(u.role || "").trim().toLowerCase();
-  const allowedAdminRoles = new Set(["super_admin", "admin", "super_master", "sub_super_master", "master", "sub_admin", "1", "2", "3"]);
+  const allowedAdminRoles = new Set(["super_admin", "admin", "master", "1", "2", "3"]);
   const isDefaultAdminCredential = username === DEFAULT_LOGIN_USERNAME;
   const canUseAdminLogin = isDefaultAdminCredential || allowedAdminRoles.has(normalizedRole);
 
@@ -7481,10 +7652,17 @@ app.post("/api/admin/update-user-limits", (req, res) => {
   try {
     limits = readUserLimits(req.body || {});
     const now = nowIso();
-    const partnershipInput = req.body?.partnerships ?? req.body?.partnerShares ?? req.body?.partnership_share_pool ?? [];
+    const partnershipInput = req.body?.partnerships ?? req.body?.partnerShares ?? req.body?.partnership_share_pool;
+    const isUserAccount = normalizePanelRole(target.role, "user") === "user";
     db.transaction(() => {
-      db.prepare("DELETE FROM user_partnerships WHERE user_id=?").run(target.id);
-      const partnership = saveUserPartnerships(target.id, partnershipInput, authUser, authRole, now);
+      let partnership;
+      if (partnershipInput !== undefined && isUserAccount) {
+        db.prepare("DELETE FROM user_partnerships WHERE user_id=?").run(target.id);
+        partnership = saveUserPartnerships(target.id, partnershipInput, authUser, authRole, now);
+      } else {
+        const entries = db.prepare("SELECT partner_id AS partnerId,share_percentage AS sharePercentage FROM user_partnerships WHERE user_id=?").all(target.id);
+        partnership = { entries, remainingShare: Math.round((100 - entries.reduce((a, e) => a + toNum(e.sharePercentage, 0), 0)) * 100) / 100 };
+      }
       db.prepare("UPDATE users SET min_bet=?,max_bet=?,credit_limit=?,partnership_remaining=?,updated_at=? WHERE id=?").run(
         limits.minBet,
         limits.maxBet,
@@ -8041,137 +8219,215 @@ app.get("/api/get-exposer-event", (req, res) => {
   res.json(env("", mapped));
 });
 
+const getUserProfileJson = (userId) => {
+  const row = db.prepare("SELECT data_json FROM user_profiles WHERE user_id=?").get(String(userId || ""));
+  return row ? safeParse(row.data_json, {}) || {} : {};
+};
+// The acting account confirms money movements with its transaction password,
+// or with its login password if no transaction password has been set yet.
+const verifyActorTransactionPassword = (actor, input) => {
+  const value = String(input || "").trim();
+  if (!value) return false;
+  const txnHash = String(getUserProfileJson(actor.id).transactionPasswordHash || "");
+  if (txnHash) return txnHash === hashPass(value);
+  const fresh = getUserById(actor.id);
+  return !!fresh && verifyPass(value, String(fresh.password || ""));
+};
+// Coins move only between a child and its direct parent. The parent operates
+// its own children; Super Admin may operate any parent/child pair.
+const canActorOperateCoins = (actor, actorRole, child) => {
+  if (!actor || !child || String(actor.id) === String(child.id)) return false;
+  if (isOwnerPanelRole(actorRole)) return true;
+  return String(child.parent_id || "") === String(actor.id);
+};
+const syncWalletsAfterCoinMove = (userIds) => {
+  for (const userId of [...new Set(userIds.filter(Boolean).map(String))]) {
+    const wallet = getWallet(userId);
+    if (!wallet) continue;
+    syncWalletToMysql({
+      userId,
+      balance: toNum(wallet.balance, 0),
+      exposer: toNum(wallet.exposer, 0),
+      casinoExposer: toNum(wallet.casino_exposer, 0),
+      updatedAt: wallet.updated_at || nowIso(),
+    }).catch(() => {});
+  }
+  userListResponseCache.clear();
+};
+const sendCoinError = (res, e, fallback = "Unable to complete the transfer") => {
+  const status = e instanceof CoinError ? e.status : 500;
+  if (!(e instanceof CoinError)) console.error("[coins]", e);
+  return res.status(status).json(env(e instanceof CoinError ? e.message : fallback, {}, true, status));
+};
+const readIdempotencyKey = (req) =>
+  String(req.get("Idempotency-Key") || req.body?.idempotencyKey || req.body?.requestId || "").trim() || null;
+
 app.post("/api/user-account-balance", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
   const userId = String(req.body?.userId || req.body?.id || "").trim();
-  const amt = toNum(req.body?.amount, NaN);
-  if (!userId || !Number.isFinite(amt)) return res.status(400).json(env("userId and amount are required", {}, true, 400));
-  if (amt <= 0) return res.status(400).json(env("Amount must be greater than zero", {}, true, 400));
+  if (!userId) return res.status(400).json(env("userId is required", {}, true, 400));
   const target = getUserById(userId);
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
-  if (!canActorAccessTargetUser(authUser, authRole, target)) {
-    return res.status(403).json(env("Access denied", {}, true, 403));
+  if (!canActorOperateCoins(authUser, authRole, target)) {
+    return res.status(403).json(env("Only the parent account can deposit to or withdraw from this account", {}, true, 403));
   }
   const updateType = String(req.body?.balanceUpdateType || "D").trim().toUpperCase();
   if (!["D", "W"].includes(updateType)) return res.status(400).json(env("Invalid balance update type", {}, true, 400));
-  const parentUserId = String(req.body?.parentUserId || target.parent_id || "").trim();
-  const parent = parentUserId && parentUserId !== userId ? getUserById(parentUserId) : null;
-  if (parent && String(target.parent_id || "") !== parent.id) {
-    return res.status(400).json(env("Target user is not assigned to this parent", {}, true, 400));
+  if (!verifyActorTransactionPassword(authUser, req.body?.transactionPassword)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
   }
-  if (parent && !canActorAccessTargetUser(authUser, authRole, parent)) {
-    return res.status(403).json(env("Access denied", {}, true, 403));
+  try {
+    const entry = coinEngine.transfer({
+      childId: target.id,
+      direction: updateType === "D" ? "deposit" : "withdraw",
+      amount: req.body?.amount,
+      actorId: authUser.id,
+      remark: String(req.body?.remark || req.body?.narration || "").trim(),
+      idempotencyKey: readIdempotencyKey(req),
+    });
+    syncWalletsAfterCoinMove([entry.fromUserId, entry.toUserId]);
+    if (!entry.replayed) {
+      const verb = updateType === "D" ? "deposited to" : "withdrawn from";
+      addNotification(target.id, updateType === "D" ? "Coins deposited" : "Coins withdrawn", entry.amount + " coins " + verb + " your account by " + authUser.username, "wallet", authUser.username);
+    }
+    const childBalance = updateType === "D" ? entry.toBalanceAfter : entry.fromBalanceAfter;
+    const parentBalance = updateType === "D" ? entry.fromBalanceAfter : entry.toBalanceAfter;
+    return res.json(env(updateType === "D" ? "Deposit successful" : "Withdraw successful", {
+      transactionId: entry.id,
+      balance: childBalance,
+      parentBalance,
+      balanceUpdateType: updateType,
+      replayed: entry.replayed,
+    }));
+  } catch (e) {
+    return sendCoinError(res, e);
   }
-
-  const targetWallet = ensureWallet(userId);
-  const parentWallet = parent ? ensureWallet(parent.id) : null;
-  const targetBalance = toNum(targetWallet.balance, 0);
-  const parentBalance = parentWallet ? toNum(parentWallet.balance, 0) : null;
-  const nextTargetBalance = updateType === "D" ? targetBalance + amt : targetBalance - amt;
-  const nextParentBalance = parentWallet
-    ? updateType === "D"
-      ? parentBalance - amt
-      : parentBalance + amt
-    : null;
-  if (nextTargetBalance < 0) return res.status(400).json(env("Insufficient user balance", {}, true, 400));
-  if (nextParentBalance !== null && nextParentBalance < 0) {
-    return res.status(400).json(env("Insufficient parent balance", {}, true, 400));
-  }
-
-  const now = nowIso();
-  db.transaction(() => {
-    db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nextTargetBalance, now, userId);
-    if (parentWallet) db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nextParentBalance, now, parent.id);
-  })();
-  syncWalletToMysql({
-    userId,
-    balance: nextTargetBalance,
-    exposer: toNum(targetWallet.exposer, 0),
-    casinoExposer: toNum(targetWallet.casino_exposer, 0),
-    updatedAt: now,
-  }).catch(() => {});
-  if (parentWallet) {
-    syncWalletToMysql({
-      userId: parent.id,
-      balance: nextParentBalance,
-      exposer: toNum(parentWallet.exposer, 0),
-      casinoExposer: toNum(parentWallet.casino_exposer, 0),
-      updatedAt: now,
-    }).catch(() => {});
-  }
-  userListResponseCache.clear();
-  res.json(env("Balance updated", { balance: nextTargetBalance, parentBalance: nextParentBalance, balanceUpdateType: updateType }));
 });
 
+// Coin ledger: every deposit / withdraw between parent and child.
+app.get("/api/admin/coin-ledger", (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
+  const isOwner = isOwnerPanelRole(authRole);
+  const where = [];
+  const params = [];
+  const username = String(req.query?.username || "").trim();
+  if (username) {
+    const subject = getUserByUsername(username);
+    if (!subject) return res.json(env("", { items: [], total: 0 }));
+    if (!canActorAccessTargetUser(authUser, authRole, subject)) return res.status(403).json(env("Access denied", {}, true, 403));
+    where.push("(l.from_user_id=? OR l.to_user_id=?)");
+    params.push(subject.id, subject.id);
+  } else if (!isOwner) {
+    // Non-owners see entries that touch themselves or anyone in their downline.
+    where.push("(l.from_user_id=? OR l.to_user_id=? OR l.from_user_id IN (SELECT value FROM json_each(?)) OR l.to_user_id IN (SELECT value FROM json_each(?)))");
+    const downline = JSON.stringify([...getDescendantUserIdSet(authUser.id)]);
+    params.push(authUser.id, authUser.id, downline, downline);
+  }
+  const from = String(req.query?.from || "").trim();
+  const to = String(req.query?.to || "").trim();
+  const fromMs = from ? new Date(from).getTime() : null;
+  const toMs = to ? new Date(to).getTime() + (to.length <= 10 ? 86399999 : 0) : null;
+  if ([fromMs, toMs].some((ms) => ms !== null && !Number.isFinite(ms))) return res.status(400).json(env("Invalid date", {}, true, 400));
+  if (fromMs !== null) {
+    where.push("l.created_at >= ?");
+    params.push(new Date(fromMs).toISOString());
+  }
+  if (toMs !== null) {
+    where.push("l.created_at <= ?");
+    params.push(new Date(toMs).toISOString());
+  }
+  const direction = String(req.query?.direction || "").trim().toLowerCase();
+  if (["deposit", "withdraw", "settlement"].includes(direction)) {
+    where.push("l.direction=?");
+    params.push(direction);
+  }
+  const limit = Math.min(500, Math.max(1, Math.floor(toNum(req.query?.limit, 100))));
+  const page = Math.max(1, Math.floor(toNum(req.query?.page, 1)));
+  const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
+  const total = db.prepare(`SELECT COUNT(*) AS c FROM coin_ledger l ${whereSql}`).get(...params).c;
+  const rows = db
+      .prepare(
+        `SELECT l.*, fu.username AS from_username, fu.role AS from_role, tu.username AS to_username, tu.role AS to_role, au.username AS actor_username
+         FROM coin_ledger l
+         LEFT JOIN users fu ON fu.id=l.from_user_id
+         LEFT JOIN users tu ON tu.id=l.to_user_id
+         LEFT JOIN users au ON au.id=l.actor_id
+         ${whereSql}
+         ORDER BY l.created_at DESC, l.rowid DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, (page - 1) * limit);
+  const items = rows.map((row) => ({
+    ...coinEngine.mapEntry(row),
+    fromUsername: row.from_username || row.from_user_id,
+    fromRole: normalizePanelRole(row.from_role, "user"),
+    toUsername: row.to_username || row.to_user_id,
+    toRole: normalizePanelRole(row.to_role, "user"),
+    actorUsername: row.actor_username || "",
+  }));
+  return res.json(env("", { items, total, page, limit }));
+});
+
+// Credit reference and exposure limit only. Balances change exclusively via
+// /api/user-account-balance (parent <-> child transfers).
 app.post("/api/update-user-wallet", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
+  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  if (req.body?.balance !== undefined || req.body?.exposer !== undefined || req.body?.casinoexposer !== undefined) {
+    return res.status(400).json(env("Balances cannot be set directly. Use Deposit or Withdraw.", {}, true, 400));
+  }
   const requestedUserId = String(req.body?.userId || req.body?.id || "").trim();
   const requestedUsername = String(req.body?.username || req.body?.userName || "").trim();
+  if (!requestedUserId && !requestedUsername) return res.status(400).json(env("userId or username is required", {}, true, 400));
   const target = (requestedUserId && getUserById(requestedUserId)) ||
     (requestedUsername && getUserByUsername(requestedUsername));
-  const userId = target?.id || requestedUserId;
-  if (!userId) return res.status(400).json(env("userId or username is required", {}, true, 400));
   if (!target) return res.status(404).json(env("User not found", {}, true, 404));
-  if (!canActorAccessTargetUser(authUser, authRole, target)) {
-    return res.status(403).json(env("Access denied", {}, true, 403));
+  if (!canActorOperateCoins(authUser, authRole, target)) {
+    return res.status(403).json(env("Only the parent account can change these limits", {}, true, 403));
   }
-  const targetParent = target.parent_id ? getUserById(String(target.parent_id)) : null;
-  const w = ensureWallet(userId);
   const walletUpdateType = String(req.body?.walletUpdateType || req.body?.type || "").trim().toUpperCase();
-  const amountProvided = req.body?.amount !== undefined;
-  const amount = toNum(req.body?.amount, NaN);
-  if (walletUpdateType === "CRD" && targetParent && Number.isFinite(amount)) {
-    const parentWallet = ensureWallet(targetParent.id);
-    if (amount > toNum(parentWallet.balance, 0)) {
-      return res.status(400).json(env("Credit reference exceeds the parent available balance", {}, true, 400));
-    }
+  if (!["CRD", "EXP"].includes(walletUpdateType)) return res.status(400).json(env("walletUpdateType must be CRD or EXP", {}, true, 400));
+  if (!verifyActorTransactionPassword(authUser, req.body?.transactionPassword)) {
+    return res.status(400).json(env("Invalid transaction password", {}, true, 400));
   }
-  const b = req.body?.balance !== undefined
-    ? toNum(req.body.balance, w.balance)
-    : walletUpdateType !== "EXP" && amountProvided && Number.isFinite(amount)
-      ? Math.max(0, amount)
-      : w.balance;
-  const e = req.body?.exposer !== undefined
-    ? toNum(req.body.exposer, w.exposer)
-    : walletUpdateType === "EXP" && amountProvided && Number.isFinite(amount)
-      ? Math.max(0, amount)
-      : w.exposer;
-  const c = req.body?.casinoexposer !== undefined ? toNum(req.body.casinoexposer, w.casino_exposer) : w.casino_exposer;
+  const amount = toNum(req.body?.amount, NaN);
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json(env("Amount must be zero or a positive number", {}, true, 400));
+  const value = Math.round(amount * 100) / 100;
   const now = nowIso();
-  db.prepare("UPDATE wallets SET balance=?,exposer=?,casino_exposer=?,updated_at=? WHERE user_id=?").run(b, e, c, now, userId);
-  if (walletUpdateType === "CRD") {
-    const creditReference = Math.max(0, Number.isFinite(amount) ? amount : toNum(target.credit_limit, 0));
-    const profileRow = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(userId);
-    const profile = profileRow ? safeParse(profileRow.data_json, {}) || {} : {};
-    profile.creditRefrences = creditReference;
-    profile.creditReferences = creditReference;
-    db.prepare("UPDATE users SET credit_limit=?,updated_at=? WHERE id=?").run(creditReference, now, userId);
+  const profileRow = db.prepare("SELECT data_json,created_at FROM user_profiles WHERE user_id=?").get(target.id);
+  const profile = profileRow ? safeParse(profileRow.data_json, {}) || {} : {};
+  db.transaction(() => {
+    if (walletUpdateType === "CRD") {
+      profile.creditRefrences = value;
+      profile.creditReferences = value;
+      db.prepare("UPDATE users SET credit_limit=?,updated_at=? WHERE id=?").run(value, now, target.id);
+    } else {
+      profile.exposureLimit = value;
+    }
     db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
-      userId,
+      target.id,
       JSON.stringify(profile),
       profileRow?.created_at || now,
       now
     );
-  }
-  syncWalletToMysql({
-    userId,
-    balance: b,
-    exposer: e,
-    casinoExposer: c,
-    updatedAt: now,
-  }).catch(() => {});
+  })();
   userListResponseCache.clear();
-  res.json(env("Wallet updated", {
-    userId,
+  const w = ensureWallet(target.id);
+  res.json(env(walletUpdateType === "CRD" ? "Credit reference updated" : "Exposure limit updated", {
+    userId: target.id,
     username: target.username,
-    balance: b,
-    exposer: e,
-    casinoexposer: c,
-    walletUpdateType: walletUpdateType || null,
+    balance: toNum(w.balance, 0),
+    exposer: toNum(w.exposer, 0),
+    casinoexposer: toNum(w.casino_exposer, 0),
+    walletUpdateType,
+    value,
   }));
 });
 
@@ -8211,9 +8467,10 @@ app.get("/api/get-user-list", async (req, res) => {
   }
 
   // Strict tree view: only direct children of the viewed account
+  const pnlByUser = realizedPnlMap();
   let items = rows
     .filter((row) => String(row.parent_id || "") === parentScopeId)
-    .map((row) => buildUserListItem(row))
+    .map((row) => buildUserListItem({ ...row, profit_loss: toNum(pnlByUser.get(String(row.id)), 0) }))
     .filter((u) => !isClientListBlockedRole(u.role));
   if (visibleIds instanceof Set) {
     items = items.filter((u) => visibleIds.has(String(u?._id || "")));
@@ -8349,76 +8606,180 @@ app.get("/api/get-parent-user-detail", (req, res) => {
     },
   }]));
 });
+// User Book (all figures are coins, from the logged-in account's point of view):
+//  uplevelcr    my credit reference (set by my parent)
+//  downlineob   coins held by everyone below me
+//  downcr       credit references I gave my direct children
+//  totalmasterb my balance + coins below me
+//  upperlvell   totalmasterb - my credit reference (position vs my upline)
+//  downpl       realised P/L of everyone below me
+//  available    my balance - my exposure
+//  mypl         my realised P/L (my share of downline bets, commission, own bets)
 app.get("/api/get-user-book", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
   const authRole = reqAuthRole(req, authUser.role);
   if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
-  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const allUserRows = queryUserRowsSqlite();
-  const visibleUsers = allUserRows.filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.id)));
-  const bets = db.prepare("SELECT user_id,pnl,stack,exposure,status FROM bets").all();
-  const userIds = new Set(visibleUsers.map((row) => String(row.id)));
-  const totals = { downlineob: 0, downcr: 0, totalmasterb: 0, downpl: 0, avpl: 0, mypl: 0 };
-  const visibleItems = visibleUsers.map(buildUserListItem);
-  if (!visibleItems.some((item) => String(item._id) === String(authUser.id))) {
-    const authRow = allUserRows.find((row) => String(row.id) === String(authUser.id));
-    if (authRow) visibleItems.push(buildUserListItem(authRow));
+  const rows = queryUserRowsSqlite();
+  const pnl = realizedPnlMap();
+  const below = isOwnerPanelRole(authRole)
+    ? new Set(rows.map((r) => String(r.id)).filter((uid) => uid !== String(authUser.id)))
+    : getDescendantUserIdSet(authUser.id);
+  const ownRow = rows.find((r) => String(r.id) === String(authUser.id));
+  const own = ownRow ? buildUserListItem({ ...ownRow, profit_loss: toNum(pnl.get(String(authUser.id)), 0) }) : null;
+  const round2 = (n) => Math.round(n * 100) / 100;
+  let downlineob = 0;
+  let downcr = 0;
+  let downpl = 0;
+  for (const row of rows) {
+    const uid = String(row.id);
+    if (!below.has(uid)) continue;
+    downlineob += toNum(row.wallet_balance, 0);
+    downpl += toNum(pnl.get(uid), 0);
+    if (String(row.parent_id || "") === String(authUser.id)) downcr += toNum(buildUserListItem({ ...row, profit_loss: 0 }).creditRefrences, 0);
   }
-  const authItem = visibleItems.find((item) => String(item._id) === String(authUser.id));
-  const parent = authUser.parent_id ? getUserById(String(authUser.parent_id)) : null;
-  const parentItem = parent ? buildUserListItem({
-    ...parent,
-    wallet_balance: toNum(ensureWallet(parent.id).balance, 0),
-    wallet_exposer: toNum(ensureWallet(parent.id).exposer, 0),
-    wallet_casino_exposer: toNum(ensureWallet(parent.id).casino_exposer, 0),
-    profile_json: db.prepare("SELECT data_json FROM user_profiles WHERE user_id=?").get(parent.id)?.data_json || "{}",
-  }) : null;
-  for (const item of visibleItems) {
-    if (String(item._id) === String(authUser.id) || item.role === "super_admin") continue;
-    totals.downcr += toNum(item.creditRefrences, 0);
-    totals.totalmasterb += toNum(item.balance?.balance, 0);
-    totals.downlineob += toNum(item.balance?.exposer, 0) + toNum(item.balance?.casinoexposer, 0);
-    totals.downpl += toNum(item.balance?.profitLoss, 0);
-  }
-  for (const bet of bets) {
-    if (!userIds.has(String(bet.user_id))) continue;
-    if (String(bet.user_id) === String(authUser.id)) {
-      totals.mypl += toNum(bet.pnl, 0);
-    } else {
-      totals.downlineob += toNum(bet.exposure, 0);
-      totals.downpl += toNum(bet.pnl, 0);
-    }
-  }
-  const ownBalance = toNum(authItem?.balance?.balance, 0);
-  const available = ownBalance - totals.downlineob;
-  const authProfitLoss = toNum(authItem?.balance?.profitLoss, 0);
-  const result = {
-    uplevelcr: toNum(parentItem?.creditRefrences, 0),
-    downlineob: Number(totals.downlineob.toFixed(2)),
-    downcr: Number(totals.downcr.toFixed(2)),
-    totalmasterb: Number(totals.totalmasterb.toFixed(2)),
-    upperlvell: Number(toNum(authItem?.balance?.balance, 0).toFixed(2)),
-    downpl: Number(totals.downpl.toFixed(2)),
-    available: Number(available.toFixed(2)),
-    availableB: Number(available.toFixed(2)),
-    avpl: Number((available + totals.downpl).toFixed(2)),
-    mypl: Number(authProfitLoss.toFixed(2)),
-  };
-  return res.json(env("", result));
+  const ownBalance = toNum(own?.balance?.balance, 0);
+  const available = ownBalance - toNum(own?.balance?.exposer, 0) - toNum(own?.balance?.casinoexposer, 0);
+  const uplevelcr = toNum(own?.creditRefrences, 0);
+  const totalmasterb = ownBalance + downlineob;
+  return res.json(env("", {
+    uplevelcr: round2(uplevelcr),
+    downlineob: round2(downlineob),
+    downcr: round2(downcr),
+    totalmasterb: round2(totalmasterb),
+    upperlvell: round2(totalmasterb - uplevelcr),
+    downpl: round2(downpl),
+    available: round2(available),
+    availableB: round2(available),
+    avpl: round2(available),
+    mypl: round2(toNum(pnl.get(String(authUser.id)), 0)),
+  }));
 });
 
-app.post("/api/account-statement-list", (req, res) => {
-  const u = reqUser(req);
-  if (!u) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const w = ensureWallet(u.id);
-  const items = db
-    .prepare("SELECT * FROM deposits WHERE user_id=? ORDER BY created_at DESC LIMIT 100")
-    .all(u.id)
-    .map((r) => ({ _id: r.id, amount: toNum(r.amount, 0), type: r.type, status: r.status, remark: r.remark, createdAt: r.created_at, updatedAt: r.updated_at }));
-  res.json(env("", { items, openingBalance: toNum(w.balance, 0) }));
-});
-app.post("/api/profit-loss", (_req, res) => res.json(env("", {})));
+// Account statement: every coin movement of one account, oldest first.
+// openingBalance is the balance just before startDate, so
+// openingBalance + running sum of amounts = balance after each line.
+const STATEMENT_NARRATION = {
+  deposit: "Deposit",
+  withdraw: "Withdraw",
+  deposit_request: "Deposit request approved",
+  withdraw_request: "Withdraw request approved",
+  opening_credit: "Opening coins",
+  token_redeem: "Deposit token",
+  bet_win: "Bet won",
+  bet_loss: "Bet lost",
+  bet_rollback: "Result rolled back",
+};
+const handleAccountStatement = (req, res) => {
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  const ctx = resolveReportSubject(req, res, src);
+  if (!ctx) return;
+  const { subject } = ctx;
+  const uid = String(subject.id);
+  const fromIso = parseReportDate(src.startDate) || new Date(Date.now() - 7 * 864e5).toISOString();
+  const toIso = parseReportDate(src.endDate, true) || new Date().toISOString();
+  const reportType = String(src.reportType || src.type || "ALL").toLowerCase();
+  const nameOf = new Map(db.prepare("SELECT id,username FROM users").all().map((u) => [String(u.id), u.username]));
+  const ledgerRows = db
+    .prepare(
+      `SELECT l.*, COALESCE(b.id, ob.id) AS bet_id, COALESCE(b.match_name, ob.match_name) AS match_name, COALESCE(b.market_name, ob.market_name) AS market_name
+       FROM coin_ledger l
+       LEFT JOIN bets b ON l.kind IN ('bet_win','bet_loss') AND b.id=l.ref_id
+       LEFT JOIN coin_ledger o ON l.kind='bet_rollback' AND o.id=l.ref_id
+       LEFT JOIN bets ob ON ob.id=o.ref_id
+       WHERE (l.from_user_id=@u OR l.to_user_id=@u) AND l.created_at>=@from`
+    )
+    .all({ u: uid, from: fromIso });
+  // One line per bet / transfer for this account (a bet split between two uplines is one line for the player).
+  const grouped = new Map();
+  for (const row of ledgerRows) {
+    const signed = String(row.to_user_id) === uid ? toNum(row.amount, 0) : -toNum(row.amount, 0);
+    const isGame = REPORT_BET_KINDS.includes(row.kind);
+    const key = isGame ? `${row.kind}|${row.bet_id || row.id}|${row.created_at}` : row.id;
+    const other = String(row.to_user_id) === uid ? row.from_user_id : row.to_user_id;
+    const cur = grouped.get(key) || {
+      _id: row.id,
+      createdAt: row.created_at,
+      amount: 0,
+      type: isGame ? "game" : "chip",
+      narration: isGame
+        ? `${STATEMENT_NARRATION[row.kind]} / ${row.match_name || ""} / ${row.market_name || ""}`.replace(/( \/ )+$/, "")
+        : `${STATEMENT_NARRATION[row.kind] || row.kind}${row.remark ? " / " + row.remark : ""}`,
+      txnBy: nameOf.get(String(row.actor_id)) || nameOf.get(String(other)) || "",
+      allBets: row.bet_id ? [{ betId: row.bet_id }] : [],
+    };
+    cur.amount = Math.round((cur.amount + signed) * 100) / 100;
+    grouped.set(key, cur);
+  }
+  const casinoRows = db.prepare(`SELECT * FROM (${CASINO_SIGNED_SQL}) WHERE uid=? AND ts>=?`).all(uid, fromIso);
+  for (const row of casinoRows) {
+    if (!toNum(row.v, 0)) continue;
+    grouped.set("c" + row.id, {
+      _id: row.id,
+      createdAt: row.ts,
+      amount: toNum(row.v, 0),
+      type: "game",
+      narration: `Casino / ${row.provider_name || row.vendor_code || ""} / ${row.game_code || ""} / ${row.action}`,
+      txnBy: "casino",
+      allBets: [],
+    });
+  }
+  const all = [...grouped.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const sinceStart = all.reduce((acc, item) => acc + item.amount, 0);
+  const currentBalance = toNum(ensureWallet(uid).balance, 0);
+  const openingBalance = Math.round((currentBalance - sinceStart) * 100) / 100;
+  const items = all.filter((item) => item.createdAt <= toIso && (reportType === "all" || item.type === reportType)).slice(0, 5000);
+  return res.json(env("", { items, openingBalance, totalDocs: items.length, userId: uid, username: subject.username }));
+};
+app.post("/api/account-statement-list", handleAccountStatement);
+app.get("/api/account-statement-list", handleAccountStatement);
+
+// Profit & loss per event/market (sports) and per game (casino) for one account.
+const handleProfitLoss = (req, res) => {
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  const ctx = resolveReportSubject(req, res, src);
+  if (!ctx) return;
+  const uid = String(ctx.subject.id);
+  const fromIso = parseReportDate(src.startDate) || new Date(Date.now() - 30 * 864e5).toISOString();
+  const toIso = parseReportDate(src.endDate, true) || new Date().toISOString();
+  const rows = db
+    .prepare(
+      `SELECT l.amount, l.to_user_id, COALESCE(b.match_id, ob.match_id) AS match_id, COALESCE(b.match_name, ob.match_name) AS match_name,
+              COALESCE(b.market_name, ob.market_name) AS market_name, COALESCE(b.market_id, ob.market_id) AS market_id
+       FROM coin_ledger l
+       LEFT JOIN bets b ON l.kind IN ('bet_win','bet_loss') AND b.id=l.ref_id
+       LEFT JOIN coin_ledger o ON l.kind='bet_rollback' AND o.id=l.ref_id
+       LEFT JOIN bets ob ON ob.id=o.ref_id
+       WHERE l.kind IN (${sqlList(REPORT_BET_KINDS)}) AND (l.from_user_id=@u OR l.to_user_id=@u) AND l.created_at>=@from AND l.created_at<=@to`
+    )
+    .all({ u: uid, from: fromIso, to: toIso });
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${row.match_id}|${row.market_id}`;
+    const signed = String(row.to_user_id) === uid ? toNum(row.amount, 0) : -toNum(row.amount, 0);
+    const g = groups.get(key) || {
+      _id: key,
+      sportId: toNum(sportOfMatchStmt.get(row.match_id)?.sport_id, 4),
+      narration: `${row.match_name || "Match " + row.match_id} / ${row.market_name || ""}`,
+      matchId: row.match_id,
+      marketId: row.market_id,
+      total: 0,
+    };
+    g.total = Math.round((g.total + signed) * 100) / 100;
+    groups.set(key, g);
+  }
+  for (const row of db.prepare(`SELECT * FROM (${CASINO_SIGNED_SQL}) WHERE uid=? AND ts>=? AND ts<=?`).all(uid, fromIso, toIso)) {
+    const key = `casino|${row.provider_name || row.vendor_code}|${row.game_code}`;
+    const g = groups.get(key) || { _id: key, sportId: 5000, narration: `${row.provider_name || row.vendor_code || "Casino"} / ${row.game_code || ""}`, total: 0 };
+    g.total = Math.round((g.total + toNum(row.v, 0)) * 100) / 100;
+    groups.set(key, g);
+  }
+  const items = [...groups.values()].filter((g) => g.total !== 0);
+  const total = Math.round(items.reduce((a, g) => a + g.total, 0) * 100) / 100;
+  return res.json(env("", { items, total, totalDocs: items.length, page: 1, totalPages: 1 }));
+};
+app.post("/api/profit-loss", handleProfitLoss);
+app.get("/api/profit-loss", handleProfitLoss);
 
 app.get("/api/get-sport-list", (req, res) => {
   const filter = String(req.query?.filter || "").toLowerCase();
@@ -8590,22 +8951,72 @@ const normalizeSelectionId = (value) => {
   return text || null;
 };
 
+// ---- Server-side bet pricing -------------------------------------------
+// A bet is accepted only on an OPEN market with an ACTIVE selection whose
+// price was refreshed by a live odds feed within BET_ODDS_MAX_AGE_SECONDS.
+// Back bets need requested odds <= current back price; lay bets need
+// requested odds >= current lay price (the player can only take a worse price).
+const BET_ODDS_MAX_AGE_SECONDS = Math.max(0, envNum(process.env.BET_ODDS_MAX_AGE_SECONDS, 30));
+const BET_ALLOW_UNFED_ODDS = envBool(process.env.BET_ALLOW_UNFED_ODDS);
+const betMatchRowStmt = db.prepare("SELECT match_id,name,status,section_json,external_json,odds_updated_at FROM matches WHERE match_id=?");
+const declaredMarketStmt = db.prepare("SELECT 1 FROM market_results WHERE match_id=? AND market_id=? AND status='declared' LIMIT 1");
+const resolveServerBetQuote = ({ matchId, marketId, selectionId, isBack, requestedOdds }) => {
+  const row = betMatchRowStmt.get(matchId);
+  if (!row) return { ok: false, status: 404, message: "This market is not available for betting" };
+  const ext = safeParse(row.external_json, {}) || {};
+  if (!/^(open|active)$/i.test(String(row.status || "").trim())) {
+    return { ok: false, message: "Market is " + String(row.status || "closed").toLowerCase() };
+  }
+  const expectedMarketId = String(ext.mid || `${row.match_id}0001`);
+  if (String(marketId) !== expectedMarketId) return { ok: false, message: "Unknown market for this match" };
+  if (declaredMarketStmt.get(String(row.match_id), String(marketId))) return { ok: false, message: "Result already declared for this market" };
+  if (!BET_ALLOW_UNFED_ODDS) {
+    const fedAt = Date.parse(String(row.odds_updated_at || ""));
+    if (!Number.isFinite(fedAt)) return { ok: false, status: 503, message: "Live odds are not available for this market" };
+    if (BET_ODDS_MAX_AGE_SECONDS && Date.now() - fedAt > BET_ODDS_MAX_AGE_SECONDS * 1000) {
+      return { ok: false, status: 503, message: "Odds have changed, please try again" };
+    }
+  }
+  const section = Array.isArray(ext.section) ? ext.section : safeParse(row.section_json, []) || [];
+  const runner = section.find((item) => String(item?.sid) === String(selectionId));
+  if (!runner) return { ok: false, message: "Unknown selection for this market" };
+  if (/suspend|close|ball|inactive/i.test(String(runner.gstatus || ""))) {
+    return { ok: false, message: "Selection is suspended" };
+  }
+  const side = isBack ? "back" : "lay";
+  const prices = (Array.isArray(runner.odds) ? runner.odds : [])
+    .filter((o) => String(o?.otype || "").toLowerCase() === side && toNum(o?.odds, 0) > 1)
+    .map((o) => toNum(o.odds, 0));
+  if (!prices.length) return { ok: false, message: "No " + side + " price available" };
+  const marketOdds = isBack ? Math.max(...prices) : Math.min(...prices);
+  const req = toNum(requestedOdds, 0);
+  if (!(req > 1)) return { ok: false, message: "Invalid odds" };
+  if (isBack ? req > marketOdds + 1e-9 : req < marketOdds - 1e-9) {
+    return { ok: false, status: 409, message: `Odds changed to ${marketOdds}, please try again` };
+  }
+  return {
+    ok: true,
+    marketOdds,
+    selectionName: String(runner.nat || "").trim(),
+    marketName: String(ext.mname || "MATCH_ODDS"),
+    matchName: String(row.name || ""),
+  };
+};
 const handlePlaceBet = (req, res) => {
   if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
     return res.status(403).json({ error: true, message: "B2B platform only" });
   }
-  const u = reqUser(req);
-  if (!u) return res.status(401).json({ error: true, message: "No auth token" });
+  const u = reqAuthUser(req);
+  if (!u) return res.status(401).json({ error: true, message: "Please log in to place a bet" });
+  if (normalizePanelRole(reqAuthRole(req, u.role), "user") !== "user") {
+    return res.status(403).json({ error: true, message: "Only player accounts can place bets" });
+  }
   const userStatusFlags = readUserRuntimeStatusFlags(u.id);
   if (!userStatusFlags.isActive) {
     return res.status(403).json({ error: true, message: "User account is inactive" });
   }
   if (userStatusFlags.betLock) {
     return res.status(423).json({ error: true, message: "Your betting access is locked" });
-  }
-
-  if (req.body?.payload && req.body?.signature && req.body?.userId) {
-    verifySignature(req.body.payload, req.body.userId, req.body.signature);
   }
 
   const payload = req.body?.payload ? decryptPayload(req.body.payload) : null;
@@ -8645,17 +9056,25 @@ const handlePlaceBet = (req, res) => {
     });
   }
 
+  if (!(stack > 0) || Math.round(stack * 100) / 100 !== stack) {
+    return res.status(400).json({ error: true, message: "Stake must be a positive amount with up to 2 decimals" });
+  }
+  const isBack = typeof b.isBack === "boolean" ? b.isBack : String(b.isBack || "true").toLowerCase() === "true";
+  if (/fancy|session/i.test(`${b.bet_on || ""} ${b.gtype || ""} ${b.oddsType || ""}`)) {
+    return res.status(400).json({ error: true, message: "Fancy / session markets are not available" });
+  }
+  // The price is decided by the server's market data, never by the client.
+  const quote = resolveServerBetQuote({ matchId, marketId, selectionId, isBack, requestedOdds: odds });
+  if (!quote.ok) return res.status(quote.status || 400).json({ error: true, message: quote.message });
+  const pnl = isBack ? (odds - 1) * stack : -1 * (odds - 1) * stack;
+  // Coins at risk: a back bet risks the stake, a lay bet risks the liability.
+  const exposure = Math.round((isBack ? stack : (odds - 1) * stack) * 100) / 100;
   const w = ensureWallet(u.id);
-  if (stack > toNum(w.balance, 0) + 100000) return res.status(400).json({ error: true, message: "Insufficient limit" });
   try {
-    validateBetAmount({ amount: stack, currentExposure: toNum(w.exposer, 0), creditLimit });
+    validateBetAmount({ amount: exposure, currentExposure: toNum(w.exposer, 0), creditLimit });
   } catch (e) {
     return res.status(400).json({ error: true, message: e.message });
   }
-
-  const isBack = typeof b.isBack === "boolean" ? b.isBack : String(b.isBack || "true").toLowerCase() === "true";
-  const pnl = isBack ? (odds - 1) * stack : -1 * (odds - 1) * stack;
-  const exposure = stack;
 
   const bet = {
     id: id("bet_"),
@@ -8663,19 +9082,19 @@ const handlePlaceBet = (req, res) => {
     match_id: matchId,
     market_id: marketId,
     selection_id: selectionId,
-    selection_name: String(b.selectionName || `Selection ${selectionId}`),
+    selection_name: quote.selectionName || String(b.selectionName || `Selection ${selectionId}`),
     odds,
     volume: toNum(b.volume, 0),
     stack,
     pnl,
     exposure,
-    market_name: String(b.marketName || "MATCH_ODDS"),
+    market_name: quote.marketName || String(b.marketName || "MATCH_ODDS"),
     is_back: isBack ? 1 : 0,
     event_id: toNum(b.eventId, 0) || null,
     type: String(b.type || "match"),
-    current_market_odds: toNum(b.currentMarketOdds, odds),
+    current_market_odds: quote.marketOdds,
     ip_address: req.ip,
-    match_name: String(b.matchName || `Match ${matchId}`),
+    match_name: quote.matchName || String(b.matchName || `Match ${matchId}`),
     bet_on: String(b.bet_on || "MATCH_ODDS"),
     gtype: String(b.gtype || "match"),
     odds_type: String(b.oddsType || "ODDS"),
@@ -8683,7 +9102,13 @@ const handlePlaceBet = (req, res) => {
     created_at: nowIso(),
   };
 
-  db.prepare(
+  const now = nowIso();
+  const placeBetTx = db.transaction(() => {
+    const reserved = db
+      .prepare("UPDATE wallets SET exposer=round(COALESCE(exposer,0)+?,2),updated_at=? WHERE user_id=? AND round(balance-COALESCE(exposer,0),2) >= ?")
+      .run(exposure, now, u.id, exposure);
+    if (!reserved.changes) return false;
+    db.prepare(
     "INSERT INTO bets (id,user_id,match_id,market_id,selection_id,selection_name,odds,volume,stack,pnl,exposure,market_name,is_back,event_id,type,current_market_odds,ip_address,match_name,bet_on,gtype,odds_type,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   ).run(
     bet.id,
@@ -8710,10 +9135,13 @@ const handlePlaceBet = (req, res) => {
     bet.status,
     bet.created_at
   );
-
-  const now = nowIso();
-  const nextExposer = toNum(w.exposer, 0) + exposure;
-  db.prepare("UPDATE wallets SET exposer=?,updated_at=? WHERE user_id=?").run(nextExposer, now, u.id);
+    return true;
+  });
+  if (!placeBetTx.immediate()) {
+    return res.status(400).json({ error: true, message: "Insufficient available balance" });
+  }
+  const walletAfter = ensureWallet(u.id);
+  const nextExposer = toNum(walletAfter.exposer, 0);
   syncBetToMysql({
     id: bet.id,
     userId: bet.user_id,
@@ -8741,9 +9169,9 @@ const handlePlaceBet = (req, res) => {
   }).catch(() => {});
   syncWalletToMysql({
     userId: u.id,
-    balance: toNum(w.balance, 0),
+    balance: toNum(walletAfter.balance, 0),
     exposer: nextExposer,
-    casinoExposer: toNum(w.casino_exposer, 0),
+    casinoExposer: toNum(walletAfter.casino_exposer, 0),
     updatedAt: now,
   }).catch(() => {});
 
@@ -8778,38 +9206,70 @@ const handlePlaceBet = (req, res) => {
 app.post("/api/placebet", handlePlaceBet);
 app.post("/placebet", handlePlaceBet);
 
-app.post("/api/settle-bet", (req, res) => {
-  if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
-    return res.status(403).json({ error: true, message: "B2B platform only" });
+// Results decide who pays whom, so only Super Admin may settle or roll back.
+const requireResultAuthority = (req, res) => {
+  const ctx = getOwnerAuthContext(req, res);
+  return ctx || null;
+};
+const afterSettlementSync = (results) => {
+  const ids = new Set();
+  const userRows = db.prepare("SELECT id,parent_id FROM users WHERE id=?");
+  const partnerRows = db.prepare("SELECT partner_id FROM user_partnerships WHERE user_id=?");
+  for (const r of results || []) {
+    ids.add(String(r.userId));
+    const u = userRows.get(String(r.userId));
+    if (u?.parent_id) ids.add(String(u.parent_id));
+    for (const p of partnerRows.all(String(r.userId))) ids.add(String(p.partner_id));
   }
-  const authUser = reqAuthUser(req);
-  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const authRole = reqAuthRole(req, authUser.role);
-  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
-  const betId = String(req.body?.betId || req.body?.id || "").trim();
-  const bet = betId ? db.prepare("SELECT user_id FROM bets WHERE id=?").get(betId) : null;
-  const target = bet ? getUserById(bet.user_id) : null;
-  if (!betId || !target) return res.status(404).json(env("Bet not found", {}, true, 404));
-  if (!canActorAccessTargetUser(authUser, authRole, target)) return res.status(403).json(env("Access denied", {}, true, 403));
+  syncWalletsAfterCoinMove([...ids]);
+};
+app.post("/api/settle-bet", (req, res) => {
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
   try {
-    const result = settleBet({ db, betId, result: req.body?.result, now: nowIso() });
-    const affected = [result.userId, ...result.partnerBalances.map((item) => item.partnerId)];
-    if (result.commission) affected.push(result.commission.parentId);
-    for (const userId of [...new Set(affected)]) {
-      const wallet = ensureWallet(userId);
-      syncWalletToMysql({
-        userId,
-        balance: toNum(wallet.balance, 0),
-        exposer: toNum(wallet.exposer, 0),
-        casinoExposer: toNum(wallet.casino_exposer, 0),
-        updatedAt: nowIso(),
-      }).catch(() => {});
-    }
+    const result = settlementEngine.settleSingleBet({ betId: req.body?.betId || req.body?.id, result: req.body?.result, actorId: ctx.authUser.id });
+    afterSettlementSync([result]);
     return res.json(env("Bet settled successfully", result));
   } catch (e) {
     return res.status(400).json(env(e.message || "Unable to settle bet", {}, true, 400));
   }
 });
+const handleMarketResult = (req, res) => {
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  try {
+    const out = settlementEngine.declareMarketResult({
+      matchId: src.matchId,
+      marketId: src.marketId,
+      winnerSelectionId: src.selectionId ?? src.result ?? src.winnerSelectionId,
+      actorId: ctx.authUser.id,
+    });
+    afterSettlementSync(out.results);
+    return res.json(env(`Result declared. ${out.settled} bet(s) settled.`, { ...out, results: undefined }));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to declare result", {}, true, 400));
+  }
+};
+const handleMarketRollback = (req, res) => {
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  try {
+    const out = settlementEngine.rollbackMarketResult({ matchId: src.matchId, marketId: src.marketId, actorId: ctx.authUser.id });
+    afterSettlementSync(out.results);
+    return res.json(env(`Result rolled back. ${out.reopened} bet(s) reopened.`, { ...out, results: undefined }));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to roll back result", {}, true, 400));
+  }
+};
+app.get("/api/result-market", handleMarketResult);
+app.post("/api/result-market", handleMarketResult);
+app.get("/api/rollback-result-market-wise", handleMarketRollback);
+app.post("/api/rollback-result-market-wise", handleMarketRollback);
+const fancyUnavailable = (_req, res) => res.status(400).json(env("Fancy / session markets are not available", {}, true, 400));
+app.get("/api/result-fancy", fancyUnavailable);
+app.get("/api/fancy-result-rollback", fancyUnavailable);
 
 app.get("/api/bets", (req, res) => {
   const u = reqAuthUser(req);
@@ -8859,8 +9319,56 @@ app.post("/api/alluserbetList", (req, res) => {
   const totalPages = Math.max(Math.ceil(totalDocs / limit), 1);
   res.json(env("", { docs, totalDocs, limit, totalPages, page, pagingCounter: off + 1, hasPrevPage: page > 1, hasNextPage: page < totalPages, prevPage: page > 1 ? page - 1 : null, nextPage: page < totalPages ? page + 1 : null }));
 });
-app.get("/api/adminprofitlossList", (_req, res) => res.json(env("", {})));
-app.get("/api/get-market-analysis", (_req, res) => res.json(env("", [])));
+const visibleOpenBets = (authUser, authRole, matchId = 0) => {
+  const visible = getVisibleUserIdsForActor(authUser, authRole);
+  return db
+    .prepare(`SELECT b.*, m.name AS match_title, m.external_json, m.section_json
+       FROM bets b LEFT JOIN matches m ON m.match_id=b.match_id
+       WHERE lower(b.status) IN ('unsettled','pending') AND (?=0 OR b.match_id=?)`)
+    .all(matchId, matchId)
+    .filter((b) => !(visible instanceof Set) || visible.has(String(b.user_id)));
+};
+// Players' net position per runner on one match (panel shows the negative = house view).
+app.get("/api/adminprofitlossList", (req, res) => {
+  const ctx = requireAdminPanelAccess(req, res);
+  if (!ctx) return;
+  return res.json(env("", buildOpenBook(visibleOpenBets(ctx.authUser, ctx.authRole, toNum(req.query?.matchId, 0)))));
+});
+// Every match with open bets in my downline, its markets/runners and the book.
+app.get("/api/get-market-analysis", (req, res) => {
+  const ctx = requireAdminPanelAccess(req, res);
+  if (!ctx) return;
+  const byMatch = new Map();
+  for (const bet of visibleOpenBets(ctx.authUser, ctx.authRole)) {
+    const key = String(bet.match_id);
+    if (!byMatch.has(key)) byMatch.set(key, []);
+    byMatch.get(key).push(bet);
+  }
+  const data = [...byMatch.entries()].map(([matchId, bets]) => {
+    const markets = new Map();
+    for (const bet of bets) {
+      if (!markets.has(bet.market_id)) {
+        const ext = safeParse(bet.external_json, {}) || {};
+        const section = Array.isArray(ext.section) ? ext.section : safeParse(bet.section_json, []) || [];
+        const runners = section.filter((r) => r?.sid).map((r) => ({ selectionId: String(r.sid), runnerName: String(r.nat || r.sid).trim() }));
+        markets.set(bet.market_id, { marketId: bet.market_id, marketName: bet.market_name || "MATCH_ODDS", runners });
+      }
+      const m = markets.get(bet.market_id);
+      if (!m.runners.some((r) => r.selectionId === String(bet.selection_id))) {
+        m.runners.push({ selectionId: String(bet.selection_id), runnerName: bet.selection_name || String(bet.selection_id) });
+      }
+    }
+    return {
+      matchId: toNum(matchId, 0),
+      matchName: bets[0].match_title || bets[0].match_name || `Match ${matchId}`,
+      betCount: bets.length,
+      filterMarketByMatch: [...markets.values()],
+      completemarket_list: [...markets.keys()],
+      matchWiseMarket: buildOpenBook(bets),
+    };
+  });
+  return res.json(env("", data));
+});
 app.post("/api/get-bet-list-by-ids", (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
@@ -8879,25 +9387,21 @@ app.post("/api/get-bet-list-by-ids", (req, res) => {
   }
   return res.json(env("", { docs }));
 });
+// Matched bets cannot be cancelled by players. An admin may void an open bet
+// in their downline; its locked exposure is released atomically.
 app.delete("/api/delete-current-bet/:id", (req, res) => {
-  const u = reqUser(req);
-  if (!u) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const row = db.prepare("SELECT * FROM bets WHERE id=? AND user_id=?").get(String(req.params.id), u.id);
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  if (!isOwnerPanelRole(reqAuthRole(req, authUser.role))) {
+    return res.status(403).json(env("Placed bets cannot be cancelled", {}, true, 403));
+  }
+  const row = db.prepare("SELECT id,user_id,exposure,status FROM bets WHERE id=?").get(String(req.params.id));
   if (!row) return res.status(404).json(env("Bet not found", {}, true, 404));
-  db.prepare("DELETE FROM bets WHERE id=?").run(row.id);
-  deleteBetFromMysql(row.id).catch(() => {});
-  const w = ensureWallet(u.id);
-  const now = nowIso();
-  const nextExposer = Math.max(toNum(w.exposer, 0) - toNum(row.exposure, 0), 0);
-  db.prepare("UPDATE wallets SET exposer=?,updated_at=? WHERE user_id=?").run(nextExposer, now, u.id);
-  syncWalletToMysql({
-    userId: u.id,
-    balance: toNum(w.balance, 0),
-    exposer: nextExposer,
-    casinoExposer: toNum(w.casino_exposer, 0),
-    updatedAt: now,
-  }).catch(() => {});
-  return res.json(env("Bet deleted", { success: true }));
+  if (!["unsettled", "pending"].includes(String(row.status || "").toLowerCase())) {
+    return res.status(409).json(env("Only open bets can be voided", {}, true, 409));
+  }
+  if (!voidOpenBets([row], authUser.id)) return res.status(409).json(env("Bet was already settled", {}, true, 409));
+  return res.json(env("Bet voided", { success: true }));
 });
 const requireAdminPanelAccess = (req, res) => {
   const authUser = reqAuthUser(req);
@@ -9068,24 +9572,33 @@ app.get("/api/get-child-user-list", (req, res) => {
     });
   return res.json(env("", buildPaginatedItems(rows, req.query?.page, req.query?.limit || 100)));
 });
+// Voiding removes an open bet and frees its locked coins. Only Super Admin may
+// void, so no upline can cancel a player's winning bet before the result.
+const voidOpenBets = (betRows, actorId) => {
+  const now = nowIso();
+  const owners = new Set();
+  let voided = 0;
+  db.transaction(() => {
+    for (const row of betRows) {
+      const removed = db.prepare("DELETE FROM bets WHERE id=? AND lower(status) IN ('unsettled','pending')").run(row.id);
+      if (!removed.changes) continue;
+      db.prepare("UPDATE wallets SET exposer=max(0,round(COALESCE(exposer,0)-?,2)),updated_at=? WHERE user_id=?").run(toNum(row.exposure, 0), now, row.user_id);
+      owners.add(String(row.user_id));
+      voided += 1;
+    }
+  }).immediate();
+  for (const row of betRows) deleteBetFromMysql(row.id).catch(() => {});
+  syncWalletsAfterCoinMove([...owners]);
+  return voided;
+};
 app.post("/api/delete-bets", (req, res) => {
-  const authUser = reqAuthUser(req);
-  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const authRole = reqAuthRole(req, authUser.role);
-  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
   const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map((value) => String(value || "").trim()).filter(Boolean))] : [];
   if (!ids.length) return res.status(400).json(env("ids is required", {}, true, 400));
-  const deleteBet = db.prepare("DELETE FROM bets WHERE id=?");
-  let deleted = 0;
-  for (const betId of ids) {
-    const bet = db.prepare("SELECT id,user_id FROM bets WHERE id=?").get(betId);
-    const target = bet ? getUserById(bet.user_id) : null;
-    if (!bet || !target || !canActorAccessTargetUser(authUser, authRole, target)) continue;
-    deleteBet.run(betId);
-    deleted += 1;
-    deleteBetFromMysql(betId).catch(() => {});
-  }
-  return res.json(env("Bets deleted", { success: true, deleted }));
+  const rows = db.prepare(`SELECT id,user_id,exposure FROM bets WHERE id IN (${ids.map(() => "?").join(",")}) AND lower(status) IN ('unsettled','pending')`).all(...ids);
+  const deleted = voidOpenBets(rows, ctx.authUser.id);
+  return res.json(env(deleted === ids.length ? "Bets voided" : `${deleted} open bet(s) voided; settled bets cannot be deleted`, { success: true, deleted }));
 });
 app.post("/api/users-lock", (req, res) => {
   const auth = requireAdminPanelAccess(req, res);
@@ -9141,58 +9654,76 @@ app.post("/api/users-lock", (req, res) => {
   return res.json(env("Users lock updated", { success: true, updated, total: updated.length }));
 });
 app.get("/api/undeclared-bets", (req, res) => {
-  const authUser = reqAuthUser(req);
-  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const authRole = reqAuthRole(req, authUser.role);
-  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
-  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
   const rows = db
     .prepare(
-      `SELECT b.*,u.username
-       FROM bets b JOIN users u ON u.id=b.user_id
+      `SELECT b.match_id,b.market_id,b.market_name,b.match_name,b.bet_on,b.selection_id,b.selection_name,b.stack,b.created_at,
+              m.name AS match_title, m.external_json, m.section_json, s.name AS sport_name
+       FROM bets b
+       LEFT JOIN matches m ON m.match_id=b.match_id
+       LEFT JOIN sports s ON s.sport_id=m.sport_id
        WHERE lower(b.status) IN ('pending','unsettled')
-       ORDER BY datetime(b.created_at) DESC LIMIT 5000`
+       ORDER BY datetime(b.created_at) ASC`
     )
-    .all()
-    .filter((row) => !(visibleIds instanceof Set) || visibleIds.has(String(row.user_id)))
-    .map((row) => ({
-      _id: row.id,
-      id: row.id,
-      userId: row.user_id,
-      username: row.username,
-      matchId: row.match_id,
-      marketId: row.market_id,
-      marketName: row.market_name,
-      selectionName: row.selection_name,
-      stack: toNum(row.stack, 0),
-      exposure: toNum(row.exposure, 0),
-      status: row.status,
-      createdAt: row.created_at,
-    }));
-  return res.json(env("", rows));
+    .all();
+  const markets = new Map();
+  for (const row of rows) {
+    const key = row.match_id + "|" + row.market_id;
+    let m = markets.get(key);
+    if (!m) {
+      const ext = safeParse(row.external_json, {}) || {};
+      const section = Array.isArray(ext.section) ? ext.section : safeParse(row.section_json, []) || [];
+      const runners = new Map(section.filter((r) => r?.sid).map((r) => [String(r.sid), { selectionId: String(r.sid), runnerName: String(r.nat || r.sid).trim() }]));
+      m = {
+        _id: key,
+        matchId: row.match_id,
+        marketId: row.market_id,
+        marketName: row.market_name || "MATCH_ODDS",
+        matchName: row.match_title || row.match_name || `Match ${row.match_id}`,
+        selectionId: String(row.selection_id),
+        selectionName: "",
+        bet_on: String(row.bet_on || "MATCH_ODDS").toUpperCase(),
+        eventType: row.sport_name || "Other",
+        betCount: 0,
+        totalStake: 0,
+        runners,
+        isDeclared: false,
+        createdAt: row.created_at,
+      };
+      markets.set(key, m);
+    }
+    m.betCount += 1;
+    m.totalStake = Math.round((m.totalStake + toNum(row.stack, 0)) * 100) / 100;
+    if (!m.runners.has(String(row.selection_id))) {
+      m.runners.set(String(row.selection_id), { selectionId: String(row.selection_id), runnerName: row.selection_name || String(row.selection_id) });
+    }
+  }
+  const data = [...markets.values()].map((m) => {
+    const runners = [...m.runners.values()];
+    return { ...m, runners, selectionName: runners.map((r) => r.runnerName).join(" v ") };
+  });
+  return res.json(env("", data));
 });
 app.delete("/api/bets-by-market", (req, res) => {
-  const authUser = reqAuthUser(req);
-  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
-  const authRole = reqAuthRole(req, authUser.role);
-  if (normalizePanelRole(authRole, "user") === "user") return res.status(403).json(env("Admin access required", {}, true, 403));
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
   const marketId = String(req.query?.marketId || "");
   const matchId = toNum(req.query?.matchId, 0);
   if (!marketId || !matchId) return res.status(400).json(env("marketId and matchId are required", {}, true, 400));
-  const visibleIds = getVisibleUserIdsForActor(authUser, authRole);
-  const rows = db.prepare("SELECT id,user_id FROM bets WHERE market_id=? AND match_id=?").all(marketId, matchId).filter((row) => {
-    return !(visibleIds instanceof Set) || visibleIds.has(String(row.user_id));
-  });
-  const deleteBetById = db.prepare("DELETE FROM bets WHERE id=?");
-  for (const row of rows) deleteBetById.run(row.id);
-  for (const r of rows) deleteBetFromMysql(r.id).catch(() => {});
-  return res.json(env("Bets deleted", { success: true, deleted: rows.length }));
+  const rows = db.prepare("SELECT id,user_id,exposure FROM bets WHERE market_id=? AND match_id=? AND lower(status) IN ('unsettled','pending')").all(marketId, matchId);
+  const deleted = voidOpenBets(rows, ctx.authUser.id);
+  return res.json(env("Open bets voided", { success: true, deleted }));
 });
 app.get("/api/match-betting-users", (req, res) => {
+  const ctx = requireAdminPanelAccess(req, res);
+  if (!ctx) return;
+  const visible = getVisibleUserIdsForActor(ctx.authUser, ctx.authRole);
   const matchId = toNum(req.query?.matchId, 0);
   const data = db
     .prepare("SELECT DISTINCT u.id,u.username FROM bets b JOIN users u ON u.id=b.user_id WHERE (?=0 OR b.match_id=?) ORDER BY u.username")
     .all(matchId, matchId)
+    .filter((r) => !(visible instanceof Set) || visible.has(String(r.id)))
     .map((r) => ({ _id: r.id, username: r.username }));
   res.json(env("", data));
 });
@@ -9302,9 +9833,20 @@ app.post("/api/add-deposit-withdraw", upload.any(), (req, res) => {
   const type = String(src.type || body.type || "deposit")
     .trim()
     .toLowerCase();
-  const amount = toNum(src.amount || body.amount, 0);
-  const remark = String(src.remark || body.remark || "").trim();
-  if (!amount || amount <= 0) return res.status(400).json(env("Invalid amount", {}, true, 400));
+  if (!["deposit", "withdraw"].includes(type)) return res.status(400).json(env("type must be deposit or withdraw", {}, true, 400));
+  let amount;
+  try {
+    amount = coinEngine.normalizeAmount(src.amount ?? body.amount);
+  } catch (e) {
+    return sendCoinError(res, e);
+  }
+  const remark = String(src.remark || body.remark || "").trim().slice(0, 300);
+  if (!authUser.parent_id) return res.status(400).json(env("This account has no parent to process the request", {}, true, 400));
+  if (type === "withdraw") {
+    const wallet = ensureWallet(authUser.id);
+    const available = toNum(wallet.balance, 0) - toNum(wallet.exposer, 0);
+    if (amount > available + 1e-9) return res.status(400).json(env("Withdraw amount exceeds your available balance", {}, true, 400));
+  }
   const pending = db
     .prepare("SELECT id FROM deposits WHERE user_id=? AND type=? AND status='pending' LIMIT 1")
     .get(authUser.id, type);
@@ -9422,31 +9964,51 @@ app.post("/api/update-deposit-withdraw-status", (req, res) => {
   const status = String(req.body?.status || "")
     .trim()
     .toLowerCase();
-  const narration = String(req.body?.narration || req.body?.remark || "").trim();
-  const allowedStatus = new Set(["approved", "rejected", "pending", "declined", "failed", "cancelled"]);
+  const narration = String(req.body?.narration || req.body?.remark || "").trim().slice(0, 300);
+  // A request can be decided exactly once: pending -> one terminal status.
+  const terminalStatus = new Set(["approved", "rejected", "declined", "failed", "cancelled"]);
   if (!rid || !status) return res.status(400).json(env("id and status are required", {}, true, 400));
-  if (!allowedStatus.has(status)) return res.status(400).json(env("Invalid status", {}, true, 400));
+  if (!terminalStatus.has(status)) return res.status(400).json(env("Invalid status", {}, true, 400));
   const row = db.prepare("SELECT * FROM deposits WHERE id=?").get(rid);
   if (!row) return res.status(404).json(env("Request not found", {}, true, 404));
   const targetUser = getUserById(String(row.user_id || ""));
-  if (!canActorAccessTargetUser(authUser, authRole, targetUser)) {
-    return res.status(403).json(env("Access denied", {}, true, 403));
+  if (!targetUser) return res.status(404).json(env("User not found", {}, true, 404));
+  if (!canActorOperateCoins(authUser, authRole, targetUser)) {
+    return res.status(403).json(env("Only the parent account can process this request", {}, true, 403));
+  }
+  if (String(row.status || "").toLowerCase() !== "pending") {
+    return res.status(409).json(env("Request is already " + row.status, {}, true, 409));
   }
   const now = nowIso();
-  db.prepare("UPDATE deposits SET status=?,remark=?,updated_at=? WHERE id=?").run(status, narration, now, rid);
-  if (status === "approved" && String(row.status || "").toLowerCase() !== "approved") {
-    const wallet = ensureWallet(row.user_id);
-    let nextBalance = toNum(wallet.balance, 0);
-    if (row.type === "deposit") nextBalance += toNum(row.amount, 0);
-    if (row.type === "withdraw") nextBalance = Math.max(nextBalance - toNum(row.amount, 0), 0);
-    db.prepare("UPDATE wallets SET balance=?,updated_at=? WHERE user_id=?").run(nextBalance, now, row.user_id);
-    syncWalletToMysql({
-      userId: row.user_id,
-      balance: nextBalance,
-      exposer: toNum(wallet.exposer, 0),
-      casinoExposer: toNum(wallet.casino_exposer, 0),
-      updatedAt: now,
-    }).catch(() => {});
+  let entry = null;
+  try {
+    db.transaction(() => {
+      const claimed = db
+        .prepare("UPDATE deposits SET status=?,remark=?,updated_at=? WHERE id=? AND status='pending'")
+        .run(status, narration || row.remark || null, now, rid);
+      if (!claimed.changes) throw new CoinError("Request was already processed", 409);
+      if (status === "approved") {
+        const direction = String(row.type || "").toLowerCase() === "withdraw" ? "withdraw" : "deposit";
+        entry = coinEngine.transfer({
+          childId: targetUser.id,
+          direction,
+          amount: row.amount,
+          actorId: authUser.id,
+          kind: direction + "_request",
+          remark: narration,
+          refId: rid,
+          idempotencyKey: "req:" + rid,
+        });
+      }
+    }).immediate();
+  } catch (e) {
+    return sendCoinError(res, e, "Unable to update request");
+  }
+  if (entry) {
+    syncWalletsAfterCoinMove([entry.fromUserId, entry.toUserId]);
+    addNotification(targetUser.id, "Request approved", "Your " + row.type + " request of " + entry.amount + " was approved", "wallet", authUser.username);
+  } else {
+    addNotification(targetUser.id, "Request " + status, "Your " + row.type + " request of " + toNum(row.amount, 0) + " was " + status, "wallet", authUser.username);
   }
   syncDepositToMysql({
     id: row.id,
@@ -9464,48 +10026,80 @@ app.post("/api/update-deposit-withdraw-status", (req, res) => {
       "SELECT d.*,u.username AS username FROM deposits d LEFT JOIN users u ON u.id=d.user_id WHERE d.id=? LIMIT 1"
     )
     .get(rid);
-  res.json(env("Status updated", { success: true, item: mapDepositRowForApi(updatedRow || row) }));
+  res.json(env("Status updated", { success: true, item: mapDepositRowForApi(updatedRow || row), transactionId: entry?.id || null }));
 });
 
 app.get("/api/get-setting-list", (_req, res) => res.json(env("", getSetting("setting.list", []))));
 app.get("/api/setting-list", (_req, res) => res.json(env("", getSetting("setting.list", []))));
-app.post("/api/save-setting-list", (req, res) => {
+// Site-wide jobs and configuration: Super Admin only.
+const ownerOnly = (req, res, next) => {
+  if (getOwnerAuthContext(req, res)) next();
+};
+app.post("/api/save-setting-list", ownerOnly, (req, res) => {
   setSetting("setting.list", req.body?.settingList || []);
   res.json(env("Settings saved", { success: true }));
 });
-app.get("/api/get-payment-list", (_req, res) => {
+// Payment details tell players where to send money: anyone logged in may read
+// them, only Super Admin may change them (confirmed by transaction password).
+const stripPaymentSecrets = (value) => {
+  if (Array.isArray(value)) return value.map(stripPaymentSecrets);
+  if (!value || typeof value !== "object") return value;
+  const { transactionPassword, ...rest } = value;
+  return rest;
+};
+const requirePaymentReader = (req, res) => {
+  const authUser = reqAuthUser(req);
+  if (!authUser) {
+    res.status(401).json(env("Unauthorized", {}, true, 401));
+    return null;
+  }
+  return authUser;
+};
+const requirePaymentEditor = (req, res, { requireTransactionPassword = true } = {}) => {
+  const ctx = getOwnerAuthContext(req, res);
+  if (!ctx) return null;
+  if (requireTransactionPassword && !verifyActorTransactionPassword(ctx.authUser, req.body?.transactionPassword)) {
+    res.status(400).json(env("Invalid transaction password", {}, true, 400));
+    return null;
+  }
+  return ctx;
+};
+app.get("/api/get-payment-list", (req, res) => {
+  if (!requirePaymentReader(req, res)) return;
   const p = getSetting("payment.list", null);
-  if (p) return res.json(env("", { data: { settings: Array.isArray(p) ? p : [p] } }));
+  if (p) return res.json(env("", { data: { settings: stripPaymentSecrets(Array.isArray(p) ? p : [p]) } }));
   const paymentV2 = normalizePaymentSettingsV2(getSetting("payment2.settings", null));
-  if (hasPaymentOptionsConfigured(paymentV2)) return res.json(env("", { data: { settings: [paymentV2] } }));
-  const snap = loadSnapshot("get-payment-list");
-  if (snap) return res.json(snap);
+  if (hasPaymentOptionsConfigured(paymentV2)) return res.json(env("", { data: { settings: [stripPaymentSecrets(paymentV2)] } }));
   return res.json(env("", { data: { settings: [] } }));
 });
-app.get("/api/payment-list", (_req, res) => res.json(env("", getSetting("payment.list", []))));
+app.get("/api/payment-list", (req, res) => {
+  if (!requirePaymentReader(req, res)) return;
+  res.json(env("", stripPaymentSecrets(getSetting("payment.list", []))));
+});
 app.post("/api/save-payment-list", upload.any(), (req, res) => {
+  // Legacy screen does not send a transaction password; Super Admin login is required.
+  if (!requirePaymentEditor(req, res, { requireTransactionPassword: false })) return;
   const list = typeof req.body?.settingList === "string" ? safeParse(req.body.settingList, []) : req.body?.settingList || [];
-  setSetting("payment.list", list);
+  setSetting("payment.list", stripPaymentSecrets(list));
   const first = Array.isArray(list) && list.length ? list[0] : null;
   const normalizedV2 = normalizePaymentSettingsV2(first);
-  if (hasPaymentOptionsConfigured(normalizedV2)) setSetting("payment2.settings", normalizedV2);
+  if (hasPaymentOptionsConfigured(normalizedV2)) setSetting("payment2.settings", stripPaymentSecrets(normalizedV2));
   res.json(env("Payment settings saved", { success: true }));
 });
-app.get("/api/payment2-settings", (_req, res) => {
+app.get("/api/payment2-settings", (req, res) => {
+  if (!requirePaymentReader(req, res)) return;
   const p = normalizePaymentSettingsV2(getSetting("payment2.settings", null));
-  if (Object.keys(p).length) return res.json(env("", { paymentSettings: p }));
-  const snap = loadSnapshot("payment2-settings");
-  if (snap) return res.json(snap);
-  return res.json(env("", { paymentSettings: null }));
+  return res.json(env("", { paymentSettings: Object.keys(p).length ? stripPaymentSecrets(p) : null }));
 });
 app.post("/api/payment2-settings", upload.any(), (req, res) => {
+  if (!requirePaymentEditor(req, res)) return;
   const optionKey = normalizePaymentOptionKey(req.body?.option);
   if (!optionKey) {
     return res.status(400).json(env("option must be one of option1, option2, option3", {}, true, 400));
   }
   const optionDataRaw =
     typeof req.body?.optionData === "string" ? safeParse(req.body.optionData, {}) : asPlainObject(req.body?.optionData, {});
-  const existing = normalizePaymentSettingsV2(getSetting("payment2.settings", {}));
+  const existing = stripPaymentSecrets(normalizePaymentSettingsV2(getSetting("payment2.settings", {})));
   const mergedOptionData = {
     ...asPlainObject(existing[optionKey], {}),
     ...normalizePaymentOptionData(optionDataRaw),
@@ -9521,26 +10115,64 @@ app.post("/api/payment2-settings", upload.any(), (req, res) => {
   const next = {
     ...existing,
     [optionKey]: mergedOptionData,
-    transactionPassword: String(req.body?.transactionPassword || existing.transactionPassword || "").trim(),
     updatedAt: nowIso(),
   };
   setSetting("payment2.settings", next);
   setSetting("payment.list", [next]);
   res.json(env("Payment2 settings saved", { paymentSettings: next, success: true }));
 });
-app.get("/api/get-analysis-data", (_req, res) => res.json(env("", [])));
+// Admin P&L: deposits, withdrawals and realised P/L for every account below me.
+app.get("/api/get-analysis-data", (req, res) => {
+  const ctx = requireAdminPanelAccess(req, res);
+  if (!ctx) return;
+  const { authUser, authRole } = ctx;
+  const rows = queryUserRowsSqlite();
+  const below = isOwnerPanelRole(authRole)
+    ? new Set(rows.map((r) => String(r.id)).filter((uid) => uid !== String(authUser.id)))
+    : getDescendantUserIdSet(authUser.id);
+  const pnl = realizedPnlMap();
+  const deposits = ledgerSumsByUser({ kinds: DEPOSIT_KINDS, side: "to" });
+  const withdraws = ledgerSumsByUser({ kinds: WITHDRAW_KINDS, side: "from" });
+  const balanceById = new Map(rows.map((r) => [String(r.id), toNum(r.wallet_balance, 0)]));
+  const users = rows
+    .filter((r) => below.has(String(r.id)))
+    .map((r) => {
+      const uid = String(r.id);
+      const profile = parseProfileJson(r.profile_json || "{}");
+      const p = toNum(pnl.get(uid), 0);
+      const downlineBalance = [...getDescendantUserIdSet(uid)].reduce((a, d) => a + toNum(balanceById.get(d), 0), 0);
+      return {
+        _id: uid,
+        username: r.username,
+        role: normalizePanelRole(r.role, "user"),
+        phone: profile?.mobileNumber || "",
+        balance: toNum(r.wallet_balance, 0),
+        exposure: toNum(r.wallet_exposer, 0) + toNum(r.wallet_casino_exposer, 0),
+        availableBalance: Math.round((toNum(r.wallet_balance, 0) - toNum(r.wallet_exposer, 0) - toNum(r.wallet_casino_exposer, 0)) * 100) / 100,
+        downlineBalance: Math.round(downlineBalance * 100) / 100,
+        totalDeposit: toNum(deposits.get(uid), 0),
+        totalWithdraw: toNum(withdraws.get(uid), 0),
+        totalProfit: p > 0 ? p : 0,
+        totalLoss: p < 0 ? -p : 0,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
+  const sum = (k) => Math.round(users.reduce((a, u) => a + toNum(u[k], 0), 0) * 100) / 100;
+  return res.json(env("", { totalDeposit: sum("totalDeposit"), totalWithdraw: sum("totalWithdraw"), totalProfit: sum("totalProfit"), totalLoss: sum("totalLoss"), users }));
+});
 const handleSyncSnapshotData = async (_req, res) => {
   const out = syncSnapshotToDb();
   const mysqlOut = await syncAllSqliteDataToMysql();
   res.json(env("Snapshot and SQL data synced", { ...out, mysql: mysqlOut }));
 };
-app.post("/api/sync-snapshot-data", handleSyncSnapshotData);
-app.get("/api/sync-snapshot-data", handleSyncSnapshotData);
-app.post("/api/sync-sqlite-to-mysql", async (_req, res) => {
+app.post("/api/sync-snapshot-data", ownerOnly, handleSyncSnapshotData);
+app.get("/api/sync-snapshot-data", ownerOnly, handleSyncSnapshotData);
+app.post("/api/sync-sqlite-to-mysql", ownerOnly, async (_req, res) => {
   const out = await syncAllSqliteDataToMysql();
   res.json(env("SQLite mirror synced to MySQL", out));
 });
-app.get("/api/game-api-config-status", (_req, res) => {
+app.get("/api/game-api-config-status", ownerOnly, (_req, res) => {
   const cfg = readGameApiSettings();
   const cache = readGameApiCatalogCacheEnvelope();
   const cacheLastSyncedAt = cache?.syncedAt || null;
@@ -9584,7 +10216,7 @@ app.get("/api/game-api-config-status", (_req, res) => {
     })
   );
 });
-app.post("/api/sync-game-api-catalog", async (req, res) => {
+app.post("/api/sync-game-api-catalog", ownerOnly, async (req, res) => {
   try {
     const force = toBool(req.query?.force ?? req.body?.force);
     const out = force ? await ensureGameApiCatalogFresh({ force: true }) : await syncGameApiCatalog();
@@ -9594,7 +10226,7 @@ app.post("/api/sync-game-api-catalog", async (req, res) => {
     return res.status(500).json(env(e?.message || "Catalog sync failed", { success: false }, true, 500));
   }
 });
-app.post("/api/import-provider-local-catalog", (_req, res) => {
+app.post("/api/import-provider-local-catalog", ownerOnly, (_req, res) => {
   const out = importProviderLocalCatalogToDb();
   return res.json(env("Provider local catalog imported", out));
 });
@@ -9608,7 +10240,13 @@ app.get("/api/get-user-details/:userId", (req, res) => {
     return res.status(403).json(env("Access denied", {}, true, 403));
   }
   const { password, ...safeTarget } = target;
-  return res.json(env("", safeTarget));
+  if (!req.query?.type) return res.json(env("", safeTarget));
+  const ledgerOf = (kinds, col) =>
+    db.prepare(`SELECT id AS _id, kind AS type, amount, remark, created_at AS createdAt FROM coin_ledger WHERE kind IN (${sqlList(kinds)}) AND ${col}=? ORDER BY created_at DESC LIMIT 500`).all(target.id);
+  const bets = db
+    .prepare("SELECT id AS _id, match_name AS matchName, market_name AS marketName, selection_name AS selectionName, odds, stack, is_back AS isBack, status, settlement_result AS result, COALESCE(settlement_net,0) AS profitLoss, created_at AS createdAt FROM bets WHERE user_id=? ORDER BY created_at DESC LIMIT 500")
+    .all(target.id);
+  return res.json(env("", { ...safeTarget, deposits: ledgerOf(DEPOSIT_KINDS, "to_user_id"), withdraws: ledgerOf(WITHDRAW_KINDS, "from_user_id"), bets }));
 });
 app.get("/api/search-users", (req, res) => {
   const authUser = reqAuthUser(req);
@@ -10286,9 +10924,14 @@ const handleProviderWalletCallback = (req, res) => {
   const parsed = parseProviderWalletPayload(req);
   const isCallPhp = isCallPhpCallbackRequest(req);
   const authState = verifyProviderWalletAuth(req, parsed);
+  // req.ip honours "trust proxy"; X-Forwarded-For alone is attacker controlled.
+  const callbackIp = String(req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
   const allowCallPhpWithoutAuth =
-    isCallPhp && CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP && isLikelyCallPhpSettlementPayload(parsed);
+    isCallPhp &&
+    isLikelyCallPhpSettlementPayload(parsed) &&
+    (CALLBACK_ALLOW_NO_AUTH_FOR_CALL_PHP || PROVIDER_CALLBACK_IPS.has(callbackIp));
   if (!authState.ok && !allowCallPhpWithoutAuth) {
+    console.warn(`[casino-callback] rejected unauthenticated ${req.method} ${req.path} from ${callbackIp}`);
     if (isCallPhp) {
       return sendCallPhpCompatResponse(res, {
         ok: false,
@@ -10452,7 +11095,7 @@ app.all(
   ["/api/provider/wallet", "/api/provider/callback", "/api/casino/provider/wallet", "/call.php", "/api/call.php"],
   handleProviderWalletCallback
 );
-app.get("/api/provider-api-status", (_req, res) => {
+app.get("/api/provider-api-status", ownerOnly, (_req, res) => {
   const cfg = readProviderApiSettings();
   res.json(
     env("", {
@@ -10892,6 +11535,7 @@ app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login
 app.get("/admin/client-onboarding", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
 app.get("/admin/add-user", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "add-user.html")));
 app.get("/admin/tokens", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "tokens.html")));
+app.get("/admin/coin-ledger", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "coin-ledger.html")));
 app.get("/admin/dashboard", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "dashboard.html")));
 app.get("/signup", (_req, res) => res.redirect(302, "/admin/add-user"));
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));

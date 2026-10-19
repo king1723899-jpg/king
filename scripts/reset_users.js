@@ -23,6 +23,10 @@ const userTables = [
   "casino_provider_transactions",
   "admin_client_partnership",
   "admin_client_general",
+  "coin_ledger",
+  "commission_records",
+  "deposit_tokens",
+  "notifications",
   "wallets",
   "users",
 ];

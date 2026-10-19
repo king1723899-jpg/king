@@ -966,6 +966,18 @@ const Sidebar = ({
       icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faExchangeAlt
     }, void 0, false, {
       fileName: _jsxFileName,
+      lineNumber: 286,
+      columnNumber: 13
+    }, undefined),
+    text: 'Coin Ledger',
+    link: '/coin-ledger',
+    external: '/admin/coin-ledger',
+    color: '#fdcb6e'
+  }, {
+    icon: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_fortawesome_react_fontawesome__WEBPACK_IMPORTED_MODULE_12__.FontAwesomeIcon, {
+      icon: _fortawesome_free_solid_svg_icons__WEBPACK_IMPORTED_MODULE_15__.faExchangeAlt
+    }, void 0, false, {
+      fileName: _jsxFileName,
       lineNumber: 292,
       columnNumber: 13
     }, undefined),
