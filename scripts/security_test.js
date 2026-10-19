@@ -211,7 +211,15 @@ const setMarket = ({ status = "OPEN", fedAgoMs = 0, back = 2.5, lay = 2.6, gstat
   assert.equal((await call("GET", "/api/match-betting-users", usr)).status, 403);
   assert.ok(ok(await call("GET", "/api/match-betting-users", adm)));
 
-  console.log(JSON.stringify({ ok: true, checks: "callback, identity, bet auth, pricing, balance, cancel, payments, registration, admin jobs" }));
+  // Deposit tokens were removed: no endpoints, no page, field ignored on create.
+  assert.equal((await call("GET", "/api/admin/tokens", sa)).status, 404);
+  assert.equal((await call("POST", "/api/admin/tokens", sa, { value: 100, assignedTo: "adm1" })).status, 404);
+  assert.equal((await fetch(BASE + "/admin/embed/tokens")).status, 404);
+  r = await call("POST", "/api/admin/client-onboarding", adm, { userName: "tok1", fullName: "t", password: "pass@123", confirmPassword: "pass@123", transactionCode: "pass@123", partnershipType: "client", depositToken: "KT-AAAAA-BBBBB" });
+  assert.ok(ok(r), "token field is ignored: " + JSON.stringify(r.json));
+  assert.equal(wallet("tok1").balance, 0);
+
+  console.log(JSON.stringify({ ok: true, checks: "callback, identity, bet auth, pricing, balance, cancel, payments, registration, admin jobs, no tokens" }));
 })()
   .catch((e) => {
     console.error(e);

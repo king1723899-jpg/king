@@ -212,11 +212,6 @@
                 <div class="field-help">Transferred from your balance to the new account.</div>
               </div>
               <div class="col-12 col-md-4">
-                <label class="field-label" for="depositToken">Deposit Token</label>
-                <input class="form-control" id="depositToken" name="depositToken" placeholder="KT-XXXXX-XXXXX (optional)" autocomplete="off" style="text-transform: uppercase;" />
-                <div class="field-help">Token value is added on top. <a href="/admin/tokens">My tokens</a></div>
-              </div>
-              <div class="col-12 col-md-4">
                 <label class="field-label" for="creditLimit">Credit Reference</label>
                 <input class="form-control" id="creditLimit" name="creditLimit" type="number" min="0" step="0.01" placeholder="0.00" />
               </div>
@@ -575,7 +570,6 @@
           confirmPassword: form.confirmPassword.value,
           referenceName: form.referenceName.value.trim(),
           creditAmount: form.creditAmount.value,
-          depositToken: form.depositToken.value.trim(),
           creditLimit: form.creditLimit.value,
           minBet: isUser ? form.minBet.value : "",
           maxBet: isUser ? form.maxBet.value : "",

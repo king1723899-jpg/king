@@ -6699,23 +6699,6 @@ app.post("/api/admin/masters", (req, res) => {
 app.get("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
 app.post("/api/admin/sub-admins", (req, res) => res.redirect(307, "/api/admin/masters"));
 db.exec(`
-CREATE TABLE IF NOT EXISTS deposit_tokens (
-  id TEXT PRIMARY KEY,
-  code TEXT NOT NULL UNIQUE,
-  value REAL NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active',
-  assigned_to TEXT,
-  created_by TEXT,
-  note TEXT,
-  used_by TEXT,
-  used_for TEXT,
-  used_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_deposit_tokens_assigned ON deposit_tokens(assigned_to, status);
-`);
-db.exec(`
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -6747,7 +6730,7 @@ const addNotification = (userId, title, message, type = "info", createdBy = "") 
   } catch {}
 };
 app.get("/api/admin/notifications", (req, res) => {
-  const actor = tokenActor(req, res);
+  const actor = adminActor(req, res);
   if (!actor) return;
   const items = db
     .prepare("SELECT id,title,message,type,is_read AS isRead,created_at AS createdAt FROM notifications WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 50")
@@ -6756,7 +6739,7 @@ app.get("/api/admin/notifications", (req, res) => {
   return res.json(env("", { items, unreadCount: unread, user: { username: actor.user.username, role: actor.role } }));
 });
 app.post("/api/admin/notifications/read", (req, res) => {
-  const actor = tokenActor(req, res);
+  const actor = adminActor(req, res);
   if (!actor) return;
   const nid = String(req.body?.id || "").trim();
   if (nid) db.prepare("UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?").run(nid, String(actor.user.id));
@@ -6764,7 +6747,7 @@ app.post("/api/admin/notifications/read", (req, res) => {
   return res.json(env("Notifications updated", {}));
 });
 app.post("/api/admin/notifications", (req, res) => {
-  const actor = tokenActor(req, res);
+  const actor = adminActor(req, res);
   if (!actor) return;
   const target = getUserByUsername(String(req.body?.username || "").trim());
   const title = String(req.body?.title || "").trim();
@@ -6789,7 +6772,7 @@ const DASH_CASINO_PROVIDERS = [
 ];
 const DASH_OTHER_GAME = /sportsbook|virtual|lottery|other|tp/i;
 app.get("/api/admin/dashboard", (req, res) => {
-  const actor = tokenActor(req, res);
+  const actor = adminActor(req, res);
   if (!actor) return;
   const toDate = (v, fallback) => {
     const d = v ? new Date(String(v)) : null;
@@ -6908,14 +6891,8 @@ app.get("/api/admin/dashboard", (req, res) => {
   );
 });
 
-const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const generateTokenCode = () => {
-  const bytes = crypto.randomBytes(10);
-  let out = "";
-  for (let i = 0; i < 10; i += 1) out += TOKEN_ALPHABET[bytes[i] % TOKEN_ALPHABET.length];
-  return "KT-" + out.slice(0, 5) + "-" + out.slice(5);
-};
-const tokenActor = (req, res) => {
+// Logged-in admin-panel account (any role above User).
+const adminActor = (req, res) => {
   const authUser = reqAuthUser(req);
   if (!authUser) {
     res.status(401).json(env("Unauthorized", {}, true, 401));
@@ -6928,119 +6905,6 @@ const tokenActor = (req, res) => {
   }
   return { user: authUser, role };
 };
-const emptyTokenStats = () => ({ generated: 0, generatedValue: 0, active: 0, activeValue: 0, used: 0, usedValue: 0, voided: 0, voidedValue: 0, fundedBalance: 0, userPnl: 0, housePnl: 0 });
-const addTokenStats = (stats, row) => {
-  const value = toNum(row.value, 0);
-  stats.generated += 1;
-  stats.generatedValue += value;
-  if (row.status === "used") {
-    stats.used += 1;
-    stats.usedValue += value;
-    const balance = toNum(row.funded_balance, 0);
-    stats.fundedBalance += balance;
-    stats.userPnl += balance - value;
-    stats.housePnl += value - balance;
-  } else if (row.status === "void") {
-    stats.voided += 1;
-    stats.voidedValue += value;
-  } else {
-    stats.active += 1;
-    stats.activeValue += value;
-  }
-};
-app.post("/api/admin/tokens", (req, res) => {
-  const actor = tokenActor(req, res);
-  if (!actor) return;
-  if (actor.role !== "super_admin") return res.status(403).json(env("Only Super Admin can generate tokens", {}, true, 403));
-  const body = req.body || {};
-  const value = toNum(body.value ?? body.amount, 0);
-  const count = Math.floor(toNum(body.count ?? body.quantity, 1));
-  const note = String(body.note || "").trim().slice(0, 200);
-  const assignee = String(body.assignedTo || body.admin || "").trim();
-  if (!(value > 0)) return res.status(400).json(env("Token value must be greater than 0", {}, true, 400));
-  if (!(count >= 1 && count <= 100)) return res.status(400).json(env("Count must be between 1 and 100", {}, true, 400));
-  const target = assignee ? getUserByUsername(assignee) : null;
-  if (!target || normalizePanelRole(target.role, "user") === "user") {
-    return res.status(400).json(env("Select a valid admin account to assign the tokens to", {}, true, 400));
-  }
-  const now = nowIso();
-  const insert = db.prepare(
-    "INSERT INTO deposit_tokens (id,code,value,status,assigned_to,created_by,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
-  );
-  const created = [];
-  try {
-    db.transaction(() => {
-      for (let i = 0; i < count; i += 1) {
-        const code = generateTokenCode();
-        insert.run(id("tk_"), code, value, "active", target.id, actor.user.id, note || null, now, now);
-        created.push(code);
-      }
-    })();
-  } catch (e) {
-    return res.status(500).json(env(e.message || "Unable to generate tokens", {}, true, 500));
-  }
-  addNotification(target.id, "Deposit tokens received", count + " token(s) worth " + value + " each assigned to you by " + actor.user.username, "token", actor.user.username);
-  return res.status(201).json(env("Tokens generated", { codes: created, value, assignedTo: target.username }));
-});
-app.get("/api/admin/tokens", (req, res) => {
-  const actor = tokenActor(req, res);
-  if (!actor) return;
-  const isSuper = actor.role === "super_admin";
-  const status = String(req.query.status || "").trim().toLowerCase();
-  const search = String(req.query.search || "").trim().toLowerCase();
-  const rows = db
-    .prepare(
-      `SELECT t.*, a.username AS assigned_username, u.username AS used_for_username, w.balance AS funded_balance
-       FROM deposit_tokens t
-       LEFT JOIN users a ON a.id=t.assigned_to
-       LEFT JOIN users u ON u.id=t.used_for
-       LEFT JOIN wallets w ON w.user_id=t.used_for
-       ${isSuper ? "" : "WHERE t.assigned_to=?"}
-       ORDER BY t.created_at DESC, t.rowid DESC`
-    )
-    .all(...(isSuper ? [] : [actor.user.id]));
-  const summary = emptyTokenStats();
-  const byAdmin = new Map();
-  rows.forEach((row) => {
-    addTokenStats(summary, row);
-    const key = String(row.assigned_to || "");
-    if (!byAdmin.has(key)) byAdmin.set(key, { adminId: key, username: row.assigned_username || key, ...emptyTokenStats() });
-    addTokenStats(byAdmin.get(key), row);
-  });
-  const items = rows
-    .filter((row) => (!status || row.status === status) && (!search || [row.code, row.assigned_username, row.used_for_username, row.note].some((v) => String(v || "").toLowerCase().includes(search))))
-    .slice(0, 500)
-    .map((row) => {
-      const value = toNum(row.value, 0);
-      const used = row.status === "used";
-      const balance = used ? toNum(row.funded_balance, 0) : null;
-      return {
-        id: row.id,
-        code: row.code,
-        value,
-        status: row.status,
-        note: row.note || "",
-        assignedTo: row.assigned_username || "",
-        usedFor: row.used_for_username || "",
-        usedAt: row.used_at || "",
-        createdAt: row.created_at,
-        currentBalance: balance,
-        userPnl: used ? balance - value : null,
-        housePnl: used ? value - balance : null,
-      };
-    });
-  return res.json(env("Tokens loaded", { items, summary, byAdmin: Array.from(byAdmin.values()), canGenerate: isSuper }));
-});
-app.post("/api/admin/tokens/:id/void", (req, res) => {
-  const actor = tokenActor(req, res);
-  if (!actor) return;
-  if (actor.role !== "super_admin") return res.status(403).json(env("Only Super Admin can void tokens", {}, true, 403));
-  const result = db
-    .prepare("UPDATE deposit_tokens SET status='void',updated_at=? WHERE id=? AND status='active'")
-    .run(nowIso(), String(req.params.id || ""));
-  if (!result.changes) return res.status(400).json(env("Only unused tokens can be voided", {}, true, 400));
-  return res.json(env("Token voided"));
-});
 app.post("/api/admin/client-onboarding", async (req, res) => {
   if (PLATFORM_MODE !== "b2b" || String(req.body?.platform || req.body?.platformType || "b2b").trim().toLowerCase() === "b2c") {
     return res.status(403).json(env("B2B platform only", {}, true, 403));
@@ -7117,18 +6981,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
   const parentId = getCreationParentId(authUser, authRole);
   const accountLevel = Math.max(1, panelRoleDepth(requestedRole) + 1);
   if (!parentId) return res.status(400).json(env("Unable to resolve the parent account", {}, true, 400));
-  const depositTokenCode = String(body.depositToken || body.deposit_token || "").trim().toUpperCase();
-  let depositToken = null;
-  if (depositTokenCode) {
-    depositToken = db.prepare("SELECT * FROM deposit_tokens WHERE code=?").get(depositTokenCode);
-    if (!depositToken) return res.status(400).json(env("Deposit token not found", {}, true, 400));
-    if (depositToken.status !== "active") return res.status(400).json(env("Deposit token is already " + depositToken.status, {}, true, 400));
-    if (authRole !== "super_admin" && String(depositToken.assigned_to || "") !== String(authUser.id)) {
-      return res.status(403).json(env("This token is not assigned to you", {}, true, 403));
-    }
-  }
-  const tokenValue = depositToken ? toNum(depositToken.value, 0) : 0;
-  const openingBalance = creditAmount + tokenValue;
+  const openingBalance = creditAmount;
   const actor = String(authUser.username || authUser.id || "admin");
   const profile = {
     fullName,
@@ -7189,26 +7042,6 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
           kind: "opening_credit",
           remark: "Opening credit for " + username,
         });
-      }
-      // A deposit token is issued by Super Admin; its value comes out of the issuer's wallet.
-      if (depositToken) {
-        const redeemed = db
-          .prepare("UPDATE deposit_tokens SET status='used',used_by=?,used_for=?,used_at=?,updated_at=? WHERE id=? AND status='active'")
-          .run(authUser.id, userId, now, now, depositToken.id);
-        if (!redeemed.changes) throw new CoinError("Deposit token is no longer available");
-        if (tokenValue > 0) {
-          coinEngine.move({
-            fromId: depositToken.created_by,
-            toId: userId,
-            amount: tokenValue,
-            kind: "token_redeem",
-            direction: "deposit",
-            actorId: authUser.id,
-            refId: depositToken.id,
-            remark: "Deposit token " + depositToken.code,
-            insufficientMessage: "Token issuer has insufficient balance",
-          });
-        }
       }
       db.prepare("INSERT OR REPLACE INTO user_profiles (user_id,data_json,created_at,updated_at) VALUES (?,?,?,?)").run(
         userId,
@@ -7295,7 +7128,7 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       partnerships: db.prepare("SELECT id,partner_id AS partnerId,share_percentage AS sharePercentage,created_at AS createdAt,updated_at AS updatedAt FROM user_partnerships WHERE user_id=?").all(userId),
     }),
   ]).catch(() => {});
-  syncWalletsAfterCoinMove([parentId, depositToken?.created_by]);
+  syncWalletsAfterCoinMove([parentId]);
   addNotification(parentId, "New account created", username + " (" + requestedRole + ") was created with opening balance " + openingBalance, "account", username);
 
   return res.json(
@@ -7307,7 +7140,6 @@ app.post("/api/admin/client-onboarding", async (req, res) => {
       city,
       mobileNumber,
       creditAmount,
-      depositTokenValue: tokenValue,
       openingBalance,
       role: requestedRole,
       parentId,
@@ -8687,15 +8519,23 @@ const handleAccountStatement = (req, res) => {
        LEFT JOIN bets b ON l.kind IN ('bet_win','bet_loss') AND b.id=l.ref_id
        LEFT JOIN coin_ledger o ON l.kind='bet_rollback' AND o.id=l.ref_id
        LEFT JOIN bets ob ON ob.id=o.ref_id
-       WHERE (l.from_user_id=@u OR l.to_user_id=@u) AND l.created_at>=@from`
+       WHERE (l.from_user_id=@u OR l.to_user_id=@u) AND l.created_at>=@from
+       ORDER BY l.created_at ASC, l.rowid ASC`
     )
     .all({ u: uid, from: fromIso });
-  // One line per bet / transfer for this account (a bet split between two uplines is one line for the player).
+  // One line per bet result / transfer. A bet split between Master and parent
+  // writes consecutive ledger entries (possibly a millisecond apart); they are
+  // merged. A later rollback or re-settlement of the same bet is a new line.
   const grouped = new Map();
+  let lastGameKey = null;
+  let groupSeq = 0;
   for (const row of ledgerRows) {
     const signed = String(row.to_user_id) === uid ? toNum(row.amount, 0) : -toNum(row.amount, 0);
     const isGame = REPORT_BET_KINDS.includes(row.kind);
-    const key = isGame ? `${row.kind}|${row.bet_id || row.id}|${row.created_at}` : row.id;
+    const gameKey = isGame ? `${row.kind}|${row.bet_id || row.id}` : null;
+    if (!isGame || gameKey !== lastGameKey) groupSeq += 1;
+    lastGameKey = gameKey;
+    const key = isGame ? `${gameKey}|${groupSeq}` : row.id;
     const other = String(row.to_user_id) === uid ? row.from_user_id : row.to_user_id;
     const cur = grouped.get(key) || {
       _id: row.id,
@@ -11534,11 +11374,10 @@ app.get(["/admin", "/admin/"], (_req, res) => res.redirect(302, "/admin/dashboar
 app.get("/admin/login", (_req, res) => sendHtml(res, path.join(ADMIN_DIR, "login.html")));
 // These pages have no navigation of their own: the main admin panel shows them
 // (inside its one sidebar layout) from /admin/embed/<page>. /admin/dashboard,
-// /admin/add-user, /admin/tokens and /admin/coin-ledger are main-panel routes.
+// /admin/add-user and /admin/coin-ledger are main-panel routes.
 const EMBEDDED_ADMIN_PAGES = {
   dashboard: "dashboard.html",
   "add-user": "add-user.html",
-  tokens: "tokens.html",
   "coin-ledger": "coin-ledger.html",
 };
 app.get("/admin/embed/:page", (req, res) => {

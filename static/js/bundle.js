@@ -1222,7 +1222,7 @@ const AdminRoutes = () => {
           lineNumber: 68,
           columnNumber: 24
         }, undefined)
-      })), embeddedRoute('dashboard', 'dashboard', 'Dashboard'), embeddedRoute('add-user', 'add-user', 'Add User'), embeddedRoute('tokens', 'tokens', 'Deposit Tokens'), embeddedRoute('coin-ledger', 'coin-ledger', 'Coin Ledger'), ...['add-user/:username'].map(path => ({
+      })), embeddedRoute('dashboard', 'dashboard', 'Dashboard'), embeddedRoute('add-user', 'add-user', 'Add User'), embeddedRoute('coin-ledger', 'coin-ledger', 'Coin Ledger'), ...['add-user/:username'].map(path => ({
         key: 'add-user',
         path: path,
         element: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_4__.jsxDEV)(AddUser, {}, void 0, false, {
