@@ -5205,6 +5205,23 @@ const ledgerSumsByUser = ({ kinds, side, fromIso = null, toIso = null }) => {
     .all({ ...(fromIso ? { from: fromIso } : {}), ...(toIso ? { to: toIso } : {}) });
   return new Map(rows.map((r) => [String(r.uid), toNum(r.total, 0)]));
 };
+// Coins that crossed into (deposits) or out of (withdrawals) a set of accounts.
+// Transfers between two accounts that are both inside the set are internal
+// (e.g. an Admin funding its own clients) and are not counted again.
+const ledgerBoundaryTotal = ({ insideIds, kinds, side, fromIso = null, toIso = null }) => {
+  const rows = db
+    .prepare(
+      `SELECT from_user_id AS f, to_user_id AS t, ROUND(SUM(amount),2) AS total FROM coin_ledger WHERE kind IN (${sqlList(kinds)})${fromIso ? " AND created_at>=@from" : ""}${toIso ? " AND created_at<=@to" : ""} GROUP BY from_user_id,to_user_id`
+    )
+    .all({ ...(fromIso ? { from: fromIso } : {}), ...(toIso ? { to: toIso } : {}) });
+  let total = 0;
+  for (const r of rows) {
+    const inside = side === "to" ? String(r.t) : String(r.f);
+    const other = side === "to" ? String(r.f) : String(r.t);
+    if (insideIds.has(inside) && !insideIds.has(other)) total += toNum(r.total, 0);
+  }
+  return Math.round(total * 100) / 100;
+};
 const parseReportDate = (value, endOfDay = false) => {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -6778,12 +6795,14 @@ const DASH_OTHER_GAME = /sportsbook|virtual|lottery|other|tp/i;
 app.get("/api/admin/dashboard", (req, res) => {
   const actor = adminActor(req, res);
   if (!actor) return;
-  const toDate = (v, fallback) => {
-    const d = v ? new Date(String(v)) : null;
-    return d && !Number.isNaN(d.getTime()) ? d : fallback;
+  // A date-only "to" (YYYY-MM-DD) means the end of that day, like other reports.
+  const toDate = (v, fallback, endOfDay = false) => {
+    const raw = v ? String(v).trim() : "";
+    const iso = raw ? parseReportDate(raw, endOfDay) : null;
+    return iso ? new Date(iso) : fallback;
   };
   const now = new Date();
-  const to = toDate(req.query.to, now);
+  const to = toDate(req.query.to, now, true);
   const from = toDate(req.query.from, new Date(to.getTime() - 7 * 24 * 3600 * 1000));
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
@@ -6859,15 +6878,14 @@ app.get("/api/admin/dashboard", (req, res) => {
     const [sport, market] = k.split("\u0001");
     return { sport, market, amount: round(v) };
   });
-  // Coins moved into / out of my downline (parent transfers, approved requests, opening coins, tokens).
+  // Coins moved into / out of my downline (parent transfers, approved requests,
+  // opening coins, tokens). Moves between two downline accounts are internal:
+  // an Admin funding its own clients is not a deposit on Super Admin's dashboard.
   const downlineIds = new Set(users.map((u) => String(u.id)));
-  const sumLedger = (kinds, side) => {
-    const map = ledgerSumsByUser({ kinds, side, fromIso, toIso });
-    let total = 0;
-    for (const [uid, amount] of map) if (downlineIds.has(uid)) total += amount;
-    return round(total);
-  };
-  const sumType = (t) => (t === "deposit" ? sumLedger(DEPOSIT_KINDS, "to") : sumLedger(WITHDRAW_KINDS, "from"));
+  const sumType = (t) =>
+    t === "deposit"
+      ? ledgerBoundaryTotal({ insideIds: downlineIds, kinds: DEPOSIT_KINDS, side: "to", fromIso, toIso })
+      : ledgerBoundaryTotal({ insideIds: downlineIds, kinds: WITHDRAW_KINDS, side: "from", fromIso, toIso });
   const commissionRows = db
     .prepare("SELECT user_id,amount FROM commission_records WHERE created_at>=? AND created_at<=?")
     .all(fromIso, toIso)
@@ -7445,15 +7463,63 @@ app.get("/api/get-user-balance", (req, res) => {
   return res.json(env("", { _id: id("w_"), balance: toNum(w.balance, 0), casinoexposer: toNum(w.casino_exposer, 0), exposer: toNum(w.exposer, 0) }));
 });
 
-app.get("/api/get-user-stake", (_req, res) => res.json({ success: true, data: (getSetting("stake.default", { simple: STAKE_SIMPLE }).simple || STAKE_SIMPLE) }));
+// Stake buttons ("Button Values" page) are per account. Each account saves only
+// its own buttons; nobody can change the global defaults through this API.
+const STAKE_BUTTON_COUNT = 10;
+const STAKE_BUTTON_MAX_VALUE = 1e9;
+const stakeSettingKey = (userId) => `stake.user.${userId}`;
+const getUserStakeDetail = (userId) => {
+  const saved = userId ? getSetting(stakeSettingKey(userId), null) : null;
+  return saved && typeof saved === "object" ? { ...STAKE_DETAIL, ...saved } : { ...STAKE_DETAIL };
+};
+const stakeSimpleFromDetail = (detail) => {
+  const stakes = [];
+  for (let i = 1; i <= STAKE_BUTTON_COUNT; i += 1) {
+    const v = toNum(detail[`value${i}`], 0);
+    if (v > 0) stakes.push(v);
+  }
+  return { minStake: STAKE_SIMPLE.minStake, maxStake: STAKE_SIMPLE.maxStake, stakes: stakes.length ? stakes : STAKE_SIMPLE.stakes };
+};
+app.get("/api/get-user-stake", (req, res) => {
+  const u = reqAuthUser(req);
+  const userStake = getUserStakeDetail(u?.id);
+  return res.json({ success: true, ...env("", { ...stakeSimpleFromDetail(userStake), userStake }) });
+});
 app.post("/api/save-user-stake", (req, res) => {
-  const simple = {
-    minStake: toNum(req.body?.minStake, STAKE_SIMPLE.minStake),
-    maxStake: toNum(req.body?.maxStake, STAKE_SIMPLE.maxStake),
-    stakes: Array.isArray(req.body?.stakes) ? req.body.stakes.map((x) => toNum(x, 0)).filter((x) => x > 0) : STAKE_SIMPLE.stakes,
-  };
-  setSetting("stake.default", { simple, detail: STAKE_DETAIL });
-  res.json(env("Stake saved", { simple }));
+  const u = reqAuthUser(req);
+  if (!u) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const body = asPlainObject(req.body, {});
+  const detail = getUserStakeDetail(u.id);
+  const errors = {};
+  // Legacy clients send a plain list of stakes.
+  if (Array.isArray(body.stakes)) {
+    body.stakes.slice(0, STAKE_BUTTON_COUNT).forEach((v, i) => {
+      body[`value${i + 1}`] = v;
+      if (body[`name${i + 1}`] === undefined) body[`name${i + 1}`] = String(v);
+    });
+  }
+  for (let i = 1; i <= STAKE_BUTTON_COUNT; i += 1) {
+    const nameKey = `name${i}`;
+    const valueKey = `value${i}`;
+    if (body[nameKey] !== undefined) {
+      const name = String(body[nameKey]).trim();
+      if (!name || name.length > 20) errors[nameKey] = "Label must be 1-20 characters";
+      else detail[nameKey] = name;
+    }
+    if (body[valueKey] !== undefined) {
+      const value = Number(body[valueKey]);
+      if (!Number.isFinite(value) || value <= 0 || value > STAKE_BUTTON_MAX_VALUE) errors[valueKey] = "Value must be a positive number";
+      else detail[valueKey] = Math.floor(value);
+    }
+  }
+  if (Object.keys(errors).length) return res.status(400).json({ ...env("Invalid button values", {}, true, 400), errors });
+  const saved = {};
+  for (let i = 1; i <= STAKE_BUTTON_COUNT; i += 1) {
+    saved[`name${i}`] = detail[`name${i}`];
+    saved[`value${i}`] = detail[`value${i}`];
+  }
+  setSetting(stakeSettingKey(u.id), saved);
+  return res.json(env("Stake saved", { ...stakeSimpleFromDetail(saved), userStake: saved }));
 });
 
 const handleUpdatePassword = (req, res) => {
@@ -7474,7 +7540,12 @@ const handleUpdatePassword = (req, res) => {
   }
   const now = nowIso();
   const passwordHash = hashPass(pass);
-  db.prepare("UPDATE users SET password=?,updated_at=? WHERE id=?").run(passwordHash, now, u.id);
+  // A new password ends every existing login of that account (a stolen session
+  // must not survive a reset). The client UI sends the user back to login.
+  db.transaction(() => {
+    db.prepare("UPDATE users SET password=?,session_id=?,updated_at=? WHERE id=?").run(passwordHash, Date.now(), now, u.id);
+    deleteSessionsByUserStmt.run(u.id);
+  })();
   const updated = getUserById(u.id);
   syncUserToMysql({
     id: updated.id,
@@ -8103,9 +8174,12 @@ const verifyActorTransactionPassword = (actor, input) => {
 };
 // Coins move only between a child and its direct parent. The parent operates
 // its own children; Super Admin may operate any parent/child pair.
-const canActorOperateCoins = (actor, actorRole, child) => {
+// Banking model: coins move only between an account and its DIRECT parent.
+// Head office (Super Admin) funds its branches (direct accounts); only a
+// branch can deposit to / withdraw from its own customers. Super Admin can
+// still view and manage everyone, but cannot move a branch's coins.
+const canActorOperateCoins = (actor, _actorRole, child) => {
   if (!actor || !child || String(actor.id) === String(child.id)) return false;
-  if (isOwnerPanelRole(actorRole)) return true;
   return String(child.parent_id || "") === String(actor.id);
 };
 const syncWalletsAfterCoinMove = (userIds) => {
@@ -8230,8 +8304,14 @@ app.get("/api/admin/coin-ledger", (req, res) => {
          LIMIT ? OFFSET ?`
       )
       .all(...params, limit, (page - 1) * limit);
+  // Balances are shown only for accounts the caller may see (self + downline);
+  // an upline account's balance after a transfer is never revealed.
+  const balanceVisibleIds = isOwner ? null : new Set([String(authUser.id), ...[...getDescendantUserIdSet(authUser.id)].map(String)]);
+  const canSeeBalance = (userId) => !balanceVisibleIds || balanceVisibleIds.has(String(userId || ""));
   const items = rows.map((row) => ({
     ...coinEngine.mapEntry(row),
+    ...(canSeeBalance(row.from_user_id) ? {} : { fromBalanceAfter: null }),
+    ...(canSeeBalance(row.to_user_id) ? {} : { toBalanceAfter: null }),
     fromUsername: row.from_username || row.from_user_id,
     fromRole: normalizePanelRole(row.from_role, "user"),
     toUsername: row.to_username || row.to_user_id,
@@ -9412,8 +9492,20 @@ app.post("/api/bet-lock-granular", (req, res) => {
 app.get("/api/match-bet-locks/:matchId", (req, res) => {
   const matchId = toNum(req.params.matchId, 0);
   if (!matchId) return res.status(400).json(env("matchId is required", {}, true, 400));
+  const authUser = reqAuthUser(req);
+  if (!authUser) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const authRole = reqAuthRole(req, authUser.role);
   const lockStore = readMatchBetLockStore(matchId);
-  return res.json(env("", { matchId, ...lockStore }));
+  // Per-user locks are visible only for accounts the caller may see: a player
+  // sees just their own entry, an admin their downline, Super Admin everyone.
+  const allUsers = lockStore?.users && typeof lockStore.users === "object" ? lockStore.users : {};
+  const isPlayer = normalizePanelRole(authRole, "user") === "user";
+  const visibleIds = isPlayer ? new Set([String(authUser.id)]) : getVisibleUserIdsForActor(authUser, authRole);
+  const users = {};
+  for (const [uid, lock] of Object.entries(allUsers)) {
+    if (!(visibleIds instanceof Set) || visibleIds.has(String(uid))) users[uid] = lock;
+  }
+  return res.json(env("", { matchId, ...lockStore, users }));
 });
 app.get("/api/get-child-user-list", (req, res) => {
   const authUser = reqAuthUser(req);
@@ -9850,7 +9942,8 @@ app.post("/api/update-deposit-withdraw-status", (req, res) => {
   const targetUser = getUserById(String(row.user_id || ""));
   if (!targetUser) return res.status(404).json(env("User not found", {}, true, 404));
   if (!canActorOperateCoins(authUser, authRole, targetUser)) {
-    return res.status(403).json(env("Only the parent account can process this request", {}, true, 403));
+    const parentName = getUserById(String(targetUser.parent_id || ""))?.username || "the parent account";
+    return res.status(403).json(env("Only the parent account can process this request. Ask " + parentName + " to do this.", {}, true, 403));
   }
   if (String(row.status || "").toLowerCase() !== "pending") {
     return res.status(409).json(env("Request is already " + row.status, {}, true, 409));
@@ -10035,7 +10128,15 @@ app.get("/api/get-analysis-data", (req, res) => {
       };
     });
   const sum = (k) => Math.round(users.reduce((a, u) => a + toNum(u[k], 0), 0) * 100) / 100;
-  return res.json(env("", { totalDeposit: sum("totalDeposit"), totalWithdraw: sum("totalWithdraw"), totalProfit: sum("totalProfit"), totalLoss: sum("totalLoss"), users }));
+  // Per-row figures are what each account received; the headline totals count
+  // only coins entering/leaving my downline, so internal moves are not doubled.
+  return res.json(env("", {
+    totalDeposit: ledgerBoundaryTotal({ insideIds: below, kinds: DEPOSIT_KINDS, side: "to" }),
+    totalWithdraw: ledgerBoundaryTotal({ insideIds: below, kinds: WITHDRAW_KINDS, side: "from" }),
+    totalProfit: sum("totalProfit"),
+    totalLoss: sum("totalLoss"),
+    users,
+  }));
 });
 const handleSyncSnapshotData = async (_req, res) => {
   const out = syncSnapshotToDb();
@@ -11275,7 +11376,10 @@ app.get("/api/userMessage", (_req, res) => {
   if (snap) return res.json(snap);
   return res.json({ message: "User notification message", active: true, type: "info", title: "User Message" });
 });
-app.post("/api/send-whatsapp-message", (_req, res) => res.json(env("Message queued", { success: true })));
+// The client opens WhatsApp directly; nothing is sent from the server, so do
+// not pretend a message was queued.
+app.post("/api/send-whatsapp-message", (_req, res) =>
+  res.status(410).json(env("WhatsApp messaging from the server is not available", { disabled: true }, true, 410)));
 app.get("/api/zplay/events/matchDetails/:oldgmid", (req, res) => res.json({ success: true, data: { oldgmid: req.params.oldgmid } }));
 app.get("/api/diamond/score", (_req, res) => res.json({ score_url: null }));
 

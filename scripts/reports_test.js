@@ -159,7 +159,8 @@ const feedMarket = () => {
   assert.equal(r.data.available, bal("adm"));
 
   r = await call("GET", "/api/admin/dashboard?from=2000-01-01", adm);
-  assert.equal(r.data.deposit, 12000, "opening coins into downline: mst 10000 + p1 1000 + p2 1000");
+  // p2's 1000 came from mst (already inside adm's downline), so it is not counted again.
+  assert.equal(r.data.deposit, 11000, "coins entering downline: mst 10000 + p1 1000");
   assert.equal(r.data.withdrawal, 0);
   assert.equal(r.data.commission, 4, "1 + 1 + 2 commission");
   assert.equal(r.data.pnl, 46, "players' net: p1 +248, p2 -202");
