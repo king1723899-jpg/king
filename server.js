@@ -11392,14 +11392,10 @@ const sendHtml = (res, file) => {
     .replace(/ambaniexchange/gi, "King777")
     .replace(/ambani exchange/gi, "King777")
     .replace(/reddy ?anna/gi, "King777");
-  if (!html.includes("/css/king777-theme.css")) {
+  // One stylesheet for every page (King777 Glass UI).
+  if (!html.includes("/css/king777-glass.css")) {
     html = html.includes("</head>")
-      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-theme.css?v=1" />\n  </head>')
-      : html;
-  }
-  if (!html.includes("/css/king777-clean.css")) {
-    html = html.includes("</head>")
-      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-clean.css?v=4" />\n  </head>')
+      ? html.replace("</head>", '  <link rel="stylesheet" href="/css/king777-glass.css?v=1" />\n  </head>')
       : html;
   }
   if (!html.includes("king777-admin-topbar.js") && html.includes("</head>")) {

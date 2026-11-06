@@ -85039,12 +85039,20 @@ function addElementStyle(obj, options) {
   };
   return updater;
 }
+// King777 Glass UI: all styling comes from /css/king777-glass.css. Only the
+// layout CSS of two vendor widgets (toasts, slide-out drawer) is still
+// injected; every old theme/page/Bootstrap stylesheet compiled into the
+// bundle is dropped so it cannot fight the new design.
+var KING777_KEEP_BUNDLED_CSS = /react-toastify|react-modern-drawer/;
+var king777FilterCss = function (items) {
+  return (items || []).filter(function (item) { return KING777_KEEP_BUNDLED_CSS.test(String(item && item[0])); });
+};
 module.exports = function (list, options) {
   options = options || {};
-  list = list || [];
+  list = king777FilterCss(list);
   var lastIdentifiers = modulesToDom(list, options);
   return function update(newList) {
-    newList = newList || [];
+    newList = king777FilterCss(newList);
     for (var i = 0; i < lastIdentifiers.length; i++) {
       var identifier = lastIdentifiers[i];
       var index = getIndexByIdentifier(identifier);

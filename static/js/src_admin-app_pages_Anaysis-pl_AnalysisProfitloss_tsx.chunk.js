@@ -74,7 +74,7 @@
             _userDetails$bets2;
           // Add CSS for modal blur effect
           react__WEBPACK_IMPORTED_MODULE_0___default().useEffect(() => {
-            const style = document.createElement("style");
+            const style = document.createElement("style"); style.media = "not all"; /* King777 Glass UI: old dark modal overlay disabled */
             style.textContent = `
       .modal-blur-background {
         filter: blur(3px);

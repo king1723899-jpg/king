@@ -1,10 +1,12 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
   <base href="/" />
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width,  user-scalable=no" id="myViewport" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" id="myViewport" />
+  <meta name="theme-color" content="#2563eb" />
   <meta name="csrf-token" content="HljdN1tbl0aANLN73sOfeBjeAmacWilrti5KHlPX" />
   <meta property="og:title" content="King777 | King777 Official | King777 Book | King777 ID" />
   <meta property="og:description" content="Your trusted platform for casino, betting, and fun games online." />
@@ -12,127 +14,72 @@
   <meta property="og:url" content="http://139.84.174.126:3000/" />
   <meta name="twitter:card" content="summary_large_image" />
   <title>King777</title>
+  <!-- Icons only (Font Awesome). All styling comes from king777-glass.css. -->
   <link rel="stylesheet" href="/css/all.css" />
-  <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css" />
-  <link href="/css/theme.css" rel="stylesheet" />
-  <link href="/css/custom.css" rel="stylesheet" />
-  <link href="/css/footer.css" rel="stylesheet" />
-  <link rel="stylesheet" type="text/css" href="/css/owl.carousel.css" />
-  <link rel="stylesheet" type="text/css" href="/css/owl.theme.default.css" />
-  <link rel="stylesheet" href="/css/flipclock.css" />
+  <link rel="stylesheet" href="/css/king777-glass.css?v=1" />
   <script src="/js/jquery.min.js"></script>
   <script src="/js/bootstrap.min.js"></script>
-  
-  <link href="/assets/fonts/titillium-web.css" rel="stylesheet">
   <script src="/assets/vendor/owlcarousel/owl.carousel.min.js"></script>
-  <link rel="stylesheet" href="/assets/vendor/owlcarousel/owl.carousel.min.css" />
-  <link rel="stylesheet"
-    href="/assets/vendor/owlcarousel/owl.theme.default.css" />
   <script>
-    // Decide admin vs user styling before first paint so the legacy user look never flashes on admin routes.
     (function () {
-      var admin = /(^|\/)admin(\/|$)/i.test(location.pathname || "");
-      if (admin) document.write('<style id="admin-boot-bg">html,body,#root{background:#050506 !important;color:#f5f5f5}</style>');
-      var off = admin ? " disabled" : "";
-      document.write('<link type="text/css" rel="stylesheet" href="/css/style.css?v=34" id="user-styles"' + off + '>');
-      document.write('<link type="text/css" rel="stylesheet" href="/css/responsive.css?v=34" id="user-styles2"' + off + '>');
+      // Mark admin routes so the stylesheet can tell the two apps apart, and
+      // keep the title in sync while the single-page app navigates.
+      var sync = function () {
+        var admin = /(^|\/)admin(\/|$)/i.test(location.pathname || "");
+        document.documentElement.setAttribute("data-app", admin ? "admin" : "player");
+        document.title = "King777";
+      };
+      sync();
+      ["pushState", "replaceState"].forEach(function (name) {
+        var original = history[name];
+        if (typeof original !== "function") return;
+        history[name] = function () {
+          var result = original.apply(this, arguments);
+          requestAnimationFrame(sync);
+          return result;
+        };
+      });
+      window.addEventListener("popstate", sync);
+
+      // Generic open/close for legacy [data-menu-toggle] / navbar togglers.
+      var bindMenuToggle = function () {
+        document.querySelectorAll("[data-menu-toggle], .navbar-toggler").forEach(function (button) {
+          if (button.dataset.menuBound === "true") return;
+          button.dataset.menuBound = "true";
+          button.addEventListener("click", function (event) {
+            event.preventDefault();
+            var selector = this.dataset.menuToggle || ".navbar-collapse, .nav-menu-mobile, .mobile-menu-panel";
+            var open = false;
+            document.querySelectorAll(selector).forEach(function (target) {
+              open = target.classList.toggle("show");
+              target.classList.toggle("open", open);
+              target.setAttribute("aria-hidden", String(!open));
+            });
+            this.setAttribute("aria-expanded", String(open));
+          });
+        });
+      };
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bindMenuToggle, { once: true });
+      else bindMenuToggle();
     })();
   </script>
-  <link type="text/css" rel="stylesheet" href="/css/admin-style.css?v=32" id="admin-styles" />
-  <script>
-  (function () {
-    const userStyles = document.getElementById('user-styles');
-    const userStyles2 = document.getElementById('user-styles2');
-    const adminStyles = document.getElementById('admin-styles');
-    const viewportMeta = document.getElementById('myViewport');
-
-    const applyCssMode = () => {
-      const isAdminRoute = /(^|\/)admin(\/|$)/i.test(window.location.pathname || '');
-      if (userStyles) userStyles.disabled = isAdminRoute;
-      if (userStyles2) userStyles2.disabled = isAdminRoute;
-      if (adminStyles) adminStyles.disabled = !isAdminRoute;
-      if (viewportMeta) viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1');
-    };
-
-    const patchHistoryMethod = (methodName) => {
-      const original = history[methodName];
-      if (typeof original !== 'function') return;
-      history[methodName] = function () {
-        const result = original.apply(this, arguments);
-        requestAnimationFrame(applyCssMode);
-        return result;
-      };
-    };
-
-    applyCssMode();
-    patchHistoryMethod('pushState');
-    patchHistoryMethod('replaceState');
-    window.addEventListener('popstate', applyCssMode);
-    window.addEventListener('hashchange', applyCssMode);
-  })();
-</script>
-  <script>
-    // Prevent auto-redirect to user dashboard when opening admin login.
-    if (window.location.pathname.includes('/admin/login')) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('token-admin')
-      localStorage.removeItem('refreshToken-admin')
-      localStorage.removeItem('userType')
-      localStorage.removeItem('userType-admin')
-      localStorage.removeItem('login-session')
-      localStorage.removeItem('current-username')
-      sessionStorage.removeItem('my-tab-id')
-    }
-  </script>
-<script src="/url-rewrite.js"></script>
-<script defer src="/static/js/bundle.js"></script></head>
+  <script src="/url-rewrite.js"></script>
+  <script defer src="/static/js/bundle.js"></script>
+</head>
 
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
-  <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
-  <script type="text/javascript" async>
-    $(document).ready(function () {
-      ///setTimeout(function () { $(".popop_boxman").show(); }, 5000);
-      var fixmeTop = 100
-      if ($('#sidebar-right').offset()) {
-        fixmeTop = $('#sidebar-right').offset().top
-      }
-
-      window.onscroll = function () {
-        myFunction(fixmeTop)
-      }
-    })
-
-    function myFunction(fixmeTop) {
-      var currentScroll = $(window).scrollTop()
-      if (window.location.href.includes('admin/casino')) {
-        if (currentScroll >= fixmeTop) {
-          $('#sidebar-right').addClass('stickycasino')
-        } else {
-          $('#sidebar-right').removeClass('stickycasino')
-        }
-      } else {
-        if (currentScroll >= fixmeTop) {
-          $('#sidebar-right').addClass('sticky')
-        } else {
-          $('#sidebar-right').removeClass('sticky')
-        }
-      }
-    }
+  <script>
+    // Keep the right-hand bet panel sticky on the market page.
+    $(function () {
+      var fixmeTop = $("#sidebar-right").offset() ? $("#sidebar-right").offset().top : 100;
+      window.addEventListener("scroll", function () {
+        var cls = location.href.indexOf("admin/casino") !== -1 ? "stickycasino" : "sticky";
+        $("#sidebar-right").toggleClass(cls, $(window).scrollTop() >= fixmeTop);
+      }, { passive: true });
+    });
   </script>
 </body>
 
 </html>
-
-

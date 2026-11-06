@@ -22,30 +22,8 @@
   var bar = null;
   var state = { items: [], unread: 0, username: localStorage.getItem("current-username") || "" };
 
-  function injectStyle() {
-    if (document.getElementById("k7-topbar-style")) return;
-    var css =
-      "#k7-topbar{position:fixed;top:0;right:0;z-index:1500;height:52px;display:flex;align-items:center;gap:10px;padding:0 12px;background:rgba(5,5,6,.92);border-bottom-left-radius:10px;color:#fff;font:600 14px Arial,sans-serif}" +
-      "#k7-topbar.k7-inline{position:static;height:auto;background:transparent;padding:0;border-radius:0}" +
-      "#k7-topbar .k7-btn{background:transparent;border:0;color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;padding:6px 8px;font:inherit}" +
-      "#k7-topbar .k7-bell{position:relative;background:#ffc107;color:#111;border-radius:6px;width:38px;height:34px;justify-content:center;padding:0}" +
-      "#k7-topbar .k7-count{position:absolute;top:-6px;right:-6px;background:#e11d48;color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;padding:0 4px}" +
-      "#k7-topbar .k7-menu{position:absolute;top:50px;right:8px;min-width:200px;max-width:92vw;background:#fff;color:#111;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:none;overflow:hidden}" +
-      "#k7-topbar .k7-menu.open{display:block}" +
-      "#k7-topbar .k7-menu a,#k7-topbar .k7-menu button{display:block;width:100%;text-align:left;padding:11px 14px;color:#111;background:#fff;border:0;border-bottom:1px solid #eee;text-decoration:none;font:600 14px Arial,sans-serif;cursor:pointer}" +
-      "#k7-topbar .k7-menu a:hover,#k7-topbar .k7-menu button:hover{background:#f3f4f6}" +
-      "#k7-topbar .k7-notes{width:320px;max-height:60vh;overflow-y:auto}" +
-      "#k7-topbar .k7-note{padding:10px 14px;border-bottom:1px solid #eee;font-weight:400}" +
-      "#k7-topbar .k7-note.unread{background:#fff8e1}" +
-      "#k7-topbar .k7-note b{display:block}#k7-topbar .k7-note small{color:#6b7280}" +
-      "#k7-topbar .k7-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #ddd;font-weight:700}" +
-      "#k7-topbar .k7-head button{width:auto;padding:0;border:0;color:#2563eb;font-size:12px}" +
-      "body.k7-has-topbar{padding-top:0}";
-    var s = el("style");
-    s.id = "k7-topbar-style";
-    s.textContent = css;
-    document.head.appendChild(s);
-  }
+  // Styles for the top bar live in /css/king777-glass.css.
+  function injectStyle() {}
 
   function build() {
     bar = el("div");

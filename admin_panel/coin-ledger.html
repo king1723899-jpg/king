@@ -4,152 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>King777 | Coin Ledger</title>
-  <link rel="stylesheet" href="/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="/css/admin-style.css?v=32" />
-  <style>
-    :root {
-      --brand-green: #0b120d;
-      --brand-yellow: #ffd447;
-      --page-green: #eef6e9;
-      --line: #25492b;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      background: var(--page-green);
-      font-family: Arial, sans-serif;
-      color: #111;
-      min-height: 100vh;
-    }
-
-    .standalone-content { margin-left: 250px; min-width: 0; }
-
-    .topbar {
-      min-height: 62px;
-      background: var(--brand-green);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 22px;
-      border-bottom: 3px solid var(--brand-yellow);
-      margin-left: 250px;
-    }
-    .brand { font-size: 24px; font-weight: 900; letter-spacing: 1.5px; color: var(--brand-yellow); }
-    .topbar a { color: #fff; text-decoration: none; font-size: 14px; }
-    .topbar a:hover { color: var(--brand-yellow); }
-    .page-title {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 18px 16px 6px;
-      font-size: 20px;
-      font-weight: 700;
-    }
-    .page-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 28px; }
-    .panel-card {
-      border: 0;
-      border-radius: 0;
-      background: #fff;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
-      padding: 14px 12px !important;
-    }
-    .section-title {
-      font-size: 16px;
-      font-weight: 700;
-      margin: 0 0 14px;
-      color: #111;
-    }
-    fieldset.account-section {
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      margin: 0 0 12px;
-      padding: 12px 12px 16px;
-    }
-    fieldset.account-section legend {
-      float: none;
-      width: auto;
-      margin: 0;
-      padding: 0 5px;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    .field-label {
-      font-weight: 400;
-      margin-bottom: 6px;
-      font-size: 14px;
-      color: #111;
-    }
-    .form-control, .form-select { border: 1px solid #b8b8b8; border-radius: 3px; min-height: 42px; }
-    .form-control:focus, .form-select:focus { border-color: #79bdf2; box-shadow: 0 0 0 3px rgba(75, 166, 239, .28); }
-    .primary-action { background: #2f7d32; border-color: #2f7d32; color: #fff; min-width: 120px; }
-    .primary-action:hover { background: var(--brand-yellow); border-color: var(--brand-yellow); color: #111; }
-    .secondary-action { min-width: 100px; }
-    .commission-grid { display: grid; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
-    .commission-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
-    .commission-row .form-control, .commission-row .form-select { min-height: 38px; }
-    .commission-help { color: #666; font-size: 12px; margin-top: 7px; }
-    .commission-remaining { margin-top: 10px; font-weight: 700; color: #166534; }
-    .commission-remaining.over { color: #991b1b; }
-    .status-box {
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 13px;
-      display: none;
-      margin-top: 10px;
-    }
-    .status-success {
-      background: #ecfdf3;
-      color: #166534;
-      border: 1px solid #86efac;
-    }
-    .status-error {
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fca5a5;
-    }
-    .status-info {
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #93c5fd;
-    }
-    .table thead th {
-      white-space: nowrap;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #475569;
-    }
-    .table tbody td {
-      font-size: 13px;
-      vertical-align: middle;
-    }
-    @media (max-width: 576px) {
-      .topbar { padding: 0 14px; }
-      .brand { font-size: 20px; }
-      .page-title { font-size: 18px; padding-top: 14px; }
-      .page-wrap { padding: 0 8px 20px; }
-      fieldset.account-section { padding: 10px 8px 12px; }
-    }
-    @media (max-width: 768px) {
-      .topbar { margin-left: 0; padding-left: 68px; }
-      .standalone-content { margin-left: 0; }
-    }
-      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
-    .stat { background: #0b120d; color: #f5ffe9; border-left: 4px solid var(--brand-yellow); padding: 10px 12px; border-radius: 3px; }
-    .stat small { display: block; color: #b9d3b4; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
-    .stat strong { font-size: 18px; }
-    .pos { color: #166534; font-weight: 700; } .neg { color: #991b1b; font-weight: 700; }
-    .badge-status { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .badge-active { background: #dcfce7; color: #166534; } .badge-used { background: #dbeafe; color: #1d4ed8; } .badge-void { background: #e5e7eb; color: #4b5563; }
-    .table-scroll { overflow-x: auto; }
-    .role-badge { display: inline-block; min-width: 22px; padding: 0 4px; margin-right: 5px; border-radius: 3px; font-size: 10px; font-weight: 700; text-align: center; color: #fff; background: #64748b; }
-    .role-badge.role-super_admin { background: #7c2d12; } .role-badge.role-admin { background: #1d4ed8; } .role-badge.role-master { background: #15803d; } .role-badge.role-user { background: #475569; }
-    .table td, .table th { white-space: nowrap; font-size: 13px; }
-  </style>
+  <link rel="stylesheet" href="/css/all.css" />
+  <link rel="stylesheet" href="/css/king777-glass.css?v=1" />
   <base target="_top" />
-  <style>.standalone-content{margin-left:0!important}.topbar{display:none!important}body{min-height:0}</style>
 </head>
 <body>
   <div class="standalone-content">
@@ -182,8 +39,6 @@
 
   <script>
     (function () {
-      window.addEventListener("resize", syncMenu);
-      syncMenu();
 
       function getToken() {
         const keys = ["token-admin", "adminToken", "token", "authToken", "accessToken", "jwt"];
@@ -202,6 +57,8 @@
       }
       function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
       function money(v) { return Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+      // The server hides (null) the balance of accounts above you.
+      function balanceCell(v) { return v === null || v === undefined ? "—" : money(v); }
       const KIND = { deposit: "Deposit", withdraw: "Withdraw", opening_credit: "Opening Coins", token_redeem: "Token", deposit_request: "Deposit Request", withdraw_request: "Withdraw Request", bet_win: "Bet Won", bet_loss: "Bet Lost", bet_rollback: "Result Rollback" };
       const ROLE = { super_admin: "SA", admin: "A", master: "M", user: "U" };
 
@@ -226,7 +83,7 @@
         body.innerHTML = items.length ? items.map(function (i) {
           const cls = i.direction === "withdraw" ? "neg" : "pos";
           return "<tr><td>" + esc(new Date(i.createdAt).toLocaleString()) + '</td><td><span class="' + cls + '">' + esc(KIND[i.kind] || i.kind) + "</span></td><td>" + who(i.fromUsername, i.fromRole) + "</td><td>" + who(i.toUsername, i.toRole) +
-            '</td><td class="text-end ' + cls + '">' + money(i.amount) + '</td><td class="text-end">' + money(i.fromBalanceAfter) + '</td><td class="text-end">' + money(i.toBalanceAfter) + "</td><td>" + esc(i.actorUsername) + "</td><td>" + esc(i.remark) + "</td></tr>";
+            '</td><td class="text-end ' + cls + '">' + money(i.amount) + '</td><td class="text-end">' + balanceCell(i.fromBalanceAfter) + '</td><td class="text-end">' + balanceCell(i.toBalanceAfter) + "</td><td>" + esc(i.actorUsername) + "</td><td>" + esc(i.remark) + "</td></tr>";
         }).join("") : '<tr><td colspan="9" class="text-center text-muted py-3">No transactions</td></tr>';
         const pages = Math.max(1, Math.ceil((data.total || 0) / LIMIT));
         pageInfo.textContent = "Page " + page + " of " + pages;

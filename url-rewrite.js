@@ -61,17 +61,7 @@
     if (styleInjected) return;
     styleInjected = true;
 
-    var style = document.createElement("style");
-    style.id = "casino-launch-loader-style";
-    style.textContent =
-      "@keyframes casinoLoaderSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}" +
-      ".casino-launch-loader-overlay{position:fixed;inset:0;background:rgba(5,10,24,.72);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:2147483647;padding:20px;pointer-events:auto}" +
-      ".casino-launch-loader-card{min-width:240px;max-width:92vw;border-radius:14px;background:linear-gradient(135deg,#0b1f3f 0%,#11345f 100%);color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);padding:18px 20px;text-align:center;font-family:Arial,sans-serif}" +
-      ".casino-launch-loader-spinner{width:2.4rem;height:2.4rem;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;margin:0 auto;animation:casinoLoaderSpin .8s linear infinite}" +
-      ".casino-launch-loader-title{margin-top:12px;font-weight:700;letter-spacing:.2px}" +
-      ".casino-launch-loader-sub{margin-top:6px;font-size:12px;opacity:.85}";
-
-    document.head.appendChild(style);
+    // Loader styles live in /css/king777-glass.css.
   }
 
   function ensureOverlay() {
