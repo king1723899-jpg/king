@@ -72,8 +72,11 @@ const NavMenu = () => {
   const location = useLocation();
 
   const isActiveSport = (sport: ISport) => {
+    if (String(sport.sportId) === "556") {
+      return location.pathname.startsWith("/casino-int/sportsbook");
+    }
     if (String(sport.sportId) === "555") {
-      return location.pathname.startsWith("/casino-int");
+      return location.pathname.startsWith("/casino-int") && !location.pathname.startsWith("/casino-int/sportsbook");
     }
     return String(sport.sportId) === String(sportId || "");
   };
@@ -81,7 +84,12 @@ const NavMenu = () => {
   return (
     <nav className="main-nav">
       {sportListState.sports.map((sport) => {
-        const to = String(sport.sportId) === "555" ? "/casino-int/slots" : `/match/${sport.sportId}`;
+        const to =
+          String(sport.sportId) === "556"
+            ? "/casino-int/sportsbook"
+            : String(sport.sportId) === "555"
+              ? "/casino-int/slots"
+              : `/match/${sport.sportId}`;
         const activeClass = isActiveSport(sport) ? "active" : "";
         return (
           <CustomLink key={sport._id} to={to} className={`nav-tab ${activeClass}`}>

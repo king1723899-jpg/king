@@ -9,6 +9,7 @@ const CryptoJS = require("crypto-js");
 const { validatePartnershipEntries, validateBetAmount } = require("./lib/sprint2");
 const { createSettlementEngine } = require("./lib/settlement");
 const { createCoinEngine, CoinError } = require("./lib/coins");
+const { createSoftApi } = require("./lib/softapi");
 
 const app = express();
 const upload = multer({
@@ -45,6 +46,12 @@ const PROVIDER_API_SETTINGS_PATH = path.join(DB_DIR, "provider_api_settings.json
 const PROVIDER_GAME_CODE_OVERRIDES_PATH = path.join(DB_DIR, "provider_game_code_overrides.json");
 const CASINO_GAME_HEALTH_PATH = path.join(DB_DIR, "casino_game_health.json");
 const CASINO_GAME_CONTROL_PATH = path.join(DB_DIR, "casino_game_controls.json");
+// World Casino API (SoftAPI). Credentials live in env vars or this gitignored file.
+const SOFTAPI_SETTINGS_PATH = path.join(DB_DIR, "softapi_settings.json");
+
+const softapi = createSoftApi({ settingsPath: SOFTAPI_SETTINGS_PATH });
+// Sync state sits next to the database it describes.
+const SOFTAPI_STATE_PATH = path.join(path.dirname(DB_PATH), "softapi_state.json");
 const SNAPSHOT_ROOT = pickExistingPath(
   [path.join(ROOT, "api_data")],
   path.join(ROOT, "api_data")
@@ -1370,6 +1377,7 @@ const writeGameApiCatalogCacheEnvelope = (games, meta = {}) => {
 const readGameApiCatalogCache = () => readGameApiCatalogCacheEnvelope().games;
 let gameCatalogSyncPromise = null;
 const ensureGameApiCatalogFresh = async ({ force = false } = {}) => {
+  if (softapi.isActive()) return { success: false, skipped: true, reason: "softapi catalog in use" };
   const cfg = readGameApiSettings();
   if (!cfg.catalogSyncEnabled || !cfg.catalogUrl) {
     return { success: false, skipped: true, reason: "catalog sync not configured" };
@@ -2519,6 +2527,8 @@ const warmCasinoWorkingEvidenceForUser = async ({
   targetCount = CASINO_FRONTLINE_WORKING_COUNT,
   maxAttempts = 80,
 } = {}) => {
+  // The warmup probes the old provider; SoftAPI only lists playable games.
+  if (softapi.isActive()) return { ok: true, skipped: true, reason: "softapi", tested: 0, newlyWorking: 0, knownWorking: 0 };
   if (!user?.id || !providerApiActive(readProviderApiSettings())) {
     return { ok: false, reason: "missing_user_or_provider_config", tested: 0, newlyWorking: 0, knownWorking: 0 };
   }
@@ -2617,7 +2627,9 @@ const dedupeCasinoRowsForDisplay = (rows = []) => {
     const providerKey = resolveCasinoProviderFilterKey(game?.provider_id || game?.provider || "");
     const image = pickCasinoGameImage(game?.image_url, game?.game_images, game?.image);
     const imageKey = normalizeLocalAssetPath(image).toLowerCase();
-    if (providerKey && imageKey) {
+    // Sportsbook tiles share their brand logo on purpose (e.g. two SBO products).
+    const isSportsbookTile = softapi.isActive() && SOFTAPI_SPORTSBOOK_BY_UID.has(String(game?.identifier || ""));
+    if (providerKey && imageKey && !isSportsbookTile) {
       const providerImageKey = `${providerKey}|${imageKey}`;
       if (seenProviderImage.has(providerImageKey)) continue;
       seenProviderImage.add(providerImageKey);
@@ -2642,7 +2654,9 @@ const filterCasinoGamesForDisplay = (rows = []) => {
     }
     return true;
   });
-  if (!CASINO_REQUIRE_WORKING_GAMES) {
+  // SoftAPI lists only games enabled on the account, so "working evidence" from
+  // the old provider does not apply.
+  if (!CASINO_REQUIRE_WORKING_GAMES || softapi.isActive()) {
     return dedupeCasinoRowsForDisplay(filtered);
   }
   const workingOnly = filtered.filter((game) => {
@@ -4075,6 +4089,7 @@ const markCasinoSnapshotFingerprint = () => {
 };
 
 const ensureCasinoSnapshotAutoRefresh = () => {
+  if (softapi.isActive()) return;
   const now = Date.now();
   if (casinoSnapshotRefreshState.running) return;
   if (
@@ -4167,6 +4182,7 @@ const syncCasinoFromSnapshots = () => {
 };
 
 const seedCasino = () => {
+  if (softapi.isActive()) return;
   if (db.prepare("SELECT COUNT(*) c FROM casino_games").get().c > 0) return;
   const out = syncCasinoFromSnapshots();
   if (toNum(out?.casinoGamesSynced, 0) > 0) return;
@@ -4359,6 +4375,8 @@ app.use("/api", (req, res, next) => {
 });
 app.use("/api", (req, res, next) => {
   const requestPath = String((req.originalUrl || req.url || "").split("?")[0] || "").toLowerCase();
+  // SoftAPI callbacks come from a few provider IPs and are authenticated by the URL key.
+  if (requestPath.startsWith(softapi.callbackPath)) return next();
   const ip = getClientIp(req);
   const isAuthPath = pathStartsWithAny(requestPath, authRateLimitPrefixes);
   const decision = isAuthPath
@@ -4930,7 +4948,7 @@ const applyProviderWalletOperationTx = db.transaction((input) => {
       status = "failed";
       code = 6;
       msg = "Invalid amount";
-    } else if (normalizeMoneyAmount(beforeBalance - toNum(walletBefore?.exposer, 0)) < amount) {
+    } else if (!input?.allowOverdraft && normalizeMoneyAmount(beforeBalance - toNum(walletBefore?.exposer, 0)) < amount) {
       // Coins locked in open sports bets cannot be spent in the casino.
       status = "failed";
       code = 9;
@@ -6302,6 +6320,7 @@ const AUTH_SESSION_SKIP_API_PREFIXES = [
   "/api/provider/wallet",
   "/api/provider/callback",
   "/api/casino/provider/wallet",
+  softapi.callbackPath,
 ];
 app.use("/api", (req, res, next) => {
   const requestPath = String((req.originalUrl || req.url || "").split("?")[0] || "").toLowerCase();
@@ -8767,6 +8786,12 @@ app.get("/api/get-sport-list", (req, res) => {
     const rest = [...dbBySportId.values()].sort((a, b) => toNum(a?.sportId, 0) - toNum(b?.sportId, 0));
     sports = [...ordered, ...rest];
   }
+  sports = sports.filter((sp) => toNum(sp?.sportId, 0) !== SOFTAPI_SPORTSBOOK_SPORT_ID);
+  if (softapi.isActive()) {
+    const book = { _id: `sport_${SOFTAPI_SPORTSBOOK_SPORT_ID}`, sportId: SOFTAPI_SPORTSBOOK_SPORT_ID, __v: 0, isActive: true, name: "Sportsbook", createdAt: null, updatedAt: null };
+    const casinoAt = sports.findIndex((sp) => toNum(sp?.sportId, 0) === 555);
+    sports.splice(casinoAt >= 0 ? casinoAt + 1 : 0, 0, book);
+  }
   if (filter === "topbar") sports = sports.slice(0, 10);
   res.json(env("", sports));
 });
@@ -10274,6 +10299,8 @@ const casinoSnapshotBootstrapState = {
 };
 const ensureCasinoSnapshotBootstrap = () => {
   if (casinoSnapshotBootstrapState.attempted) return;
+  // With SoftAPI the catalog comes from its games API, not the old snapshot files.
+  if (softapi.isActive()) return;
   casinoSnapshotBootstrapState.attempted = true;
   casinoSnapshotBootstrapState.checkedAt = Date.now();
   try {
@@ -10302,7 +10329,7 @@ const readMergedCasinoGames = () => {
     .all()
     .map((r, index) => mapCasinoRow(r, index))
     .filter(Boolean);
-  const apiRows = readGameApiCatalogCache();
+  const apiRows = softapi.isActive() ? [] : readGameApiCatalogCache();
   const merged = mergeGamesByIdentifier(apiRows, dbRows);
   mergedCasinoGamesCache.version = casinoCatalogVersion;
   mergedCasinoGamesCache.expiresAt = now + CASINO_MERGED_CACHE_TTL_MS;
@@ -10439,7 +10466,12 @@ app.get("/api/get-casino-int-games", async (req, res) => {
     homepage_code: r.homepage_code,
   }));
   let rows = baseRows;
-  if (type) {
+  const sportsbookType = softapi.isActive() && isSportsbookType(type);
+  if (sportsbookType) {
+    rows = baseRows
+      .filter((g) => SOFTAPI_SPORTSBOOK_BY_UID.has(String(g.identifier)))
+      .sort((a, b) => SOFTAPI_SPORTSBOOK_BY_UID.get(String(a.identifier)).order - SOFTAPI_SPORTSBOOK_BY_UID.get(String(b.identifier)).order);
+  } else if (type) {
     const typeTokens = normalizeTypeTokens(type);
     const byType = rows.filter((g) => {
       if (!typeTokens.length) return true;
@@ -10454,7 +10486,7 @@ app.get("/api/get-casino-int-games", async (req, res) => {
   if (provider) {
     rows = filterCasinoRowsByProvider(rows, provider);
   }
-  rows = prioritizeCasinoRowsByWorkingEvidence(rows, CASINO_FRONTLINE_WORKING_COUNT);
+  if (!sportsbookType) rows = prioritizeCasinoRowsByWorkingEvidence(rows, CASINO_FRONTLINE_WORKING_COUNT);
   const frontlineWorkingCount = countCasinoFrontlineWorkingRows(rows, CASINO_FRONTLINE_WORKING_COUNT);
   const requestAuthUser = reqAuthUser(req);
   if (frontlineWorkingCount < CASINO_FRONTLINE_WORKING_COUNT && requestAuthUser) {
@@ -10663,6 +10695,12 @@ const resolveCasinoLaunch = async (req, { requireAuth = false } = {}) => {
 
   const authUser = reqAuthUser(req);
   const user = authUser || (requireAuth ? null : reqUser(req));
+  if (softapi.isActive()) {
+    if (!user) {
+      return { ok: false, httpStatus: 401, message: "Unauthorized", providerCode: 4, providerMsgCode: 2, providerMsg: "No operation permission" };
+    }
+    return launchSoftapiGame(user, [req.body?.gameCode, req.body?.identifier, req.body?.gameId, req.body?.lobby_url]);
+  }
   if (!user) {
     return {
       ok: false,
@@ -10802,6 +10840,352 @@ const resolveCasinoLaunch = async (req, { requireAuth = false } = {}) => {
     providerMsg: "Game launched successfully",
   };
 };
+// ---------------------------------------------------------------------------
+// World Casino API (SoftAPI) - launch, settle callback, catalog.
+// Money: 1000 site coins = 1 USD (softapi.readConfig().coinsPerUnit).
+// SoftAPI holds the in-game balance; every settle notify carries bet/win for one
+// round, which we apply to the wallet as a debit + credit keyed by serial_number.
+// ---------------------------------------------------------------------------
+db.exec(`
+CREATE TABLE IF NOT EXISTS softapi_players (
+  ext_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL UNIQUE,
+  last_game_uid TEXT,
+  last_launch_at TEXT,
+  created_at TEXT NOT NULL
+);
+`);
+// SoftAPI wants an integer player id; site user ids are text, so map them.
+const SOFTAPI_EXT_ID_OFFSET = 100000;
+const softapiPlayerByUserStmt = db.prepare("SELECT * FROM softapi_players WHERE user_id=?");
+const softapiPlayerByExtStmt = db.prepare("SELECT * FROM softapi_players WHERE ext_id=?");
+const softapiPlayerInsertStmt = db.prepare("INSERT OR IGNORE INTO softapi_players (user_id, created_at) VALUES (?, ?)");
+const softapiPlayerTouchStmt = db.prepare("UPDATE softapi_players SET last_game_uid=?, last_launch_at=? WHERE ext_id=?");
+const getSoftapiPlayer = (userId) => {
+  let row = softapiPlayerByUserStmt.get(userId);
+  if (!row) {
+    softapiPlayerInsertStmt.run(userId, nowIso());
+    row = softapiPlayerByUserStmt.get(userId);
+  }
+  return { ...row, extUserId: SOFTAPI_EXT_ID_OFFSET + toNum(row.ext_id, 0) };
+};
+const userFromSoftapiExtId = (raw) => {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isInteger(n) || n <= SOFTAPI_EXT_ID_OFFSET) return null;
+  const row = softapiPlayerByExtStmt.get(n - SOFTAPI_EXT_ID_OFFSET);
+  return row ? getUserById(row.user_id) : null;
+};
+const softapiGameUidFrom = (codes) => {
+  for (const c of codes) {
+    const m = /^(?:wc_|cg_)?(\d{1,12})$/i.exec(String(c ?? "").trim());
+    if (m) return m[1];
+  }
+  return "";
+};
+
+// SoftAPI refuses a launch when the GGR wallet is under 5% of the launch balance.
+// Capping the balance we send keeps games opening; wallet accounting is per round,
+// so a lower in-game balance never changes what the player owns.
+const softapiGgrCache = { at: 0, wallet: null };
+const softapiMaxLaunchUnits = async () => {
+  if (Date.now() - softapiGgrCache.at > 60000) {
+    try {
+      softapiGgrCache.wallet = await softapi.fetchGgrBalance();
+    } catch {
+      softapiGgrCache.wallet = null;
+    }
+    softapiGgrCache.at = Date.now();
+  }
+  const w = Number(softapiGgrCache.wallet);
+  return Number.isFinite(w) && w > 0 ? Math.floor(w * 20 * 0.95 * 100) / 100 : Infinity;
+};
+const launchSoftapiGame = async (user, codes) => {
+  const fail = (httpStatus, msg, providerMsg = msg) => ({
+    ok: false,
+    httpStatus,
+    message: msg,
+    providerCode: 8,
+    providerMsgCode: 8,
+    providerMsg,
+  });
+  if (String(user.role || "").toLowerCase() !== "user") {
+    // Admin wallets hold branch float, not player money.
+    return fail(403, "Casino games are for player accounts only");
+  }
+  const gameUid = softapiGameUidFrom(codes);
+  if (!gameUid) return fail(400, "Game code is required");
+  if (isCasinoGameManuallyDisabled(gameUid)) return fail(200, "Game is currently disabled");
+
+  const cfg = softapi.readConfig();
+  const wallet = ensureWallet(user.id);
+  // Coins locked in open sports bets are not sent into the game.
+  const availableCoins = Math.max(0, toNum(wallet.balance, 0) - Math.max(0, toNum(wallet.exposer, 0)));
+  const balanceUnits = Math.min(softapi.coinsToUnits(availableCoins, cfg), await softapiMaxLaunchUnits());
+  const player = getSoftapiPlayer(user.id);
+
+  // One open game per player: close the previous game's session so the same coins
+  // cannot be played in two games at once.
+  if (player.last_game_uid && player.last_game_uid !== gameUid) {
+    const closed = await softapi.launch({ extUserId: player.extUserId, balanceUnits: "-0", gameUid: player.last_game_uid });
+    if (!closed.ok) console.warn(`[softapi] close session ${player.extUserId}/${player.last_game_uid} failed: ${closed.msg}`);
+  }
+
+  const out = await softapi.launch({ extUserId: player.extUserId, balanceUnits, gameUid });
+  if (!out.ok) {
+    console.warn(`[softapi] launch ${gameUid} for ${user.username} failed: code=${out.code} ${out.msg}`);
+    // Account-side problems (GGR wallet, IP whitelist) are not shown to players.
+    const accountSide = /ggr|ip|whitelist|token|decrypt|inactive/i.test(out.msg);
+    return fail(200, accountSide ? CASINO_UNAVAILABLE_MESSAGE : out.msg || CASINO_UNAVAILABLE_MESSAGE, out.msg);
+  }
+  softapiPlayerTouchStmt.run(gameUid, nowIso(), player.ext_id);
+  cacheProviderPlayerMapping({
+    externalUserId: String(player.extUserId),
+    userId: user.id,
+    username: user.username,
+    providerName: "SoftAPI",
+  });
+  return {
+    ok: true,
+    httpStatus: 200,
+    message: "Play URL generated",
+    data: {
+      url: out.url,
+      gameCode: gameUid,
+      providerMeta: { provider: "SoftAPI", externalUserId: String(player.extUserId), balance: balanceUnits, currency: cfg.playCurrency },
+      launchPayload: { gameCode: gameUid },
+    },
+    providerCode: 0,
+    providerMsgCode: 0,
+    providerMsg: "Game launched successfully",
+  };
+};
+
+// Applies one settle notify. Debit and credit run in one SQLite transaction; each is
+// keyed by serial_number, so a repeated notify changes nothing.
+const applySoftapiSettleTx = db.transaction(({ user, notify, cfg, requestIp, rawJson }) => {
+  const serial = String(notify.serial_number).trim();
+  const betCoins = softapi.unitsToCoins(Math.max(0, toNum(notify.bet_amount, 0)), cfg);
+  const winCoins = softapi.unitsToCoins(Math.max(0, toNum(notify.win_amount, 0)), cfg);
+  const common = {
+    user,
+    providerTxnId: serial,
+    providerRoundId: String(notify.game_round ?? "").trim(),
+    externalUserId: String(notify.member_account ?? "").trim(),
+    gameCode: String(notify.game_uid ?? notify.game_id ?? "").trim(),
+    vendorCode: String(notify.game_name ?? "").trim().slice(0, 120),
+    providerName: "SoftAPI",
+    requestIp,
+    requestJson: rawJson,
+    responseJson: "{}",
+  };
+  let duplicate = true;
+  let balance = toNum(ensureWallet(user.id).balance, 0);
+  if (betCoins > 0) {
+    // SoftAPI has already taken this bet in the game, so the debit must be recorded
+    // even if sports exposure changed since launch.
+    const r = applyProviderWalletOperationTx({ ...common, action: "debit", amount: betCoins, txnKey: `softapi:${serial}:bet`, allowOverdraft: true });
+    if (!r.ok) throw new Error(`debit failed: ${r.msg}`);
+    duplicate = duplicate && !!r.duplicate;
+    balance = r.balance;
+  }
+  if (winCoins > 0) {
+    const r = applyProviderWalletOperationTx({ ...common, action: "credit", amount: winCoins, txnKey: `softapi:${serial}:win` });
+    if (!r.ok) throw new Error(`credit failed: ${r.msg}`);
+    duplicate = duplicate && !!r.duplicate;
+    balance = r.balance;
+  }
+  if (betCoins <= 0 && winCoins <= 0) duplicate = false;
+  return { duplicate, balance, betCoins, winCoins };
+});
+
+const handleSoftapiNotify = (req, res) => {
+  const cfg = softapi.readConfig();
+  const ip = String(req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
+  if (!softapi.isActive(cfg) || !softapi.isValidCallbackKey(req.params.key, cfg)) {
+    console.warn(`[softapi] rejected notify from ${ip}: bad key or SoftAPI inactive`);
+    return res.status(401).json({ code: 401, msg: "Unauthorized" });
+  }
+  const { notify, error } = softapi.parseNotify(req.body);
+  if (!notify) {
+    console.warn(`[softapi] bad notify from ${ip}: ${error}`);
+    return res.status(400).json({ code: 400, msg: error || "Bad request" });
+  }
+  const serial = String(notify.serial_number ?? "").trim();
+  const movesMoney = notify.bet_amount !== undefined || notify.win_amount !== undefined;
+  if (!serial && !movesMoney) {
+    // Session events (9Wicket session_start etc.) carry no bet or win. Record nothing.
+    console.log(`[softapi] info notify ${String(notify.type || notify.event || notify.action || "").slice(0, 40)} member=${notify.member_account ?? notify.user_id ?? ""}`);
+    return res.status(200).json({ code: 0, msg: "OK" });
+  }
+  if (!serial) return res.status(400).json({ code: 400, msg: "serial_number is required" });
+  const user = userFromSoftapiExtId(notify.member_account);
+  if (!user) {
+    console.warn(`[softapi] notify ${serial}: unknown member_account ${notify.member_account}`);
+    return res.status(404).json({ code: 404, msg: "Player not found" });
+  }
+  let out;
+  try {
+    out = applySoftapiSettleTx({ user, notify, cfg, requestIp: ip, rawJson: safeJsonStringify(notify, "{}") });
+  } catch (e) {
+    console.error(`[softapi] notify ${serial} for ${user.username} failed:`, e?.message || e);
+    return res.status(500).json({ code: 500, msg: "Settle failed" });
+  }
+  // credit_amount is SoftAPI's in-game balance after the round. It differs from ours
+  // when the player also spent coins outside the game; log it for reconciliation.
+  if (notify.credit_amount !== undefined) {
+    const theirCoins = softapi.unitsToCoins(notify.credit_amount, cfg);
+    const wallet = ensureWallet(user.id);
+    const ourAvailable = toNum(wallet.balance, 0) - Math.max(0, toNum(wallet.exposer, 0));
+    if (Math.abs(theirCoins - ourAvailable) > cfg.coinsPerUnit * 0.01 + 0.01) {
+      console.warn(`[softapi] balance drift ${user.username}: provider=${theirCoins} site_available=${ourAvailable} serial=${serial}`);
+    }
+  }
+  return res.status(200).json({
+    code: 0,
+    msg: out.duplicate ? "OK (duplicate)" : "OK",
+    data: { balance: softapi.coinsToUnits(out.balance, cfg) },
+  });
+};
+app.post(`${softapi.callbackPath}/:key`, express.text({ type: ["text/*"], limit: API_BODY_LIMIT }), handleSoftapiNotify);
+
+// Catalog: replace casino_games with SoftAPI's list. Homepage placement (homepage_code)
+// is carried over from old rows with the same provider + game name.
+const readSoftapiState = () => readJsonFile(SOFTAPI_STATE_PATH, {}) || {};
+// Sportsbooks run inside the provider's window with their own live odds. They are
+// listed, in this order, on the Sportsbook tab (/casino-int/sportsbook, nav id 556).
+const SOFTAPI_SPORTSBOOK_SPORT_ID = 556;
+const SOFTAPI_SPORTSBOOKS = Object.freeze([
+  { uid: "11539", name: "9Wicket Exchange" },
+  { uid: "7463", name: "SBO Sportsbook" },
+  { uid: "4451", name: "SABA Sports" },
+  { uid: "6260", name: "BTi Sports" },
+  { uid: "7004", name: "LuckySport" },
+  { uid: "11540", name: "CMD Sports" },
+  { uid: "12941", name: "Betby Sportsbook" },
+  { uid: "1001995", name: "PG Sport" },
+  { uid: "7106", name: "TF Esports" },
+  { uid: "897", name: "United Gaming" },
+  { uid: "7462", name: "SBO Virtual Sports" },
+  { uid: "1003964", name: "Virtual Football Pro" },
+]);
+const SOFTAPI_SPORTSBOOK_BY_UID = new Map(SOFTAPI_SPORTSBOOKS.map((b, i) => [b.uid, { ...b, order: i }]));
+const isSportsbookType = (type) => /^sports?[-_ ]?book$/i.test(String(type || "").trim());
+const SOFTAPI_PLACEHOLDER_LOGO = /softapi2\.shop\/images\/index\.png|\.png\/images\/index\.png$/i;
+let softapiCatalogSyncPromise = null;
+const syncSoftapiCatalog = () => {
+  if (softapiCatalogSyncPromise) return softapiCatalogSyncPromise;
+  softapiCatalogSyncPromise = (async () => {
+    const games = await softapi.fetchGames();
+    if (games.length < 50) throw new Error(`SoftAPI returned only ${games.length} games; catalog not replaced`);
+    const brandLogo = new Map();
+    try {
+      for (const p of await softapi.fetchProviders()) {
+        const logo = String(p?.logo || "").trim();
+        if (/^https:\/\//i.test(logo)) brandLogo.set(normalizeCompactToken(p.name), logo);
+      }
+    } catch (e) {
+      console.warn("[softapi] provider logos unavailable:", e?.message || e);
+    }
+    const nameKey = (provider, name) => `${normalizeCompactToken(provider)}|${String(name || "").trim().toLowerCase()}`;
+    const oldHomepage = new Map();
+    for (const r of db.prepare("SELECT provider_id,provider,game_name,homepage_code FROM casino_games WHERE homepage_code<>12").all()) {
+      oldHomepage.set(nameKey(r.provider_id, r.game_name), toNum(r.homepage_code, 12));
+      oldHomepage.set(nameKey(r.provider, r.game_name), toNum(r.homepage_code, 12));
+    }
+    const insert = db.prepare(
+      "INSERT INTO casino_games (id,identifier,provider_id,provider,game_name,image_url,live_category,slot_category,homepage_code) VALUES (?,?,?,?,?,?,?,?,?)"
+    );
+    let written = 0;
+    let homepageKept = 0;
+    db.transaction(() => {
+      db.prepare("DELETE FROM casino_games").run();
+      const seen = new Set();
+      for (const g of games) {
+        const uid = String(g?.game_uid ?? g?.game_id ?? "").trim();
+        if (!/^\d+$/.test(uid) || seen.has(uid) || g?.currency_supported === false) continue;
+        seen.add(uid);
+        const provider = String(g.provider || "").trim() || "Casino";
+        const name = SOFTAPI_SPORTSBOOK_BY_UID.get(uid)?.name || String(g.name || "").trim() || `Game ${uid}`;
+        const logo = String(g.logo || "").trim();
+        let image = /^https:\/\//i.test(logo) && !SOFTAPI_PLACEHOLDER_LOGO.test(logo) ? logo : "";
+        const book = SOFTAPI_SPORTSBOOK_BY_UID.get(uid);
+        // Per-game art for sportsbooks is missing or generic; the brand logo is clearer.
+        if (book) image = brandLogo.get(normalizeCompactToken(provider)) || image;
+        const category = String(g.category || "").trim() || "Casino";
+        const homepage = oldHomepage.get(nameKey(provider, name)) || 12;
+        if (homepage !== 12) homepageKept += 1;
+        insert.run(`cg_${uid}`, uid, provider, provider, name, image, category, category, homepage);
+        written += 1;
+      }
+    })();
+    bumpCasinoCatalogVersion();
+    const state = { ...readSoftapiState(), catalogSyncedAt: nowIso(), gameCount: written, homepageKept };
+    writeJsonFile(SOFTAPI_STATE_PATH, state);
+    console.log(`[softapi] catalog synced: ${written} games (${homepageKept} kept homepage placement)`);
+    return state;
+  })().finally(() => {
+    softapiCatalogSyncPromise = null;
+  });
+  return softapiCatalogSyncPromise;
+};
+const softapiCatalogIsStale = () => {
+  const cfg = softapi.readConfig();
+  const syncedMs = parseIsoToMs(readSoftapiState().catalogSyncedAt);
+  if (!syncedMs || Date.now() - syncedMs > cfg.catalogMaxAgeHours * 3600 * 1000) return true;
+  // Rows from the old provider use hex identifiers; SoftAPI ids are numeric.
+  return !!db.prepare("SELECT 1 FROM casino_games WHERE identifier GLOB '*[^0-9]*' LIMIT 1").get();
+};
+const scheduleSoftapiCatalogSync = () => {
+  const tick = () => {
+    if (!softapi.isActive() || !softapiCatalogIsStale()) return;
+    syncSoftapiCatalog().catch((e) => console.error("[softapi] catalog sync failed:", e?.message || e));
+  };
+  setTimeout(tick, 5000).unref?.();
+  setInterval(tick, 60 * 60 * 1000).unref?.();
+};
+if (process.env.SOFTAPI_DISABLE_AUTO_SYNC !== "1") scheduleSoftapiCatalogSync();
+if (!softapi.isActive()) {
+  const problems = softapi.configProblems();
+  if (!problems.includes("token missing")) console.warn(`[softapi] not active: ${problems.join(", ")}`);
+}
+
+app.get("/api/admin/softapi/status", ownerOnly, async (_req, res) => {
+  const cfg = softapi.readConfig();
+  let ggrWallet = null;
+  let ggrError = "";
+  if (cfg.token) {
+    try {
+      ggrWallet = await softapi.fetchGgrBalance();
+    } catch (e) {
+      ggrError = String(e?.message || e);
+    }
+  }
+  res.json(
+    env("", {
+      active: softapi.isActive(cfg),
+      problems: softapi.configProblems(cfg),
+      apiUrl: cfg.apiUrl,
+      hasToken: !!cfg.token,
+      hasSecret: cfg.secret.length === 32,
+      playCurrency: cfg.playCurrency,
+      coinsPerUnit: cfg.coinsPerUnit,
+      publicBaseUrl: cfg.publicBaseUrl,
+      returnUrl: cfg.returnUrl,
+      ggrWallet,
+      ggrError,
+      catalog: readSoftapiState(),
+      casinoGames: toNum(db.prepare("SELECT COUNT(*) c FROM casino_games").get()?.c, 0),
+    })
+  );
+});
+app.post("/api/admin/softapi/sync-games", ownerOnly, async (_req, res) => {
+  if (!softapi.isActive()) return res.status(400).json(env(`SoftAPI not active: ${softapi.configProblems().join(", ")}`, {}, true, 400));
+  try {
+    return res.json(env("Game list synced", await syncSoftapiCatalog()));
+  } catch (e) {
+    return res.status(502).json(env(e?.message || "Sync failed", {}, true, 502));
+  }
+});
 app.post("/api/get-cas-casino-play-url", async (req, res) => {
   const out = await resolveCasinoLaunch(req, { requireAuth: false });
   if (!out.ok) {
@@ -11271,6 +11655,8 @@ app.get("/api/casino-bet-history", (req, res) => {
   let target = null;
   if (targetUserId) target = getUserById(targetUserId);
   if (!target && targetUsername) target = getUserByUsername(targetUsername) || getUserByUsernameCaseInsensitiveStmt.get(targetUsername);
+  // A player has no downline; without a target they get their own rows.
+  if (!target && normalizePanelRole(authRole, "user") === "user") target = authUser;
 
   if (target && !canActorAccessTargetUser(authUser, authRole, target)) {
     return res.status(403).json(env("Access denied", {}, true, 403));
@@ -11310,6 +11696,8 @@ app.get("/api/casino-account-statement", (req, res) => {
   let target = null;
   if (targetUserId) target = getUserById(targetUserId);
   if (!target && targetUsername) target = getUserByUsername(targetUsername) || getUserByUsernameCaseInsensitiveStmt.get(targetUsername);
+  // A player has no downline; without a target they get their own rows.
+  if (!target && normalizePanelRole(authRole, "user") === "user") target = authUser;
 
   if (target && !canActorAccessTargetUser(authUser, authRole, target)) {
     return res.status(403).json(env("Access denied", {}, true, 403));
@@ -11466,6 +11854,26 @@ const snapshotAssetSetHeaders = (res, filePath) => {
   }
   res.setHeader("Cache-Control", `public, max-age=${SNAPSHOT_STATIC_CACHE_SECONDS}`);
 };
+// The site root holds the database, secrets and server code next to the public
+// assets. Never serve those: only HTML pages, images and the asset folders are public.
+const PRIVATE_DIR_RE = /^\/(?:data_store|database|king|king\.worktrees|lib|scripts|source_code|node_modules|workflows|\.[^/]*)(?:\/|$)/i;
+const PRIVATE_ANYWHERE_RE = /(?:^|\/)(?:provider_agent_files|\.[^/]+)(?:\/|$)|\.(?:db|db-wal|db-shm|sqlite|sqlite3|env|bak|sql|log)$/i;
+const PRIVATE_ROOT_FILE_RE = /^\/[^/]+\.(?:md|php|json|js|cjs|mjs|txt|log|lock|yml|yaml|sh|bat|ps1)$/i;
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  let p = "";
+  try {
+    p = decodeURIComponent(req.path || "");
+  } catch {
+    return res.status(400).type("text/plain").send("Bad request");
+  }
+  p = p.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  if (p.startsWith("/api/") || p === "/api") return next();
+  if (PRIVATE_DIR_RE.test(p) || PRIVATE_ANYWHERE_RE.test(p) || PRIVATE_ROOT_FILE_RE.test(p)) {
+    return res.status(404).type("text/plain").send("Asset not found");
+  }
+  return next();
+});
 app.use(
   express.static(ROOT, {
     index: false,

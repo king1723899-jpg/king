@@ -6832,12 +6832,19 @@
                   _custom_link__WEBPACK_IMPORTED_MODULE_3__.CustomLink,
                   {
                     to:
-                      sport.sportId == 555
+                      sport.sportId == 556
+                        ? "/casino-int/sportsbook"
+                        : sport.sportId == 555
                         ? "/casino-int/slots"
                         : `/match/${sport.sportId}`,
                     className: `nav-tab ${
-                      sport.sportId == 555
-                        ? location.pathname.startsWith("/casino-int")
+                      sport.sportId == 556
+                        ? location.pathname.startsWith("/casino-int/sportsbook")
+                          ? "active"
+                          : ""
+                        : sport.sportId == 555
+                        ? location.pathname.startsWith("/casino-int") &&
+                          !location.pathname.startsWith("/casino-int/sportsbook")
                           ? "active"
                           : ""
                         : sport.sportId == sportId
@@ -7217,6 +7224,11 @@
               navigate("/casino-int/slots");
               return;
             }
+            // Sportsbook: provider sportsbooks with their own live odds
+            if (sportId === 556) {
+              navigate("/casino-int/sportsbook");
+              return;
+            }
             setExpandedItems((prev) => ({
               ...prev,
               sports: prev.sports.includes(id)
@@ -7344,6 +7356,7 @@
                                   undefined
                                 ),
                                 sport.sportId !== 555 &&
+                                  sport.sportId !== 556 &&
                                   /*#__PURE__*/ (0,
                                   react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_4__.jsxDEV)(
                                     "span",

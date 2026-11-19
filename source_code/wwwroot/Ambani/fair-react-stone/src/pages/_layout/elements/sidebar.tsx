@@ -153,6 +153,11 @@ const SideBar = () => {
       navigate("/casino-int/slots");
       return;
     }
+    // Sportsbook: provider sportsbooks with their own live odds
+    if (sportId === 556) {
+      navigate("/casino-int/sportsbook");
+      return;
+    }
     setExpandedItems(prev => ({
       ...prev,
       sports: prev.sports.includes(id)
@@ -214,7 +219,7 @@ const SideBar = () => {
                 />
               </span>
               <span className="sidebar-text">{sport.name}</span>
-              {sport.sportId !== 555 && (
+              {sport.sportId !== 555 && sport.sportId !== 556 && (
                 <span
                   className={`sidebar-arrow ${expandedItems.sports.includes(sport._id!) ? "expanded" : ""
                     }`}

@@ -15,3 +15,6 @@ data_store/*.db-wal
 
 # OS Files
 .DS_Store
+# World Casino API credentials and sync state (never commit)
+data_store/softapi_settings.json
+data_store/softapi_state.json

@@ -10,7 +10,7 @@
     "reset:users": "node scripts/reset_users.js",
     "qa:admin": "node scripts/admin_qa_check.js",
     "migrate:mysql:sprint2": "node scripts/migrate_mysql_sprint2.js",
-    "test": "node scripts/sprint2_test.js && node scripts/coins_test.js && node scripts/settlement_test.js && node scripts/e2e_coins_test.js && node scripts/security_test.js && node scripts/reports_test.js && node scripts/client_actions_test.js && node scripts/access_fixes_test.js"
+    "test": "node scripts/sprint2_test.js && node scripts/coins_test.js && node scripts/settlement_test.js && node scripts/e2e_coins_test.js && node scripts/security_test.js && node scripts/reports_test.js && node scripts/client_actions_test.js && node scripts/access_fixes_test.js && node scripts/softapi_test.js"
   },
   "engines": {
     "node": ">=18"
