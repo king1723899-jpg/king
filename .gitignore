@@ -18,3 +18,5 @@ data_store/*.db-wal
 # World Casino API credentials and sync state (never commit)
 data_store/softapi_settings.json
 data_store/softapi_state.json
+# FA101 sports feed token (never commit)
+data_store/fa101_settings.json
