@@ -4651,7 +4651,7 @@ const Deposit = () => {
       return;
     }
     if (selectedPaymentMethod === 'whatsapp') {
-      window.open(`https://wa.me/1234567890?text=Hi, I want to make a deposit of â‚¹${amount}`, '_blank');
+      window.open(`/support/whatsapp?text=Hi, I want to make a deposit of â‚¹${amount}`, '_blank');
       return;
     }
     setIsLoading(true);
@@ -7470,7 +7470,7 @@ const AddWhatsupPari = ({
         const adminMessage = `ðŸ”” New WhatsApp Verification\n\nðŸ“± User Number: +91${whatsappNumber}\nâœ… OTP Verified: ${data.otp}\nâ° Time: ${new Date().toLocaleString()}\n\nUser has successfully verified their WhatsApp number for withdrawal requests.`;
 
         // Open WhatsApp with pre-filled message to admin number
-        const whatsappUrl = `https://wa.me/1234567890?text=${encodeURIComponent(adminMessage)}`;
+        const whatsappUrl = `/support/whatsapp?text=${encodeURIComponent(adminMessage)}`;
         window.open(whatsappUrl, '_blank');
         react_toastify__WEBPACK_IMPORTED_MODULE_3__.toast.success('Opening WhatsApp to send verification details to admin!');
       } else {

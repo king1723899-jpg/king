@@ -2380,3 +2380,58 @@ input[type="checkbox"].form-control, input[type="radio"].form-control { display:
   .admin > .main { padding: 0 !important; }
   * { box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
+
+/* ---- QA fixes 2026-11-20 ------------------------------------------------ */
+
+/* Admin sidebar groups. The glass blur layer (::before) of a static
+   .dropdown-menu attached to the whole fixed sidebar and blurred it. */
+.admin-sidebar .dropdown-menu { position: relative; }
+.admin-sidebar .dropdown-menu::before { content: none; display: none; }
+.admin-sidebar .dropdown-menu li { list-style: none; }
+.admin-sidebar .dropdown-menu a { display: flex; align-items: center; gap: 10px; }
+.admin-sidebar .dropdown-menu a > svg, .admin-sidebar .dropdown-menu a > img, .admin-sidebar .dropdown-menu a > i { flex: 0 0 16px; width: 16px; height: 16px; }
+
+/* Match odds grid: market header (BACK / LAY) and runner rows. */
+.markets { --k-odd-w: 64px; --k-odd-gap: 4px; }
+.markets .table-header { display: flex; align-items: center; gap: var(--k-odd-gap); padding: 4px 6px; }
+.markets .table-header > * { float: none !important; }
+.markets .table-header > .country-name, .markets .table-header > .min-max { flex: 1 1 auto; min-width: 0; width: auto !important; }
+.markets .table-header > .back, .markets .table-header > .lay {
+  flex: 0 0 auto; width: calc(var(--k-odd-w) * 3 + var(--k-odd-gap) * 2) !important; min-height: 30px;
+  display: flex; align-items: center; justify-content: center; border-radius: 8px;
+}
+.markets .runner-rows-container { clear: both; width: 100%; }
+.markets .runner-row { display: block; padding: 0; }
+.markets .runner-row > .table-row { display: flex; flex-direction: row; align-items: stretch; width: 100%; padding: 4px 6px; gap: var(--k-odd-gap); }
+.markets .table-row > .country-name { flex: 1 1 auto; min-width: 0; width: auto !important; }
+.markets .new-container { position: relative; display: flex; flex: 0 0 auto; gap: var(--k-odd-gap); }
+.markets .new-child { display: flex; gap: var(--k-odd-gap); }
+/* Desktop boxes are .box-1, phone boxes .box-2 (one per side). */
+.markets .new-child > .box-1, .markets .new-child > .box-2 {
+  width: var(--k-odd-w); min-height: 44px; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 8px; cursor: pointer; line-height: 1.15; user-select: none;
+}
+.markets .new-child > [class*="box-"] .d-block:not(.odd) { font-size: .68rem; opacity: .8; }
+@media (max-width: 767.98px) {
+  .markets { --k-odd-w: 58px; }
+  .markets .table-header > .back, .markets .table-header > .lay { width: var(--k-odd-w) !important; font-size: .8rem; }
+  .markets .new-child > .box-2 { width: var(--k-odd-w); }
+  .markets .table-header > .country-name, .markets .table-header > .min-max { font-size: .72rem; }
+}
+
+/* My Bet list: rows carry .back / .lay (for colour) and must stay table rows. */
+table.mybet tr.back, table.mybet tr.lay, .mybet tr.back, .mybet tr.lay { display: table-row; }
+table.mybet td, table.mybet th { display: table-cell; white-space: nowrap; }
+table.mybet tr.back td { background: var(--k-back); } table.mybet tr.lay td { background: var(--k-lay); }
+.table-responsive-new { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Phones: the bet slip opens as a panel pinned to the bottom of the screen,
+   instead of below every market where players could not find it. */
+@media (max-width: 767.98px) {
+  .tab-pane .card.place-bet {
+    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 1060; margin: 0 !important;
+    max-height: 80vh; overflow-y: auto; border-radius: 18px; background: #fff;
+    box-shadow: 0 -12px 40px rgba(15, 23, 42, .28);
+  }
+  .tab-pane .card.place-bet .value-buttons .btn { padding: 6px 10px; }
+}

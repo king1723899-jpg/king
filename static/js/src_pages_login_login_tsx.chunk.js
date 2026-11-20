@@ -705,7 +705,7 @@
                               type: "button",
                               className: "mobile-login-btn-apk",
                               onClick: () =>
-                                window.open("https://wa.link/ambani", "_blank"),
+                                window.open("/support/whatsapp", "_blank"),
                               children: [
                                 /*#__PURE__*/ (0,
                                 react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_11__.jsxDEV)(

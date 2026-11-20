@@ -1027,7 +1027,7 @@
                                       type: "button",
                                       onClick: () =>
                                         window.open(
-                                          "https://wa.link/ambani",
+                                          "/support/whatsapp",
                                           "_blank"
                                         ),
                                       className: "signup-whatsapp-btn",

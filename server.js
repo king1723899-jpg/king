@@ -8919,17 +8919,22 @@ const fa101Markets = (key, ev) => {
       seen.add(String(m.market_id));
       const suspended = mStatus !== "OPEN" || !!m.bet_lock;
       const isBm = gtype === "match1";
-      const ladder = (arr) =>
+      // order: "asc" = lowest price first, "desc" = highest first.
+      const ladder = (arr, order) =>
         (Array.isArray(arr) ? arr : [])
           .filter((o) => toNum(o?.price, 0) > (isBm ? 0 : 1))
-          .map((o) => ({ price: toNum(o.price, 0), price1: isBm ? String(toNum(o.price, 0)) : toNum(o.price, 0).toFixed(2), size: toNum(o.size, 0) || 1 }));
+          .map((o) => ({ price: toNum(o.price, 0), price1: isBm ? String(toNum(o.price, 0)) : toNum(o.price, 0).toFixed(2), size: toNum(o.size, 0) || 1 }))
+          .sort((a, b) => (order === "asc" ? a.price - b.price : b.price - a.price));
+      // Ladder order the match screen expects: back = worst..best (it shows the
+      // last one next to LAY, and on phones only the best); lay = best first for
+      // match odds, but worst..best for bookmaker (which the screen reverses).
       const runners = (m.runners || []).map((r, i) => ({
         selectionId: toNum(r?.runner_id, 0) || String(r?.runner_id || ""),
         selectionName: String(r?.name || ""),
         status: suspended || !/^(ACTIVE|OPEN)$/i.test(String(r?.status || "")) ? "SUSPENDED" : "ACTIVE",
         sortPriority: i + 1,
-        back: ladder(r?.back),
-        lay: ladder(r?.lay),
+        back: ladder(r?.back, "asc"),
+        lay: ladder(r?.lay, isBm ? "desc" : "asc"),
       }));
       out.push({
         marketId: String(m.market_id),
@@ -8969,7 +8974,9 @@ const fa101EnsureRow = (key, ev) => {
 };
 
 // Price check for a bet on an FA101 event. Returns null for any other match.
-const resolveFa101Quote = ({ matchId, marketId, selectionId, isBack, requestedOdds }) => {
+// Used when the feed sends no max stake for a market.
+const FA101_DEFAULT_MAX_STAKE = Math.max(0, envNum(process.env.FA101_DEFAULT_MAX_STAKE, 100000));
+const resolveFa101Quote = ({ matchId, marketId, selectionId, isBack, requestedOdds, stake = 0 }) => {
   const key = fa101IsEvent(matchId);
   if (!key) return null;
   fa101.watchEvent(key);
@@ -8981,6 +8988,11 @@ const resolveFa101Quote = ({ matchId, marketId, selectionId, isBack, requestedOd
   if (!market) return { ok: false, message: "Unknown market for this match" };
   if (declaredMarketStmt.get(key, market.marketId)) return { ok: false, message: "Result already declared for this market" };
   if (market.externalData.status !== "OPEN") return { ok: false, message: "Market is suspended" };
+  // The feed's per-market stake limits (shown in the market header).
+  const minBet = toNum(market.raw?.min_bet, 0);
+  const maxBet = toNum(market.raw?.max_bet, 0) || FA101_DEFAULT_MAX_STAKE;
+  if (stake > 0 && minBet > 0 && stake < minBet) return { ok: false, message: `Minimum stake is ${minBet}` };
+  if (stake > 0 && maxBet > 0 && stake > maxBet) return { ok: false, message: `Maximum stake is ${maxBet}` };
   const runner = market.runners.find((r) => String(r.selectionId) === String(selectionId));
   if (!runner) return { ok: false, message: "Unknown selection for this market" };
   if (runner.status !== "ACTIVE") return { ok: false, message: "Selection is suspended" };
@@ -9062,13 +9074,36 @@ app.get("/api/get-match-list", (req, res, next) => {
 app.get("/api/get-match-by-id", async (req, res, next) => {
   const key = fa101IsEvent(req.query?.matchId);
   if (!key) return next();
-  // Opening the match starts its odds socket; the row itself is served below.
+  // Opening the match starts its odds socket.
+  let ev = null;
   try {
-    fa101EnsureRow(key, await fa101.loadEvent(key));
+    ev = await fa101.loadEvent(key);
+    fa101EnsureRow(key, ev);
   } catch (e) {
     console.warn(`[fa101] event ${key} load failed: ${e?.message || e}`);
+    ev = fa101.cachedEvent(key);
   }
-  return next();
+  const r = db.prepare("SELECT * FROM matches WHERE match_id=?").get(Number(key));
+  if (!r) return next();
+  // Stake limits shown in the market header; placebet enforces the same numbers.
+  const u = reqAuthUser(req);
+  const limit = (gtype) => {
+    const userMax = toNum(u?.max_bet, 0);
+    const m = fa101Markets(key, ev).find((x) => x.gtype === gtype);
+    const feedMax = toNum(m?.raw?.max_bet, 0) || FA101_DEFAULT_MAX_STAKE;
+    return userMax > 0 && feedMax > 0 ? Math.min(userMax, feedMax) : userMax || feedMax || 0;
+  };
+  const match = { ...mapMatch(r), inPlayMaxLimit: limit("match"), offPlayMaxLimit: limit("match"), inPlayBookMaxLimit: limit("match1"), offPlayBookMaxLimit: limit("match1") };
+  return res.json(env("", { match, stake: STAKE_DETAIL }));
+});
+// The match screen polls these through a doubled "/api/api/" base; fancy is closed.
+app.get("/api/api/fancy-data", (_req, res) => res.json({ message: "Data fetched successfully", error: false, code: 200, data: [] }));
+// One market's odds, refreshed by the bet slip after a bet.
+app.get("/api/sessions-data/market/:marketId/:matchId", (req, res) => {
+  const key = fa101IsEvent(req.params.matchId);
+  const ev = key ? fa101.cachedEvent(key) : null;
+  const data = ev ? fa101Markets(key, ev).filter((m) => m.marketId === String(req.params.marketId)).map(({ raw, group, ...m }) => m) : [];
+  return res.json({ message: "Data fetched successfully", error: false, code: 200, data });
 });
 app.get("/api/get-market-list", async (req, res, next) => {
   const key = fa101IsEvent(req.query?.matchId);
@@ -9393,8 +9428,8 @@ const BET_ODDS_MAX_AGE_SECONDS = Math.max(0, envNum(process.env.BET_ODDS_MAX_AGE
 const BET_ALLOW_UNFED_ODDS = envBool(process.env.BET_ALLOW_UNFED_ODDS);
 const betMatchRowStmt = db.prepare("SELECT match_id,name,status,section_json,external_json,odds_updated_at FROM matches WHERE match_id=?");
 const declaredMarketStmt = db.prepare("SELECT 1 FROM market_results WHERE match_id=? AND market_id=? AND status='declared' LIMIT 1");
-const resolveServerBetQuote = ({ matchId, marketId, selectionId, isBack, requestedOdds }) => {
-  const fa101Quote = resolveFa101Quote({ matchId, marketId, selectionId, isBack, requestedOdds });
+const resolveServerBetQuote = ({ matchId, marketId, selectionId, isBack, requestedOdds, stake = 0 }) => {
+  const fa101Quote = resolveFa101Quote({ matchId, marketId, selectionId, isBack, requestedOdds, stake });
   if (fa101Quote) return fa101Quote;
   const row = betMatchRowStmt.get(matchId);
   if (!row) return { ok: false, status: 404, message: "This market is not available for betting" };
@@ -9499,7 +9534,7 @@ const handlePlaceBet = (req, res) => {
     return res.status(400).json({ error: true, message: "Fancy / session markets are not available" });
   }
   // The price is decided by the server's market data, never by the client.
-  const quote = resolveServerBetQuote({ matchId, marketId, selectionId, isBack, requestedOdds: odds });
+  const quote = resolveServerBetQuote({ matchId, marketId, selectionId, isBack, requestedOdds: odds, stake: stack });
   if (!quote.ok) return res.status(quote.status || 400).json({ error: true, message: quote.message });
   // Bookmaker bets arrive as a rate (64) and are stored as decimal odds (1.64).
   const betOdds = toNum(quote.decimalOdds, 0) > 1 ? toNum(quote.decimalOdds, 0) : odds;
@@ -12386,7 +12421,63 @@ app.get("/admin/embed/:page", (req, res) => {
   return sendHtml(res, path.join(ADMIN_DIR, file));
 });
 app.get("/admin/client-onboarding", (_req, res) => res.redirect(302, "/admin/add-user"));
-app.get("/signup", (_req, res) => res.redirect(302, "/admin/add-user"));
+// ---- Support contact + signup -------------------------------------------
+// Players do not self-register: accounts are opened by an admin. Every
+// "WhatsApp" button in the app goes through /support/whatsapp, which opens the
+// number in env SUPPORT_WHATSAPP or data_store/site_contact.json.
+const SITE_CONTACT_PATH = path.join(DB_DIR, "site_contact.json");
+const readSiteContact = () => {
+  let file = {};
+  try {
+    if (fs.existsSync(SITE_CONTACT_PATH)) file = JSON.parse(fs.readFileSync(SITE_CONTACT_PATH, "utf8")) || {};
+  } catch {}
+  const whatsapp = String(process.env.SUPPORT_WHATSAPP || file.whatsapp || "").replace(/\D/g, "");
+  const email = String(process.env.SUPPORT_EMAIL || file.email || "support@king777.com").trim();
+  return { whatsapp: whatsapp.length >= 8 ? whatsapp : "", email };
+};
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const contactPage = ({ title, lead, contact, primary }) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)} | King777</title>
+<link rel="stylesheet" href="/css/king777-glass.css?v=1">
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif}
+.k-signup{width:100%;max-width:420px;padding:32px 28px;border-radius:22px;text-align:center}
+.k-signup h1{margin:0 0 6px;font-size:1.6rem;font-weight:800;letter-spacing:.04em;color:var(--k-blue-700,#1d4ed8);text-transform:uppercase}
+.k-signup .bar{width:54px;height:3px;margin:0 auto 18px;border-radius:3px;background:linear-gradient(90deg,#2563eb,#f6bad3)}
+.k-signup p{margin:0 0 20px;line-height:1.55;color:var(--k-text,#334155)}
+.k-signup ol{margin:0 0 22px;padding-left:1.2rem;text-align:left;color:var(--k-text,#334155);line-height:1.7}
+.k-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:13px;border-radius:12px;font-weight:700;text-decoration:none;margin-bottom:10px}
+.k-btn.wa{background:#16a34a;color:#fff}.k-btn.mail{background:#2563eb;color:#fff}.k-btn.ghost{border:1px solid var(--k-pink-200,#f9c6dc);color:#1d4ed8;background:#fff}
+.k-foot{margin-top:14px;font-size:.85rem;color:var(--k-muted,#64748b)}.k-foot a{color:#2563eb;font-weight:700;text-decoration:none}
+</style></head><body><main class="k-signup k-glass">
+<h1>${escHtml(title)}</h1><div class="bar"></div><p>${lead}</p>
+<ol><li>Message our team with your name and mobile number.</li><li>We create your King777 ID and send you the username and password.</li><li>Log in and change your password.</li></ol>
+${primary}
+<a class="k-btn ghost" href="/login">I already have an ID – Log in</a>
+<div class="k-foot">Support: <a href="mailto:${escHtml(contact.email)}">${escHtml(contact.email)}</a></div>
+</main></body></html>`;
+app.get("/support/whatsapp", (req, res) => {
+  const contact = readSiteContact();
+  const text = String(req.query?.text || "Hi, I want a King777 ID").slice(0, 500);
+  if (contact.whatsapp) return res.redirect(302, `https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(text)}`);
+  res.setHeader("Cache-Control", "no-store");
+  return res.type("html").send(
+    contactPage({
+      title: "Contact support",
+      lead: "WhatsApp support is not available right now. Please email us and we will reply quickly.",
+      contact,
+      primary: `<a class="k-btn mail" href="mailto:${escHtml(contact.email)}?subject=${encodeURIComponent("King777")}&body=${encodeURIComponent(text)}">Email support</a>`,
+    })
+  );
+});
+app.get("/signup", (_req, res) => {
+  const contact = readSiteContact();
+  res.setHeader("Cache-Control", "no-store");
+  const primary = contact.whatsapp
+    ? `<a class="k-btn wa" href="/support/whatsapp?text=${encodeURIComponent("Hi, I want a King777 ID")}" target="_blank" rel="noopener">Get your ID on WhatsApp</a>`
+    : `<a class="k-btn mail" href="mailto:${escHtml(contact.email)}?subject=${encodeURIComponent("New King777 ID")}">Request your ID by email</a>`;
+  return res.type("html").send(contactPage({ title: "Sign up", lead: "King777 IDs are opened by our team, so your account is ready to play straight away.", contact, primary }));
+});
 app.get("/admin/add-admin-panel", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/add-admin", (_req, res) => res.redirect(302, "/admin/list-clients"));
 app.get("/admin/manage-admins", (_req, res) => res.redirect(302, "/admin/list-clients"));

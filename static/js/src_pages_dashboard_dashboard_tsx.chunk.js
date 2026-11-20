@@ -2197,7 +2197,7 @@
                           react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_17__.jsxDEV)(
                             "a",
                             {
-                              href: "https://wa.link/ambani",
+                              href: "/support/whatsapp",
                               target: "_blank",
                               rel: "noopener noreferrer",
                               title: "Contact us on WhatsApp",

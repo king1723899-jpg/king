@@ -3087,7 +3087,7 @@
                   "img",
                   {
                     src: _logo_png__WEBPACK_IMPORTED_MODULE_2__,
-                    alt: "ambaniexchange",
+                    alt: "King777",
                     className: "new-logo-desktop-img ",
                   },
                   void 0,
@@ -3104,7 +3104,7 @@
                   "img",
                   {
                     src: _goldlogo_png__WEBPACK_IMPORTED_MODULE_1__,
-                    alt: "ambaniexchange",
+                    alt: "King777",
                     className: "new-logo-mobile-img ",
                   },
                   void 0,
@@ -5591,7 +5591,7 @@
                         {
                           className: "text-center",
                           children:
-                            "\xA9 Copyright 2025. All Rights Reserved. Powered by ambaniexchange.",
+                            "© " + new Date().getFullYear() + " King777. All Rights Reserved.",
                         },
                         void 0,
                         false,

@@ -3719,7 +3719,7 @@
                     react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_14__.jsxDEV)(
                       "a",
                       {
-                        href: "https://wa.link/ambani",
+                        href: "/support/whatsapp",
                         target: "_blank",
                         rel: "noopener noreferrer",
                         className: "whatsapp-support-link",
