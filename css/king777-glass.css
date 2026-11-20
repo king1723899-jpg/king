@@ -2460,3 +2460,6 @@ table tr.back > td { background: var(--k-back); } table tr.lay > td { background
 }
 .fancy-market .fancy-tripple .table-row > .min-max { flex: 0 0 auto; width: var(--k-mm-w) !important; font-size: .7rem; display: flex; flex-direction: column; justify-content: center; text-align: right; }
 @media (max-width: 767.98px) { .fancy-market { --k-odd-w: 58px; } }
+
+/* Admin: "Series Settings" belonged to the old odds provider (its APIs do not exist). */
+.admin-sidebar li:has(> a[href="/admin/series-settings"]), .admin-sidebar a[href="/admin/series-settings"] { display: none !important; }
