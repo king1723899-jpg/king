@@ -1441,7 +1441,7 @@ const Sidebar = ({
               lineNumber: 443,
               columnNumber: 15
             }, undefined), /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
-              className: `dropdown-section ${openDropdowns.liveCasino ? 'open' : ''}`,
+              className: `dropdown-section k-live-casino-section ${openDropdowns.liveCasino ? 'open' : ''}`,
               children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("div", {
                 className: "dropdown-header",
                 onClick: () => toggleDropdown('liveCasino'),
@@ -1552,7 +1552,7 @@ const Sidebar = ({
                 columnNumber: 17
               }, undefined), openDropdowns.settings && /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("ul", {
                 className: "dropdown-menu",
-                children: (userState === null || userState === void 0 ? void 0 : (_userState$user2 = userState.user) === null || _userState$user2 === void 0 ? void 0 : _userState$user2.role) === _models_User__WEBPACK_IMPORTED_MODULE_3__.RoleType.admin && /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.Fragment, {
+                children: (userState === null || userState === void 0 ? void 0 : (_userState$user2 = userState.user) === null || _userState$user2 === void 0 ? void 0 : _userState$user2.role) !== undefined && ["admin", "super_admin", "sadmin"].includes(String(userState.user.role)) && /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.Fragment, {
                   children: [/*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)("li", {
                     children: /*#__PURE__*/(0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_13__.jsxDEV)(_pages_layout_elements_custom_link__WEBPACK_IMPORTED_MODULE_4__.CustomLink, {
                       to: "/sports-list/active-matches",

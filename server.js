@@ -8579,6 +8579,8 @@ app.get("/api/get-parent-user-detail", (req, res) => {
       balance: toNum(parentWallet.balance, 0),
       exposer: toNum(parentWallet.exposer, 0),
       casinoexposer: toNum(parentWallet.casino_exposer, 0),
+      // Super Admin (head office) issues coins without a balance limit.
+      unlimited: String((parent || authUser)?.role || "") === "super_admin",
     },
   }]));
 });
@@ -8810,7 +8812,7 @@ const fa101HomeMatch = (sportId, league, ev) => {
     stime: ev.start || nowIso(),
     tv: !!ev.tv_url,
     bm: !!ev.has_bookmaker,
-    f: false,
+    f: !!ev.has_session,
     f1: false,
     status,
     mid: `${gmid}0001`,
@@ -8831,7 +8833,7 @@ const fa101HomeMatch = (sportId, league, ev) => {
     competitionId: 0,
     competitionName: league,
     hasBookmaker: base.bm,
-    hasFancy: false,
+    hasFancy: base.f,
     hasFancy1: false,
     hasTV: base.tv,
     status,
@@ -8863,18 +8865,18 @@ const fa101HomeMatches = () => {
 // bet history and the admin lists know the event. Odds stay in memory.
 const fa101UpsertMatchStmt = db.prepare(
   `INSERT INTO matches (match_id,sport_id,name,competition_id,competition_name,match_datetime,in_play,has_bookmaker,has_fancy,has_fancy1,has_tv,status,section_json,external_json,created_at,updated_at)
-   VALUES (?,?,?,0,?,?,?,?,0,0,?,?,?,?,?,?)
+   VALUES (?,?,?,0,?,?,?,?,?,0,?,?,?,?,?,?)
    ON CONFLICT(match_id) DO UPDATE SET sport_id=excluded.sport_id,name=excluded.name,competition_name=excluded.competition_name,
-     match_datetime=excluded.match_datetime,in_play=excluded.in_play,has_bookmaker=excluded.has_bookmaker,has_fancy=0,has_fancy1=0,
+     match_datetime=excluded.match_datetime,in_play=excluded.in_play,has_bookmaker=excluded.has_bookmaker,has_fancy=excluded.has_fancy,has_fancy1=0,
      has_tv=excluded.has_tv,status=excluded.status,section_json=excluded.section_json,external_json=excluded.external_json,updated_at=excluded.updated_at`
 );
 const fa101RowSig = new Map();
 const fa101WriteMatch = (m) => {
   const ext = m.externalData;
-  const sig = JSON.stringify([m.name, m.sportId, m.competitionName, m.openDate, m.inplay, m.status, m.hasBookmaker, m.hasTV]);
+  const sig = JSON.stringify([m.name, m.sportId, m.competitionName, m.openDate, m.inplay, m.status, m.hasBookmaker, m.hasTV, m.hasFancy]);
   if (fa101RowSig.get(m.gmid) === sig) return false;
   const ts = nowIso();
-  fa101UpsertMatchStmt.run(m.gmid, m.sportId, m.name || `Match ${m.gmid}`, m.competitionName, m.openDate, m.inplay ? 1 : 0, m.hasBookmaker ? 1 : 0, m.hasTV ? 1 : 0, m.status, JSON.stringify(ext.section), JSON.stringify(ext), ts, ts);
+  fa101UpsertMatchStmt.run(m.gmid, m.sportId, m.name || `Match ${m.gmid}`, m.competitionName, m.openDate, m.inplay ? 1 : 0, m.hasBookmaker ? 1 : 0, m.hasFancy ? 1 : 0, m.hasTV ? 1 : 0, m.status, JSON.stringify(ext.section), JSON.stringify(ext), ts, ts);
   fa101RowSig.set(m.gmid, sig);
   return true;
 };
@@ -8970,7 +8972,7 @@ const fa101EnsureRow = (key, ev) => {
   const sid = sportByName[String(e.sport || "").toLowerCase()] || 4;
   const mo = (ev?.markets?.match_odds || [])[0];
   const odds = (mo?.runners || []).map((r) => ({ name: r.name, back: r.back?.[0]?.price, lay: r.lay?.[0]?.price }));
-  return fa101WriteMatch(fa101HomeMatch(sid, String(e.league || ""), { ...e, odds, status: mo?.status || "OPEN", tv_url: ev?.tv_url }));
+  return fa101WriteMatch(fa101HomeMatch(sid, String(e.league || ""), { ...e, odds, status: mo?.status || "OPEN", tv_url: ev?.tv_url, has_session: (ev?.markets?.fancy || []).length > 0 }));
 };
 
 // Price check for a bet on an FA101 event. Returns null for any other match.
@@ -9018,6 +9020,140 @@ const resolveFa101Quote = ({ matchId, marketId, selectionId, isBack, requestedOd
     matchName: String(matchRow?.name || ev?.event?.name || ""),
   };
 };
+
+// ---- FA101 fancy (session) markets ------------------------------------
+// Single-runner line markets (OVERS, BATSMAN, SINGLE_OVER): Yes = back at
+// yes_runs / yes_rate, No = lay at no_runs / no_rate. Profit and liability are
+// stake x rate / 100. Multi-runner "WINNING_ODDS" markets are left out.
+const fa101Fancies = (key, ev) => {
+  const out = [];
+  const seen = new Set();
+  for (const m of ev?.markets?.fancy || []) {
+    const id = String(m?.market_id || "").trim();
+    const status = String(m?.status || "").toUpperCase();
+    const r = Array.isArray(m?.runners) && m.runners.length === 1 ? m.runners[0] : null;
+    if (!id || !r || seen.has(id) || status === "INACTIVE" || status === "CLOSED") continue;
+    seen.add(id);
+    const yesRuns = toNum(r.yes_runs ?? m.yes_runs, 0);
+    const noRuns = toNum(r.no_runs ?? m.no_runs, 0);
+    const yesRate = toNum(r.yes_rate ?? m.yes_rate, 0);
+    const noRate = toNum(r.no_rate ?? m.no_rate, 0);
+    const open = status === "OPEN" && !m.bet_lock && /^(ACTIVE|OPEN)$/i.test(String(r.status || "")) && (yesRate > 0 || noRate > 0);
+    out.push({
+      id,
+      name: String(m.name || r.name || "").trim(),
+      type: String(m.market_type || ""),
+      gameStatus: open ? "" : status === "SUSPENDED" ? "SUSPENDED" : status === "OPEN" ? "Ball Running" : "SUSPENDED",
+      open,
+      yesRuns, yesRate, noRuns, noRate,
+      min: toNum(m.min_bet, 0) || 100,
+      max: toNum(m.max_bet, 0) || FA101_DEFAULT_MAX_STAKE,
+    });
+  }
+  return out;
+};
+const resolveFa101FancyQuote = ({ matchId, marketId, selectionId, isBack, requestedRuns, requestedRate, stake = 0 }) => {
+  const key = fa101IsEvent(matchId);
+  if (!key) return null;
+  fa101.watchEvent(key);
+  const ev = fa101.cachedEvent(key);
+  if (!ev) return { ok: false, status: 503, message: "Live odds are not available for this market" };
+  if (fa101.eventAgeMs(key) > fa101.readConfig().maxOddsAgeSeconds * 1000) return { ok: false, status: 503, message: "Odds have changed, please try again" };
+  const want = String(marketId || selectionId || "");
+  const f = fa101Fancies(key, ev).find((x) => x.id === want || x.id === String(selectionId));
+  if (!f) return { ok: false, message: "Unknown fancy market for this match" };
+  if (declaredMarketStmt.get(key, f.id)) return { ok: false, message: "Result already declared for this market" };
+  if (!f.open) return { ok: false, message: "Market is suspended" };
+  if (stake > 0 && stake < f.min) return { ok: false, message: `Minimum stake is ${f.min}` };
+  if (stake > 0 && stake > f.max) return { ok: false, message: `Maximum stake is ${f.max}` };
+  const runs = isBack ? f.yesRuns : f.noRuns;
+  const rate = isBack ? f.yesRate : f.noRate;
+  if (!(rate > 0)) return { ok: false, message: "No " + (isBack ? "Yes" : "No") + " price available" };
+  if (toNum(requestedRuns, -1) !== runs || (toNum(requestedRate, 0) > 0 && toNum(requestedRate, 0) !== rate)) {
+    return { ok: false, status: 409, message: `Odds changed to ${runs} @ ${rate}, please try again` };
+  }
+  const matchRow = db.prepare("SELECT name FROM matches WHERE match_id=?").get(Number(key));
+  return {
+    ok: true,
+    isFancy: true,
+    line: runs,
+    rate,
+    marketOdds: runs,
+    decimalOdds: Math.round((1 + rate / 100) * 10000) / 10000,
+    selectionName: `${f.name} (${isBack ? "Yes" : "No"} ${runs})`,
+    marketName: f.name,
+    matchName: String(matchRow?.name || ev?.event?.name || ""),
+  };
+};
+// Fancy rows in the shape the match screen polls (keyed by SelectionId).
+const fa101FancyRows = (key, ev) =>
+  fa101Fancies(key, ev).map((f, i) => ({
+    SelectionId: f.id,
+    marketId: f.id,
+    RunnerName: f.name,
+    fancyName: f.name,
+    gtype: "session",
+    GameStatus: f.gameStatus,
+    BackPrice1: f.yesRuns, BackSize1: f.yesRate,
+    LayPrice1: f.noRuns, LaySize1: f.noRate,
+    BackPrice2: 0, BackSize2: 0, LayPrice2: 0, LaySize2: 0, BackPrice3: 0, BackSize3: 0, LayPrice3: 0, LaySize3: 0,
+    min: f.min, max: f.max, sr_no: i + 1, rem: "", ballsess: "",
+    status: "active", active: true, suspended: !f.open,
+    matchId: Number(key), sportId: 4,
+  }));
+app.get("/api/get-fancy-list", async (req, res, next) => {
+  const key = fa101IsEvent(req.query?.matchId);
+  if (!key) return next();
+  let ev = fa101.cachedEvent(key);
+  if (!ev) ev = await fa101.loadEvent(key).catch(() => null);
+  const section = fa101Fancies(key, ev).map((f, i) => ({
+    sid: f.id, sno: i + 1, nat: f.name, gstatus: f.gameStatus || "ACTIVE", gscode: 1,
+    min: f.min, max: f.max, rem: "",
+    odds: [
+      { otype: "back", oname: "back1", odds: f.yesRuns, size: f.yesRate },
+      { otype: "lay", oname: "lay1", odds: f.noRuns, size: f.noRate },
+    ],
+  }));
+  return res.json({ success: true, msg: "Success", status: 200, data: section.length ? [{ gtype: "session", mname: "Fancy", section }] : [], lastUpdatedaAt: nowIso() });
+});
+const fa101FancyData = (req, res, next) => {
+  const key = fa101IsEvent(req.query?.MatchID ?? req.query?.matchId);
+  if (!key) return next();
+  fa101.watchEvent(key);
+  const ev = fa101.cachedEvent(key);
+  return res.json({ message: "Data fetched successfully", error: false, code: 200, data: ev ? fa101FancyRows(key, ev) : [] });
+};
+app.get("/api/api/fancy-data", fa101FancyData);
+app.get("/api/fancy-data", fa101FancyData);
+// Manual fancy result (Super Admin): result = runs scored. Rollback reopens the bets.
+const handleFancyResult = (req, res) => {
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  try {
+    const out = settlementEngine.settleFancyMarketResult({ matchId: src.matchId, marketId: src.marketId, runs: src.result ?? src.runs, actorId: ctx.authUser.id });
+    afterSettlementSync(out.results);
+    return res.json(env(`Fancy result ${out.runs} declared. ${out.settled} bet(s) settled.`, { ...out, results: undefined }));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to declare fancy result", {}, true, 400));
+  }
+};
+app.get("/api/result-fancy", handleFancyResult);
+app.post("/api/result-fancy", handleFancyResult);
+const handleFancyRollback = (req, res) => {
+  const ctx = requireResultAuthority(req, res);
+  if (!ctx) return;
+  const src = { ...(req.query || {}), ...(req.body || {}) };
+  try {
+    const out = settlementEngine.rollbackMarketResult({ matchId: src.matchId, marketId: src.marketId, actorId: ctx.authUser.id });
+    afterSettlementSync(out.results);
+    return res.json(env(`Result rolled back. ${out.reopened} bet(s) reopened.`, { ...out, results: undefined }));
+  } catch (e) {
+    return res.status(400).json(env(e.message || "Unable to roll back result", {}, true, 400));
+  }
+};
+app.get("/api/fancy-result-rollback", handleFancyRollback);
+app.post("/api/fancy-result-rollback", handleFancyRollback);
 
 const fa101OddsBodyCache = new Map();
 app.get("/api/sessions-data", (req, res, next) => {
@@ -9093,11 +9229,22 @@ app.get("/api/get-match-by-id", async (req, res, next) => {
     const feedMax = toNum(m?.raw?.max_bet, 0) || FA101_DEFAULT_MAX_STAKE;
     return userMax > 0 && feedMax > 0 ? Math.min(userMax, feedMax) : userMax || feedMax || 0;
   };
-  const match = { ...mapMatch(r), inPlayMaxLimit: limit("match"), offPlayMaxLimit: limit("match"), inPlayBookMaxLimit: limit("match1"), offPlayBookMaxLimit: limit("match1") };
+  const match = { ...mapMatch(r), inPlayMaxLimit: limit("match"), offPlayMaxLimit: limit("match"), inPlayBookMaxLimit: limit("match1"), offPlayBookMaxLimit: limit("match1"),
+    // Fancy rows show these; each fancy market's own min/max is enforced on bets.
+    inPlayFancyMinLimit: 100, offPlayFancyMinLimit: 100,
+    inPlayFancyMaxLimit: toNum(u?.max_bet, 0) > 0 ? Math.min(toNum(u.max_bet, 0), FA101_DEFAULT_MAX_STAKE) : FA101_DEFAULT_MAX_STAKE,
+    offPlayFancyMaxLimit: toNum(u?.max_bet, 0) > 0 ? Math.min(toNum(u.max_bet, 0), FA101_DEFAULT_MAX_STAKE) : FA101_DEFAULT_MAX_STAKE };
   return res.json(env("", { match, stake: STAKE_DETAIL }));
 });
 // The match screen polls these through a doubled "/api/api/" base; fancy is closed.
 app.get("/api/api/fancy-data", (_req, res) => res.json({ message: "Data fetched successfully", error: false, code: 200, data: [] }));
+// One fancy market's row, refreshed by the bet slip after a fancy bet.
+app.get("/api/sessions-data/fancy/:marketId/:matchId", (req, res) => {
+  const key = fa101IsEvent(req.params.matchId);
+  const ev = key ? fa101.cachedEvent(key) : null;
+  const data = ev ? fa101FancyRows(key, ev).filter((r) => r.SelectionId === String(req.params.marketId)) : [];
+  return res.json({ message: "Data fetched successfully", error: false, code: 200, data });
+});
 // One market's odds, refreshed by the bet slip after a bet.
 app.get("/api/sessions-data/market/:marketId/:matchId", (req, res) => {
   const key = fa101IsEvent(req.params.matchId);
@@ -9161,9 +9308,10 @@ app.get("/stream/test.html", (req, res, next) => {
 // declared from FA101 results (WINNER pays, VOID returns stakes). A Super
 // Admin can still declare or roll back by hand; a declared market is skipped.
 const fa101OpenMarketsStmt = db.prepare(
-  `SELECT DISTINCT CAST(b.match_id AS TEXT) AS match_id, b.market_id FROM bets b
+  `SELECT CAST(b.match_id AS TEXT) AS match_id, b.market_id, MAX(CASE WHEN upper(COALESCE(b.bet_on,''))='FANCY' THEN 1 ELSE 0 END) AS is_fancy FROM bets b
    JOIN matches m ON m.match_id = b.match_id
-   WHERE lower(b.status) IN ('unsettled','pending') AND m.external_json LIKE '%"source":"fa101"%'`
+   WHERE lower(b.status) IN ('unsettled','pending') AND m.external_json LIKE '%"source":"fa101"%'
+   GROUP BY CAST(b.match_id AS TEXT), b.market_id`
 );
 const fa101SettleState = { lastRunAt: null, lastError: null, declared: 0, voided: 0, running: false };
 const runFa101Settlement = async () => {
@@ -9172,6 +9320,7 @@ const runFa101Settlement = async () => {
   try {
     const open = fa101OpenMarketsStmt.all().filter((r) => fa101EventKey(r.match_id));
     const byEvent = new Map();
+    const fancyMarkets = new Set(open.filter((r) => r.is_fancy).map((r) => r.match_id + "|" + r.market_id));
     for (const r of open) {
       if (!byEvent.has(r.match_id)) byEvent.set(r.match_id, new Set());
       byEvent.get(r.match_id).add(String(r.market_id));
@@ -9189,6 +9338,21 @@ const runFa101Settlement = async () => {
           const winner = String(mk?.winner?.runner_id || "").trim();
           if (declaredMarketStmt.get(eventId, marketId)) continue;
           try {
+            if (fancyMarkets.has(eventId + "|" + marketId)) {
+              const runs = Number(mk?.runs);
+              if (verdict === "SETTLED" && Number.isFinite(runs)) {
+                const out = settlementEngine.settleFancyMarketResult({ matchId: eventId, marketId, runs, voids: Array.isArray(mk?.voids) ? mk.voids : [], actorId: null });
+                afterSettlementSync(out.results);
+                fa101SettleState.declared += 1;
+                console.log(`[fa101] fancy ${eventId}/${marketId} ${mk?.name || ""} runs ${runs}: ${out.settled} bet(s)`);
+              } else if (verdict === "VOID") {
+                const out = settlementEngine.voidMarketResult({ matchId: eventId, marketId, actorId: null });
+                afterSettlementSync(out.results);
+                fa101SettleState.voided += 1;
+                console.log(`[fa101] fancy voided ${eventId}/${marketId}: ${out.settled} bet(s)`);
+              }
+              continue;
+            }
             if (verdict === "SETTLED" && winner) {
               const out = settlementEngine.declareMarketResult({ matchId: eventId, marketId, winnerSelectionId: winner, actorId: null });
               afterSettlementSync(out.results);
@@ -9428,7 +9592,11 @@ const BET_ODDS_MAX_AGE_SECONDS = Math.max(0, envNum(process.env.BET_ODDS_MAX_AGE
 const BET_ALLOW_UNFED_ODDS = envBool(process.env.BET_ALLOW_UNFED_ODDS);
 const betMatchRowStmt = db.prepare("SELECT match_id,name,status,section_json,external_json,odds_updated_at FROM matches WHERE match_id=?");
 const declaredMarketStmt = db.prepare("SELECT 1 FROM market_results WHERE match_id=? AND market_id=? AND status='declared' LIMIT 1");
-const resolveServerBetQuote = ({ matchId, marketId, selectionId, isBack, requestedOdds, stake = 0 }) => {
+const resolveServerBetQuote = ({ matchId, marketId, selectionId, isBack, requestedOdds, stake = 0, isFancy = false, requestedRate = 0 }) => {
+  if (isFancy) {
+    return resolveFa101FancyQuote({ matchId, marketId, selectionId, isBack, requestedRuns: requestedOdds, requestedRate, stake }) ||
+      { ok: false, message: "Fancy / session markets are not available for this match" };
+  }
   const fa101Quote = resolveFa101Quote({ matchId, marketId, selectionId, isBack, requestedOdds, stake });
   if (fa101Quote) return fa101Quote;
   const row = betMatchRowStmt.get(matchId);
@@ -9530,11 +9698,9 @@ const handlePlaceBet = (req, res) => {
     return res.status(400).json({ error: true, message: "Stake must be a positive amount with up to 2 decimals" });
   }
   const isBack = typeof b.isBack === "boolean" ? b.isBack : String(b.isBack || "true").toLowerCase() === "true";
-  if (/fancy|session/i.test(`${b.bet_on || ""} ${b.gtype || ""} ${b.oddsType || ""}`)) {
-    return res.status(400).json({ error: true, message: "Fancy / session markets are not available" });
-  }
+  const isFancyBet = /fancy|session/i.test(`${b.bet_on || ""} ${b.betOn || ""} ${b.gtype || ""} ${b.oddsType || ""}`);
   // The price is decided by the server's market data, never by the client.
-  const quote = resolveServerBetQuote({ matchId, marketId, selectionId, isBack, requestedOdds: odds, stake: stack });
+  const quote = resolveServerBetQuote({ matchId, marketId, selectionId, isBack, requestedOdds: odds, stake: stack, isFancy: isFancyBet, requestedRate: toNum(b.volume, 0) });
   if (!quote.ok) return res.status(quote.status || 400).json({ error: true, message: quote.message });
   // Bookmaker bets arrive as a rate (64) and are stored as decimal odds (1.64).
   const betOdds = toNum(quote.decimalOdds, 0) > 1 ? toNum(quote.decimalOdds, 0) : odds;
@@ -9555,8 +9721,9 @@ const handlePlaceBet = (req, res) => {
     market_id: marketId,
     selection_id: selectionId,
     selection_name: quote.selectionName || String(b.selectionName || `Selection ${selectionId}`),
-    odds: betOdds,
-    volume: toNum(b.volume, 0),
+    // Fancy: odds = runs line, volume = rate (what players and reports show).
+    odds: quote.isFancy ? quote.line : betOdds,
+    volume: quote.isFancy ? quote.rate : toNum(b.volume, 0),
     stack,
     pnl,
     exposure,
@@ -9567,8 +9734,9 @@ const handlePlaceBet = (req, res) => {
     current_market_odds: quote.marketOdds,
     ip_address: req.ip,
     match_name: quote.matchName || String(b.matchName || `Match ${matchId}`),
-    bet_on: String(b.bet_on || "MATCH_ODDS"),
-    gtype: String(b.gtype || "match"),
+    bet_on: quote.isFancy ? "FANCY" : String(b.bet_on || "MATCH_ODDS"),
+    gtype: quote.isFancy ? "fancy" : String(b.gtype || "match"),
+    fancy_line: quote.isFancy ? quote.line : null,
     odds_type: String(b.oddsType || "ODDS"),
     status: "unsettled",
     created_at: nowIso(),
@@ -9581,7 +9749,7 @@ const handlePlaceBet = (req, res) => {
       .run(exposure, now, u.id, exposure);
     if (!reserved.changes) return false;
     db.prepare(
-    "INSERT INTO bets (id,user_id,match_id,market_id,selection_id,selection_name,odds,volume,stack,pnl,exposure,market_name,is_back,event_id,type,current_market_odds,ip_address,match_name,bet_on,gtype,odds_type,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    "INSERT INTO bets (id,user_id,match_id,market_id,selection_id,selection_name,odds,volume,stack,pnl,exposure,market_name,is_back,event_id,type,current_market_odds,ip_address,match_name,bet_on,gtype,odds_type,status,created_at,fancy_line) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
   ).run(
     bet.id,
     bet.user_id,
@@ -9605,7 +9773,8 @@ const handlePlaceBet = (req, res) => {
     bet.gtype,
     bet.odds_type,
     bet.status,
-    bet.created_at
+    bet.created_at,
+    bet.fancy_line
   );
     return true;
   });
@@ -9710,6 +9879,14 @@ const handleMarketResult = (req, res) => {
   const ctx = requireResultAuthority(req, res);
   if (!ctx) return;
   const src = { ...(req.query || {}), ...(req.body || {}) };
+  // FA101 markets: the winner must be one of the market's real runner ids.
+  const feedKey = fa101IsEvent(src.matchId);
+  const feedEv = feedKey ? fa101.cachedEvent(feedKey) : null;
+  const feedMk = feedEv ? fa101Markets(feedKey, feedEv).find((x) => x.marketId === String(src.marketId || "")) : null;
+  const pickedWinner = String(src.selectionId ?? src.result ?? src.winnerSelectionId ?? "").trim();
+  if (feedMk && !feedMk.runners.some((r) => String(r.selectionId) === pickedWinner)) {
+    return res.status(400).json(env(`Winner must be one of: ${feedMk.runners.map((r) => `${r.selectionName} (${r.selectionId})`).join(", ")}`, {}, true, 400));
+  }
   try {
     const out = settlementEngine.declareMarketResult({
       matchId: src.matchId,
@@ -9739,9 +9916,6 @@ app.get("/api/result-market", handleMarketResult);
 app.post("/api/result-market", handleMarketResult);
 app.get("/api/rollback-result-market-wise", handleMarketRollback);
 app.post("/api/rollback-result-market-wise", handleMarketRollback);
-const fancyUnavailable = (_req, res) => res.status(400).json(env("Fancy / session markets are not available", {}, true, 400));
-app.get("/api/result-fancy", fancyUnavailable);
-app.get("/api/fancy-result-rollback", fancyUnavailable);
 
 app.get("/api/bets", (req, res) => {
   const u = reqAuthUser(req);
@@ -9780,14 +9954,50 @@ app.get("/api/bets", (req, res) => {
   res.json(env("", { bets, odds_profit }));
 });
 
+// Player bet history (Bet History = settled, Unsettled Bet = open). Filters:
+// status pending|completed|deleted|ALL, startDate/endDate (YYYY-MM-DD, inclusive),
+// reportType = sport id. Rows carry the camelCase fields the pages read.
 app.post("/api/alluserbetList", (req, res) => {
   const u = reqAuthUser(req);
   if (!u) return res.status(401).json(env("Unauthorized", {}, true, 401));
+  const f = req.body && typeof req.body === "object" ? req.body : {};
   const page = Math.max(toNum(req.query?.page, 1), 1);
   const limit = 20;
   const off = (page - 1) * limit;
-  const totalDocs = db.prepare("SELECT COUNT(*) c FROM bets WHERE user_id=?").get(u.id).c;
-  const docs = db.prepare("SELECT * FROM bets WHERE user_id=? ORDER BY datetime(created_at) DESC LIMIT ? OFFSET ?").all(u.id, limit, off);
+  const where = ["b.user_id=?"];
+  const args = [u.id];
+  const status = String(f.status || "").toLowerCase();
+  const betType = String(f.bet_status || f.betType || "").toLowerCase();
+  if (status === "pending" || status === "unsettled") where.push("lower(b.status) IN ('unsettled','pending')");
+  else if (status === "completed" || status === "settled") where.push("lower(b.status)='settled'");
+  if (status === "deleted" || betType === "deleted") where.push("lower(b.status)='deleted'");
+  const day = (v) => (/^d{4}-d{2}-d{2}/.test(String(v || "")) ? String(v).slice(0, 10) : "");
+  if (day(f.startDate)) { where.push("date(b.created_at) >= date(?)"); args.push(day(f.startDate)); }
+  if (day(f.endDate)) { where.push("date(b.created_at) <= date(?)"); args.push(day(f.endDate)); }
+  const sport = toNum(f.reportType, 0);
+  if (sport > 0) { where.push("COALESCE(m.sport_id, 0)=?"); args.push(sport); }
+  const from = `FROM bets b LEFT JOIN matches m ON m.match_id=b.match_id LEFT JOIN sports s ON s.sport_id=m.sport_id WHERE ${where.join(" AND ")}`;
+  const totalDocs = db.prepare(`SELECT COUNT(*) c ${from}`).get(...args).c;
+  const rows = db.prepare(`SELECT b.*, m.sport_id AS m_sport_id, s.name AS sport_name ${from} ORDER BY datetime(b.created_at) DESC LIMIT ? OFFSET ?`).all(...args, limit, off);
+  const docs = rows.map((r) => ({
+    ...r,
+    _id: r.id,
+    matchId: r.match_id,
+    marketId: r.market_id,
+    selectionId: r.selection_id,
+    selectionName: r.selection_name,
+    matchName: r.match_name,
+    marketName: r.market_name,
+    isBack: r.is_back === 1,
+    sportId: toNum(r.m_sport_id, 0) || (String(r.bet_on || "").toUpperCase() === "CASINO" ? 5000 : 0),
+    sportName: r.sport_name || "",
+    betOn: r.bet_on,
+    oddsType: r.odds_type,
+    createdAt: r.created_at,
+    settledAt: r.settled_at || null,
+    result: r.settlement_result || null,
+    pnl: r.settlement_net !== null && r.settlement_net !== undefined ? r.settlement_net : r.pnl,
+  }));
   const totalPages = Math.max(Math.ceil(totalDocs / limit), 1);
   res.json(env("", { docs, totalDocs, limit, totalPages, page, pagingCounter: off + 1, hasPrevPage: page > 1, hasNextPage: page < totalPages, prevPage: page > 1 ? page - 1 : null, nextPage: page < totalPages ? page + 1 : null }));
 });
@@ -10157,8 +10367,16 @@ app.get("/api/undeclared-bets", (req, res) => {
     let m = markets.get(key);
     if (!m) {
       const ext = safeParse(row.external_json, {}) || {};
-      const section = Array.isArray(ext.section) ? ext.section : safeParse(row.section_json, []) || [];
+      // FA101 rows store display slots (1, 3) in section, not runner ids: use the
+      // live market's runners (and the bets themselves) so a winner is a real id.
+      const isFeed = ext.source === "fa101";
+      const section = isFeed ? [] : Array.isArray(ext.section) ? ext.section : safeParse(row.section_json, []) || [];
       const runners = new Map(section.filter((r) => r?.sid).map((r) => [String(r.sid), { selectionId: String(r.sid), runnerName: String(r.nat || r.sid).trim() }]));
+      if (isFeed && String(row.bet_on || "").toUpperCase() !== "FANCY") {
+        const ev = fa101.cachedEvent(String(row.match_id));
+        const mk = ev ? fa101Markets(String(row.match_id), ev).find((x) => x.marketId === String(row.market_id)) : null;
+        for (const r of mk?.runners || []) runners.set(String(r.selectionId), { selectionId: String(r.selectionId), runnerName: r.selectionName });
+      }
       m = {
         _id: key,
         matchId: row.match_id,

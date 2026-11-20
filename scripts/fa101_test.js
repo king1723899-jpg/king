@@ -50,7 +50,15 @@ const event = (id, { betLock = false } = {}) => ({
       },
       { market_id: "901", name: "Special Maker", market_group: "bookmaker", status: "INACTIVE", runners: [] },
     ],
-    fancy: [{ market_id: "1.200", name: "6 Over Runs", status: "OPEN", runners: [] }],
+    fancy: [
+      { market_id: "1.200", name: "6 Over Runs", status: "OPEN", runners: [] },
+      { market_id: "3369636", name: "20 Over A", market_type: "OVERS", status: "OPEN", bet_lock: false, min_bet: 100, max_bet: 100000,
+        runners: [{ runner_id: "3369636", name: "20 Over A", status: "ACTIVE", yes_runs: 79, yes_rate: 75, no_runs: 79, no_rate: 105 }] },
+      { market_id: "3369637", name: "Player 1 runs", market_type: "BATSMAN", status: "OPEN", bet_lock: false, min_bet: 100, max_bet: 100000,
+        runners: [{ runner_id: "3369637", name: "Player 1 runs", status: "ACTIVE", yes_runs: 50, yes_rate: 100, no_runs: 49, no_rate: 100 }] },
+      { market_id: "3369638", name: "10 Over A", market_type: "OVERS", status: "INACTIVE", runners: [{ runner_id: "3369638", status: "ACTIVE", yes_runs: 0, yes_rate: 0, no_runs: 0, no_rate: 0 }] },
+      { market_id: "3369639", name: "Lambi", market_type: "WINNING_ODDS", status: "OPEN", runners: [{ runner_id: "1", status: "ACTIVE" }, { runner_id: "2", status: "ACTIVE" }] },
+    ],
   },
 });
 const home = {
@@ -211,6 +219,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let w = await wallet();
   assert.equal(Number(w.exposer ?? w.exposure), 168, "exposure: 100 back + 68 bookmaker lay liability: " + JSON.stringify(w));
 
+  // Manual declaration offers / accepts only real runner ids for feed markets.
+  r = await call("GET", "/api/undeclared-bets", sa);
+  const mo = r.data.find((m) => m.marketId === "1.100");
+  assert.deepEqual(mo.runners.map((x) => x.selectionId).sort(), ["501", "502"], "winner choices are real runner ids: " + JSON.stringify(mo.runners));
+  r = await call("POST", "/api/result-market", sa, { matchId: EV, marketId: "1.100", selectionId: "1" });
+  assert.equal(r.status, 400, "display slot id refused as winner");
+  // Player bet history: open bets under "pending", camelCase fields filled in.
+  r = await call("POST", "/api/alluserbetList?page=1", u1, { status: "pending" });
+  assert.ok(r.data.docs.length >= 2 && r.data.docs.every((d) => d.matchName && d.selectionName && typeof d.isBack === "boolean"), "unsettled list fields: " + JSON.stringify(r.data.docs[0]).slice(0, 200));
+  r = await call("POST", "/api/alluserbetList?page=1", u1, { status: "completed" });
+  assert.equal(r.data.docs.length, 0, "nothing settled yet");
+
   // 4) Auto-settlement: pending does nothing, then winner pays and void returns.
   results = [{ status: "ok", event: { event_id: EV }, settled: false, markets: [{ market_id: "1.100", result: "PENDING" }, { market_id: "900", result: "PENDING" }] }];
   assert.equal((await call("POST", "/api/admin/fa101/settle-now", adm)).status, 403, "only Super Admin");
@@ -233,6 +253,44 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.equal(Number(w.balance), 5099, "back 100 @ 2.0 won 100 less 1% commission; void returned the lay");
   expectOk(await call("POST", "/api/admin/fa101/settle-now", sa), "second run is a no-op");
   assert.equal(Number((await wallet()).balance), 5099, "no double settlement");
+
+  // 5) Fancy (session) markets: list, live rows, Yes/No bets priced by line and rate.
+  r = await call("GET", `/api/get-fancy-list?matchId=${EV}&gtype=session`, u1);
+  assert.deepEqual(r.json.data[0].section.map((x) => x.sid), ["3369636", "3369637"], "only open single-runner line markets: " + JSON.stringify(r.json).slice(0, 300));
+  r = await call("GET", `/api/api/fancy-data?MatchID=${EV}`, u1);
+  const f1 = r.json.data.find((x) => x.SelectionId === "3369636");
+  assert.deepEqual([f1.BackPrice1, f1.BackSize1, f1.LayPrice1, f1.LaySize1], [79, 75, 79, 105], "Yes = back runs/rate, No = lay runs/rate");
+  const fbet = (b) => call("POST", "/api/placebet", u1, { matchId: Number(EV), stack: 100, gtype: "session", oddsType: "Fancy", betOn: "FANCY", ...b });
+  r = await fbet({ marketId: "3369636", selectionId: "3369636", odds: 80, volume: 75, isBack: true });
+  assert.equal(r.status, 409, "stale fancy line refused: " + JSON.stringify(r.json));
+  r = await fbet({ marketId: "3369636", selectionId: "3369636", odds: 79, volume: 75, isBack: true });
+  expectOk(r, "fancy Yes 79 @ 75");
+  assert.equal(r.data.bet.odds, 79, "fancy bet shows the runs line as odds");
+  r = await fbet({ marketId: "3369636", selectionId: "3369636", odds: 79, volume: 105, isBack: false });
+  expectOk(r, "fancy No 79 @ 105");
+  r = await fbet({ marketId: "3369637", selectionId: "3369637", odds: 50, volume: 100, isBack: true });
+  expectOk(r, "fancy Yes 50 @ 100");
+  r = await fbet({ marketId: "3369638", selectionId: "3369638", odds: 1, volume: 1, isBack: true });
+  assert.equal(r.status, 400, "inactive fancy refused");
+  w = await wallet();
+  assert.equal(Number(w.exposer ?? w.exposure), 305, "fancy exposure: 100 + 105 liability + 100");
+  // Manual declare (runs), rollback, declare again.
+  assert.equal((await call("GET", `/api/result-fancy?marketId=3369637&matchId=${EV}&result=40`, adm)).status, 403, "only Super Admin declares");
+  r = await call("GET", `/api/result-fancy?marketId=3369637&matchId=${EV}&result=40`, sa);
+  expectOk(r, "declare fancy 40");
+  assert.equal(Number((await wallet()).balance), 4998, "Yes 50 lost at 40 runs: -100 - 1 commission");
+  expectOk(await call("GET", `/api/fancy-result-rollback?marketId=3369637&matchId=${EV}`, sa), "fancy rollback");
+  w = await wallet();
+  assert.deepEqual([Number(w.balance), Number(w.exposer ?? w.exposure)], [5099, 305], "rollback restores balance and exposure");
+  expectOk(await call("GET", `/api/result-fancy?marketId=3369637&matchId=${EV}&result=60`, sa), "declare fancy 60");
+  assert.equal(Number((await wallet()).balance), 5198, "Yes 50 won at 60 runs: +100 - 1");
+  r = await call("GET", "/api/undeclared-bets", sa);
+  assert.ok(r.data.some((m) => m.marketId === "3369636" && m.bet_on === "FANCY"), "open fancy market listed for admins");
+  // Auto-settlement from the feed result (runs 85): Yes 79 wins, No 79 loses.
+  results = [{ status: "ok", event: { event_id: EV }, settled: false, markets: [{ market_id: "3369636", group: "fancy", result: "SETTLED", runs: 85 }] }];
+  expectOk(await call("POST", "/api/admin/fa101/settle-now", sa), "settle fancy");
+  w = await wallet();
+  assert.deepEqual([Number(w.balance), Number(w.exposer ?? w.exposure)], [5166, 0], "Yes +75-1, No -105-1: " + JSON.stringify(w));
 
   r = await call("GET", "/api/admin/fa101/status", sa);
   expectOk(r, "status");

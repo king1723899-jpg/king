@@ -2420,9 +2420,10 @@ input[type="checkbox"].form-control, input[type="radio"].form-control { display:
 }
 
 /* My Bet list: rows carry .back / .lay (for colour) and must stay table rows. */
-table.mybet tr.back, table.mybet tr.lay, .mybet tr.back, .mybet tr.lay { display: table-row; }
-table.mybet td, table.mybet th { display: table-cell; white-space: nowrap; }
-table.mybet tr.back td { background: var(--k-back); } table.mybet tr.lay td { background: var(--k-lay); }
+table tr.back, table tr.lay { display: table-row !important; float: none; width: auto; min-height: 0; border-radius: 0; }
+table tr.back > td, table tr.lay > td, table tr.back > th, table tr.lay > th { display: table-cell !important; }
+table.mybet td, table.mybet th { white-space: nowrap; }
+table tr.back > td { background: var(--k-back); } table tr.lay > td { background: var(--k-lay); }
 .table-responsive-new { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* Phones: the bet slip opens as a panel pinned to the bottom of the screen,
@@ -2435,3 +2436,27 @@ table.mybet tr.back td { background: var(--k-back); } table.mybet tr.lay td { ba
   }
   .tab-pane .card.place-bet .value-buttons .btn { padding: 6px 10px; }
 }
+
+/* Admin: the old in-house "Live Casino" list has no data now that casino games
+   come from World Casino API (it showed blank icons linking to /admin/casino/undefined). */
+.admin-sidebar .k-live-casino-section { display: none !important; }
+
+/* Fancy (session) markets: full width, No / Yes columns aligned with the header. */
+.fancy-market > .col-6 { flex: 0 0 100%; max-width: 100%; }
+.fancy-market { --k-odd-w: 64px; --k-mm-w: 92px; }
+.fancy-market .table-header { display: flex; align-items: center; gap: 4px; padding: 4px 6px; }
+.fancy-market .table-header > * { float: none !important; }
+.fancy-market .table-header > .country-name { flex: 1 1 auto; min-width: 0; width: auto !important; }
+.fancy-market .table-header > .box-1, .fancy-market .table-header > .box-2 { flex: 0 0 auto; width: var(--k-odd-w) !important; }
+.fancy-market .table-header > .box-2:last-child:empty { width: var(--k-mm-w) !important; }
+.fancy-market .table-body { clear: both; }
+.fancy-market .fancy-tripple .table-row { display: flex; flex-direction: row; align-items: stretch; width: 100%; gap: 4px; padding: 4px 6px; box-sizing: border-box; }
+.fancy-market .fancy-tripple .table-row > * { float: none !important; }
+.fancy-market .fancy-tripple .table-row > .country-name { flex: 1 1 auto; min-width: 0; width: auto !important; display: flex; flex-direction: column; justify-content: center; }
+.fancy-market .fancy-tripple .table-row > .country-name p { margin: 0; font-weight: 600; line-height: 1.25; word-break: normal; overflow-wrap: anywhere; }
+.fancy-market .fancy-tripple .table-row > .lay, .fancy-market .fancy-tripple .table-row > .back {
+  flex: 0 0 auto; width: var(--k-odd-w) !important; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 8px; cursor: pointer; line-height: 1.15;
+}
+.fancy-market .fancy-tripple .table-row > .min-max { flex: 0 0 auto; width: var(--k-mm-w) !important; font-size: .7rem; display: flex; flex-direction: column; justify-content: center; text-align: right; }
+@media (max-width: 767.98px) { .fancy-market { --k-odd-w: 58px; } }

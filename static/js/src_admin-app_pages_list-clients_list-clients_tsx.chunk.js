@@ -3880,7 +3880,7 @@ children: renderShareholdersCell(user),
                               _props$depositUser2.parentBalance) === null ||
                             _props$depositUser2$p === void 0
                           ? void 0
-                          : _props$depositUser2$p.balance,
+                          : (_props$depositUser2$p.unlimited ? Number.MAX_SAFE_INTEGER : _props$depositUser2$p.balance),
                         `Max ${
                           (_props$depositUser3 = props.depositUser) === null ||
                           _props$depositUser3 === void 0
