@@ -9181,7 +9181,7 @@ app.get("/api/home/:sportId", (req, res, next) => {
   const idx = fa101HomeMatches();
   if (!idx.list.length) return next();
   const sid = toNum(req.params.sportId, 0);
-  const all = sid === 888 || sid === 88;
+  const all = sid === 888; // 88 is the casino section: the home pages load sports 1, 2 and 4 separately, so 88 must not repeat them
   const data = all ? idx.list : idx.list.filter((m) => m.sportId === sid);
   return res.json({ message: `Live matches for sport ${sid}`, error: false, code: 200, data, changePassAndTxn: false });
 });
@@ -9506,7 +9506,7 @@ app.get("/api/score", (_req, res) => res.json({ success: true, data: { score_url
 app.get("/api/scorecard-data", (req, res) => res.json({ success: true, data: { type: "none", scoreUrl: null, streamingUrl: `https://cloud.turnkeyxgaming.com:9086/sports/diamondoriginaltv?gmid=${String(req.query?.gmid || "")}&sid=${toNum(req.query?.sid, 0)}&token=local`, oldgmid: null, gmid: String(req.query?.gmid || ""), sportId: toNum(req.query?.sid, 0), gtv: null, source: "local", matchData: null } }));
 app.get("/api/home/:sportId", (req, res) => {
   const sid = toNum(req.params.sportId, 0);
-  const isHomeView = sid === 888 || sid === 88;
+  const isHomeView = sid === 888; // not 88 (casino section), which made every match appear twice on the home pages
 
   if (isHomeView) {
     const snapshotAll = getSnapshotMatches(0, 200);

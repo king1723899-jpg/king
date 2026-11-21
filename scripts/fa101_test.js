@@ -164,6 +164,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.equal(row.inplay, true);
   assert.deepEqual(row.externalData.section.map((s) => [s.sno, s.nat]), [[1, "Team A"], [3, "Team B"]], "home odds in sno slots");
   assert.equal((await call("GET", "/api/home/1", u1)).json.data.length, 0, "sport filter");
+  // 88 is the casino section; the home pages also load 1, 2 and 4, so 88 returning matches doubled every row.
+  assert.equal((await call("GET", "/api/home/88", u1)).json.data.length, 0, "casino section has no matches");
+  assert.ok((await call("GET", "/api/home/888", u1)).json.data.some((m) => String(m.gmid) === EV), "888 lists all sports");
 
   // 2) Match page: match row, markets (inactive bookmaker and fancy left out), odds poll.
   let r = await call("GET", `/api/get-match-by-id?matchId=${EV}`, u1);

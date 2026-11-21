@@ -2463,3 +2463,44 @@ table tr.back > td { background: var(--k-back); } table tr.lay > td { background
 
 /* Admin: "Series Settings" belonged to the old odds provider (its APIs do not exist). */
 .admin-sidebar li:has(> a[href="/admin/series-settings"]), .admin-sidebar a[href="/admin/series-settings"] { display: none !important; }
+
+/* ---- Fix 2026-11-21: home page (/dash) login popup. The shared Modal component
+   (.modal-overlay / .modal-container) had no styles anywhere, so it rendered in the page flow
+   far below the fold, 79 px wide, and the LOGIN button looked dead. ---- */
+.modal-overlay.modal-open { position: fixed; inset: 0; z-index: 1070; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; background: rgba(15, 29, 64, .35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.modal-overlay.modal-closed { display: none; }
+.modal-overlay .modal-container { position: relative; width: 100%; max-width: 880px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; margin: auto; border-radius: 18px; background: #fff; border: var(--k-border, 1px solid #fbd6e6); box-shadow: 0 24px 60px rgba(15, 29, 64, .25); }
+.modal-overlay .modal-close-btn { position: absolute; top: 10px; right: 12px; z-index: 3; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: rgba(15, 29, 64, .08); color: #13213f; font-size: 18px; line-height: 1; cursor: pointer; }
+.modal-overlay .modal-close-btn:hover { background: rgba(15, 29, 64, .16); }
+.modal-overlay .login-modal-content { display: flex; align-items: stretch; width: 100%; min-height: 0; }
+.modal-overlay .login-form-section { flex: 1 1 55%; min-width: 0; display: flex; align-items: center; justify-content: center; }
+.modal-overlay .login-form-section > * { min-height: 0 !important; height: auto !important; width: 100%; background: transparent !important; }
+.modal-overlay .login-image-section { flex: 1 1 45%; min-width: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #eff5ff, #fdeaf2); }
+.modal-overlay .login-image { display: block; width: 100%; height: 100%; max-height: 560px; object-fit: cover; }
+@media (max-width: 768px) {
+  .modal-overlay.modal-open { align-items: flex-start; padding: 12px; }
+  .modal-overlay .modal-container { max-height: none; }
+  .modal-overlay .login-image-section { display: none; }
+}
+.modal-overlay .modal-container, .modal-overlay .modal-container * { box-sizing: border-box; }
+.modal-overlay .mobile-login-form-container, .modal-overlay .mobile-login-wrapper { width: 100% !important; max-width: 420px; min-width: 0 !important; margin-left: auto; margin-right: auto; }
+@media (max-width: 768px) {
+  .modal-overlay .modal-container { max-width: 100%; }
+  .modal-overlay .mobile-login-form-container { max-width: 100%; }
+}
+/* The /login page rule "body:has(.mobile-login-form-container) #root {display:flex}" also matched while
+   this popup was open, which turned the home page into a flex row and stretched it to ~1000 px on phones. */
+body:has(.modal-overlay.modal-open) #root { display: block; min-height: 0; padding: 0; align-items: normal; justify-content: normal; }
+
+/* ---- Fix 2026-11-21: casino tiles.
+   /casino-homepage/:code - tiles draw the game picture as a background on .casino-list-item-banner,
+   which had no height (0 px), so the page showed empty boxes.
+   Logged-in home (/match/888) - .casino-games-scroll had no layout, so every game tile filled the
+   whole column (1104 x 829 px on desktop). Now a grid: 2 per row on phones, more on wider screens. ---- */
+.casino-list-item-banner { display: block; width: 100%; aspect-ratio: 4 / 3; background-size: cover; background-position: center; background-repeat: no-repeat; background-color: var(--k-blue-50, #eff5ff); }
+.casino-list-item > a { display: block; }
+.casino-games-scroll { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; }
+.casino-games-scroll > a { display: block; min-width: 0; }
+.casino-games-scroll .casino-game-box { height: 100%; }
+.casino-games-scroll .casino-game-image { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+@media (max-width: 575.98px) { .casino-games-scroll { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
